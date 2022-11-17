@@ -958,10 +958,14 @@ public class ShokoServer
 
     public void RemoveFileWatcherExclusion(string path)
     {
-        if (_fileWatchers == null || !_fileWatchers.Any()) return;
-        var watcher = _fileWatchers.FirstOrDefault(a => a.IsPathWatched(path));
-        watcher?.RemoveExclusion(path);
-        logger.Trace($"Removed {path} from filesystem watcher exclusions");
+        System.Threading.Tasks.Task.Factory.StartNew(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(1000);
+            if (_fileWatchers == null || !_fileWatchers.Any()) return;
+            var watcher = _fileWatchers.FirstOrDefault(a => a.IsPathWatched(path));
+            watcher?.RemoveExclusion(path);
+            logger.Trace($"Removed {path} from filesystem watcher exclusions");
+        });
     }
 
     public void StopWatchingFiles()
