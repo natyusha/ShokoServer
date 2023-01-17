@@ -69,7 +69,7 @@ public class AuthTokensRepository : BaseCachedRepository<AuthTokens, int>
 
     public string ValidateUser(string username, string password, string device)
     {
-        JMMUser userrecord = RepoFactory.JMMUser.AuthenticateUser(username, password);
+        var userrecord = RepoFactory.JMMUser.AuthenticateUser(username, password);
 
         if (userrecord == null)
         {

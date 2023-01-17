@@ -3647,26 +3647,28 @@ public partial class ShokoServiceImplementation : IShokoServer
     #region Users
 
     [HttpGet("User")]
-    public List<JMMUser> GetAllUsers()
+    public List<CL_JMMUser> GetAllUsers()
     {
         try
         {
-            return RepoFactory.JMMUser.GetAll().Cast<JMMUser>().ToList();
+            return RepoFactory.JMMUser.GetAll()
+                .Select(u => u.ToClient())
+                .ToList();
         }
         catch (Exception ex)
         {
             logger.Error(ex, ex.ToString());
-            return new List<JMMUser>();
+            return new();
         }
     }
 
     [HttpPost("User/{username}")]
-    public JMMUser AuthenticateUser(string username, [FromForm] string password)
+    public CL_JMMUser AuthenticateUser(string username, [FromForm] string password)
     {
         try
         {
             username = username.Replace("+", " ");
-            return RepoFactory.JMMUser.AuthenticateUser(username, password);
+            return RepoFactory.JMMUser.AuthenticateUser(username, password)?.ToClient();
         }
         catch (Exception ex)
         {
@@ -3709,7 +3711,7 @@ public partial class ShokoServiceImplementation : IShokoServer
     }
 
     [HttpPost("User")]
-    public string SaveUser(JMMUser user)
+    public string SaveUser(CL_JMMUser user)
     {
         try
         {
@@ -3734,25 +3736,26 @@ public partial class ShokoServiceImplementation : IShokoServer
                 updateGf = true;
             }
 
-            if (existingUser && jmmUser.IsAniDBUser != user.IsAniDBUser)
+            if (existingUser && jmmUser.IsAniDBUser != (user.IsAniDBUser == 1))
             {
                 updateStats = true;
             }
 
-            var hcat = string.Join(",", user.HideCategories);
-            if (jmmUser.HideCategories != hcat)
+            var restrictedTags = user.HideCategories.Split(",")
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.ToLowerInvariant())
+                .ToHashSet();
+            if (!jmmUser.RestrictedTags.SetEquals(restrictedTags))
             {
                 updateGf = true;
             }
 
-            jmmUser.HideCategories = hcat;
-            jmmUser.IsAniDBUser = user.IsAniDBUser;
-            jmmUser.IsTraktUser = user.IsTraktUser;
-            jmmUser.IsAdmin = user.IsAdmin;
+            jmmUser.RestrictedTags = restrictedTags;
+            jmmUser.IsAniDBUser = user.IsAniDBUser == 1;
+            jmmUser.IsTraktUser = user.IsTraktUser == 1;
+            jmmUser.IsAdmin = user.IsAdmin == 1;
             jmmUser.Username = user.Username;
-            jmmUser.CanEditServerSettings = user.CanEditServerSettings;
-            jmmUser.PlexUsers = string.Join(",", user.PlexUsers);
-            jmmUser.PlexToken = user.PlexToken;
+
             if (string.IsNullOrEmpty(user.Password))
             {
                 jmmUser.Password = string.Empty;
@@ -3771,13 +3774,13 @@ public partial class ShokoServiceImplementation : IShokoServer
             }
 
             // make sure that at least one user is an admin
-            if (jmmUser.IsAdmin == 0)
+            if (!jmmUser.IsAdmin)
             {
                 var adminExists = false;
                 var users = RepoFactory.JMMUser.GetAll();
                 foreach (var userOld in users)
                 {
-                    if (userOld.IsAdmin == 1)
+                    if (userOld.IsAdmin)
                     {
                         if (existingUser)
                         {
@@ -3802,6 +3805,15 @@ public partial class ShokoServiceImplementation : IShokoServer
             }
 
             RepoFactory.JMMUser.Save(jmmUser, updateGf);
+
+            // Save plex settings.
+            var plexSettings = jmmUser.Plex;
+            var plexUsers = user.PlexUsers?.Split(",").ToHashSet() ?? new();
+            if (!plexSettings.LocalUsers.SetEquals(plexUsers))
+            {
+                plexSettings.LocalUsers = plexUsers;
+                RepoFactory.JMMUser_Plex.Save(plexSettings);
+            }
 
             // update stats
             if (updateStats)
@@ -3833,13 +3845,13 @@ public partial class ShokoServiceImplementation : IShokoServer
             }
 
             // make sure that at least one user is an admin
-            if (jmmUser.IsAdmin == 1)
+            if (jmmUser.IsAdmin)
             {
                 var adminExists = false;
                 var users = RepoFactory.JMMUser.GetAll();
                 foreach (var userOld in users)
                 {
-                    if (userOld.IsAdmin == 1)
+                    if (userOld.IsAdmin)
                     {
                         if (userOld.JMMUserID != jmmUser.JMMUserID)
                         {

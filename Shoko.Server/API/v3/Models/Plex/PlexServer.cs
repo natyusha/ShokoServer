@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Shoko.Models.Plex.Connections;
 
 #nullable enable
-namespace Shoko.Server.API.v3.Plex;
+namespace Shoko.Server.API.v3.Models.Plex;
 
 public class PlexServer
 {

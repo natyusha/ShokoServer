@@ -59,6 +59,7 @@ public static class RepoFactory
     //Cached Ones
     // DECLARE THESE IN ORDER OF DEPENDENCY
     public static JMMUserRepository JMMUser { get; } = new();
+    public static JMMUser_PlexRepository JMMUser_Plex { get; } = new();
     public static AuthTokensRepository AuthTokens { get; } = new();
     public static ImportFolderRepository ImportFolder { get; } = new();
     public static AniDB_AnimeRepository AniDB_Anime { get; } = new();

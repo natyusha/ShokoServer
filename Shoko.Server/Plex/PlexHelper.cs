@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -8,18 +9,18 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Web;
 using System.Xml.Serialization;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using NLog;
 using Shoko.Models.Plex;
 using Shoko.Models.Plex.Connections;
 using Shoko.Models.Plex.Login;
-using Shoko.Models.Server;
 using Shoko.Server.Models;
+using Shoko.Server.Plex.Libraries;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
-using Directory = Shoko.Models.Plex.Libraries.Directory;
 using MediaContainer = Shoko.Models.Plex.Connections.MediaContainer;
 
 namespace Shoko.Server.Plex;
@@ -27,13 +28,19 @@ namespace Shoko.Server.Plex;
 public class PlexHelper
 {
     private const string ClientIdentifier = "d14f0724-a4e8-498a-bb67-add795b38331";
+
     private static readonly HttpClient HttpClient = new();
 
-    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private static readonly ConcurrentDictionary<int, PlexHelper> Cache = new();
 
-    private readonly int _userId;
-    private JMMUser _user => RepoFactory.JMMUser.GetByID(_userId);
+    // We cache the user id and not the user so we pick up on user updates over
+    // the life-span of the helper.
+    private readonly int UserID;
+
+    private readonly ILogger<PlexHelper> Logger = Utils.ServiceContainer.GetService(typeof(ILogger<PlexHelper>)) as ILogger<PlexHelper>;
+
+    private SVR_JMMUser User
+        => RepoFactory.JMMUser.GetByID(UserID);
 
     internal readonly JsonSerializerSettings SerializerSettings = new();
 
@@ -42,70 +49,76 @@ public class PlexHelper
     private DateTime _lastCacheTime = DateTime.MinValue;
     private DateTime _lastMediaCacheTime = DateTime.MinValue;
 
-    private MediaDevice[] _plexMediaDevices;
+    private List<MediaDevice> __allDevices;
 
-    private MediaDevice _mediaDevice;
-    private bool? isAuthenticated;
+    private MediaDevice __currentServer;
 
-    static PlexHelper()
+    private bool? __isAuthenticated;
+
+    private User __plexUser = null;
+
+    private PlexHelper(int userID) : base()
     {
+        UserID = userID;
+        SerializerSettings.Converters.Add(new PlexConverter(this));
         SetupHttpClient(HttpClient, TimeSpan.FromSeconds(60));
     }
 
-    private PlexHelper(JMMUser user)
-    {
-        _userId = user.JMMUserID;
-        SerializerSettings.Converters.Add(new PlexConverter(this));
-    }
-
-    public MediaDevice ServerCache
+    public MediaDevice SelectedServer
     {
         get
         {
-            var settings = Utils.SettingsProvider.GetSettings();
-            if (string.IsNullOrEmpty(settings.Plex.Server))
+            var settings = User.Plex;
+            if (string.IsNullOrEmpty(settings.SelectedServer))
             {
                 return null;
             }
 
             if (DateTime.Now - TimeSpan.FromHours(1) >= _lastMediaCacheTime)
             {
-                _mediaDevice = null;
+                __currentServer = null;
             }
 
-            if (_mediaDevice != null && settings.Plex.Server == _mediaDevice.ClientIdentifier)
+            if (__currentServer != null && settings.SelectedServer == __currentServer.ClientIdentifier)
             {
-                return _mediaDevice;
+                return __currentServer;
             }
 
-            _mediaDevice = GetPlexServers()
-                .FirstOrDefault(s => s.ClientIdentifier == settings.Plex.Server);
-            if (_mediaDevice != null)
+            __currentServer = GetAllServers()
+                .FirstOrDefault(s => s.ClientIdentifier == settings.SelectedServer);
+            if (__currentServer != null)
             {
                 _lastMediaCacheTime = DateTime.Now;
-                return _mediaDevice;
+                return __currentServer;
             }
 
-            if (!settings.Plex.Server.Contains(':'))
+            // Also check ip and port.
+            if (settings.SelectedServer.Contains(':'))
             {
-                return null;
+                var lastColon = settings.SelectedServer.LastIndexOf(':');
+                var address = settings.SelectedServer[0..lastColon];
+                var port = settings.SelectedServer[(lastColon + 1)..];
+
+                // Basic validation of the port.
+                var isValidPort = int.TryParse(port, NumberStyles.Integer, null, out var _);
+                if (!isValidPort)
+                    return null;
+
+                __currentServer = GetAllServers().FirstOrDefault(server => server.Connection.Any(c => c.Address == address && c.Port == port));
+                if (__currentServer != null)
+                {
+                    _lastMediaCacheTime = DateTime.Now;
+                    settings.SelectedServer = __currentServer.ClientIdentifier;
+                    RepoFactory.JMMUser_Plex.Save(settings);
+                    return __currentServer;
+                }
             }
 
-
-            var strings = settings.Plex.Server.Split(':');
-            _mediaDevice = GetPlexServers().FirstOrDefault(s =>
-                s.Connection.Any(c => c.Address == strings[0] && c.Port == strings[1]));
-            if (_mediaDevice != null)
-            {
-                settings.Plex.Server = _mediaDevice.ClientIdentifier;
-            }
-
-            _lastMediaCacheTime = DateTime.Now;
-            return _mediaDevice;
+            return null;
         }
         private set
         {
-            _mediaDevice = value;
+            __currentServer = value;
             _lastMediaCacheTime = DateTime.Now;
         }
     }
@@ -122,7 +135,7 @@ public class PlexHelper
             _cachedConnection = null;
 
             //foreach (var connection in ServerCache.Connection)
-            Parallel.ForEach(ServerCache.Connection, (connection, state) =>
+            Parallel.ForEach(SelectedServer.Connection, (connection, state) =>
                 {
                     try
                     {
@@ -131,13 +144,13 @@ public class PlexHelper
                             return;
                         }
 
-                        var (result, _) = RequestAsync($"{connection.Uri}/library/sections", HttpMethod.Get,
-                                new Dictionary<string, string> { { "X-Plex-Token", ServerCache.AccessToken } })
+                        var (result, _) = Request($"{connection.Uri}/library/sections", HttpMethod.Get,
+                                new Dictionary<string, string> { { "X-Plex-Token", SelectedServer.AccessToken } })
                             .Result;
 
                         if (result != HttpStatusCode.OK)
                         {
-                            Logger.Trace($"Got response from: {connection.Uri} {result}");
+                            Logger.LogTrace($"Got response from: {connection.Uri} {result}");
                             return;
                         }
 
@@ -146,7 +159,7 @@ public class PlexHelper
                     }
                     catch (AggregateException e)
                     {
-                        Logger.Trace($"Failed connection to: {connection.Uri} {e}");
+                        Logger.LogTrace($"Failed connection to: {connection.Uri} {e}");
                     }
                 }
             );
@@ -163,31 +176,37 @@ public class PlexHelper
     {
         get
         {
-            if (isAuthenticated == true)
-            {
-                return (bool)isAuthenticated;
-            }
+            if (__isAuthenticated.HasValue && __isAuthenticated.Value)
+                return true;
 
             try
             {
-                isAuthenticated = RequestAsync("https://plex.tv/users/account.json", HttpMethod.Get,
-                        AuthenticationHeaders).ConfigureAwait(false)
-                    .GetAwaiter().GetResult().status == HttpStatusCode.OK;
-                return (bool)isAuthenticated;
+                var (status, body) = Request("https://plex.tv/users/account.json", HttpMethod.Get, AuthenticationHeaders)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+                __isAuthenticated = status == HttpStatusCode.OK;
+                __plexUser = __isAuthenticated.Value ? JsonConvert.DeserializeObject<PlexAccount>(body).User : null;
+                return __isAuthenticated.Value;
             }
             catch (Exception)
             {
+                __isAuthenticated = null;
+                __plexUser = null;
                 return false;
             }
         }
+        set
+        {
+            // Don't allow setting the value to true.
+            if (value) return;
+            __isAuthenticated = null;
+            __plexUser = null;
+        }
     }
 
-    public string LoginUrl => $"https://app.plex.tv/auth#?clientID={ClientIdentifier}" +
-                              $"&code={GetPlexKey().Code}"; /* +
-                                  "&context%5Bdevice%5D%5Bproduct%5D=Shoko%20Server" +
-                                  $"&context%5Bdevice%5D%5Bplatform%5D={WebUtility.UrlEncode(Environment.OSVersion.Platform.ToString())}" +
-                                  $"&context%5Bdevice%5D%5BplatformVersion%5D={WebUtility.UrlEncode(Environment.OSVersion.VersionString)}" +
-                                  $"&context%5Bdevice%5D%5Bversion%5D={WebUtility.UrlEncode(Assembly.GetEntryAssembly().GetName().Version.ToString())}";*/
+    public User PlexUser
+        => IsAuthenticated ? __plexUser : null;
 
     private static void SetupHttpClient(HttpClient client, TimeSpan timeout)
     {
@@ -202,6 +221,10 @@ public class PlexHelper
         client.Timeout = timeout;
     }
 
+    /// <summary>
+    /// Get a plex key for use with the OAuth2 authentication flow.
+    /// </summary>
+    /// <returns></returns>
     private PlexKey GetPlexKey()
     {
         if (_key != null)
@@ -217,16 +240,23 @@ public class PlexHelper
             }
         }
 
-        var (_, content) = RequestAsync("https://plex.tv/api/v2/pins?strong=true", HttpMethod.Post).Result;
+        var (status, content) = Request("https://plex.tv/api/v2/pins?strong=true", HttpMethod.Post).Result;
+        if (status != HttpStatusCode.OK)
+            return _key = null;
         _key = JsonConvert.DeserializeObject<PlexKey>(content);
         return _key;
     }
 
+    /// <summary>
+    /// Get a plex api token for use with the plex api.
+    /// </summary>
+    /// <returns></returns>
     private string GetPlexToken()
     {
-        if (!string.IsNullOrEmpty(_user?.PlexToken))
+        var plexUserSettings = User.Plex;
+        if (!string.IsNullOrEmpty(plexUserSettings.Token))
         {
-            return _user.PlexToken;
+            return plexUserSettings.Token;
         }
 
         if (_key == null)
@@ -239,16 +269,14 @@ public class PlexHelper
             return _key?.AuthToken;
         }
 
-        var (_, content) = RequestAsync($"https://plex.tv/api/v2/pins/{_key.Id}", HttpMethod.Get).Result;
+        var (_, content) = Request($"https://plex.tv/api/v2/pins/{_key.Id}", HttpMethod.Get).Result;
         try
         {
-            Analytics.PostEvent("Plex", "Start Token");
-
             _key = JsonConvert.DeserializeObject<PlexKey>(content);
         }
         catch
         {
-            Logger.Trace($"Unable to deserialize Plex Key from server. Response was \n{content}");
+            Logger.LogTrace($"Unable to deserialize Plex Key from server. Response was \n{content}");
         }
 
         if (_key == null)
@@ -256,135 +284,36 @@ public class PlexHelper
             return null;
         }
 
-        _user.PlexToken = _key.AuthToken;
-
-        SaveUser(_user);
-        return _user.PlexToken;
+        plexUserSettings.Token = _key.AuthToken;
+        plexUserSettings.AccountID = _key.Id;
+        RepoFactory.JMMUser_Plex.Save(plexUserSettings);
+        return plexUserSettings.Token;
     }
 
-    public void SaveUser(JMMUser user)
+    public static PlexHelper GetForUser(SVR_JMMUser user)
     {
-        try
-        {
-            var existingUser = false;
-            var updateStats = false;
-            var updateGf = false;
-            SVR_JMMUser jmmUser = null;
-            if (user.JMMUserID != 0)
-            {
-                jmmUser = RepoFactory.JMMUser.GetByID(user.JMMUserID);
-                if (jmmUser == null)
-                {
-                    return;
-                }
-
-                existingUser = true;
-            }
-            else
-            {
-                jmmUser = new SVR_JMMUser();
-                updateStats = true;
-                updateGf = true;
-            }
-
-            if (existingUser && jmmUser.IsAniDBUser != user.IsAniDBUser)
-            {
-                updateStats = true;
-            }
-
-            var hcat = string.Join(",", user.HideCategories);
-            if (jmmUser.HideCategories != hcat)
-            {
-                updateGf = true;
-            }
-
-            jmmUser.HideCategories = hcat;
-            jmmUser.IsAniDBUser = user.IsAniDBUser;
-            jmmUser.IsTraktUser = user.IsTraktUser;
-            jmmUser.IsAdmin = user.IsAdmin;
-            jmmUser.Username = user.Username;
-            jmmUser.CanEditServerSettings = user.CanEditServerSettings;
-            jmmUser.PlexUsers = string.Join(",", user.PlexUsers);
-            jmmUser.PlexToken = user.PlexToken;
-            if (string.IsNullOrEmpty(user.Password))
-            {
-                jmmUser.Password = string.Empty;
-            }
-            else
-            {
-                // Additional check for hashed password, if not hashed we hash it
-                jmmUser.Password = user.Password.Length < 64 ? Digest.Hash(user.Password) : user.Password;
-            }
-
-            // make sure that at least one user is an admin
-            if (jmmUser.IsAdmin == 0)
-            {
-                var adminExists = false;
-                var users = RepoFactory.JMMUser.GetAll();
-                foreach (var userOld in users)
-                {
-                    if (userOld.IsAdmin != 1)
-                    {
-                        continue;
-                    }
-
-                    if (existingUser)
-                    {
-                        if (userOld.JMMUserID != jmmUser.JMMUserID)
-                        {
-                            adminExists = true;
-                        }
-                    }
-                    else
-                    {
-                        //one admin account is needed
-                        adminExists = true;
-                        break;
-                    }
-                }
-
-                if (!adminExists)
-                {
-                    return;
-                }
-            }
-
-            RepoFactory.JMMUser.Save(jmmUser, updateGf);
-
-            // update stats
-            if (!updateStats)
-            {
-                return;
-            }
-
-            foreach (var ser in RepoFactory.AnimeSeries.GetAll())
-            {
-                ser.QueueUpdateStats();
-            }
-        }
-        catch
-        {
-            // ignore
-        }
+        return Cache.GetOrAdd(user.JMMUserID, userID => new PlexHelper(userID));
     }
 
-    public static PlexHelper GetForUser(JMMUser user)
-    {
-        return Cache.GetOrAdd(user.JMMUserID, u => new PlexHelper(user));
-    }
-
-    private async Task<(HttpStatusCode status, string content)> RequestAsync(string url, HttpMethod method,
+    /// <summary>
+    /// Make an async request to plex
+    /// </summary>
+    /// <param name="status"></param>
+    /// <param name="url"></param>
+    /// <param name="method"></param>
+    /// <param name="headers"></param>
+    /// <param name="content"></param>
+    /// <param name="xml"></param>
+    /// <param name="configureRequest"></param>
+    /// <returns></returns>
+    private async Task<(HttpStatusCode status, string content)> Request(string url, HttpMethod method,
         IDictionary<string, string> headers = default, string content = null, bool xml = false,
         Action<HttpRequestMessage> configureRequest = null)
     {
-        //headers["Accept"] = xml ? "application/xml" : "application/json";
-        Logger.Trace($"Requesting from plex: {method.Method} {url}");
-
+        Logger.LogTrace($"Requesting from plex: {method.Method} {url}");
         var req = new HttpRequestMessage(method, url);
         if (method == HttpMethod.Post)
-        {
             req.Content = new StringContent(content ?? "");
-        }
 
         req.Headers.Accept.Clear();
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(xml ? "application/xml" : "application/json"));
@@ -403,118 +332,200 @@ public class PlexHelper
 
         configureRequest?.Invoke(req);
 
-        var client = new HttpClient();
-        SetupHttpClient(client, TimeSpan.FromSeconds(60));
-        var resp = await client.SendAsync(req).ConfigureAwait(false);
-        Logger.Trace($"Got response: {resp.StatusCode}");
-        return (resp.StatusCode, await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+        var response = await HttpClient.SendAsync(req).ConfigureAwait(false);
+
+        // Invalidate the state if we recive an authorised response.
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            __isAuthenticated = null;
+            __plexUser = null;
+
+            var plexUserSettings = User.Plex;
+            plexUserSettings.AccountID = null;
+            plexUserSettings.Token = null;
+            RepoFactory.JMMUser_Plex.Save(plexUserSettings);
+        }
+
+        Logger.LogTrace($"Got response: {response.StatusCode}");
+        return (response.StatusCode, await response.Content.ReadAsStringAsync().ConfigureAwait(false));
     }
 
-    private MediaDevice[] GetPlexDevices()
+    /// <summary>
+    /// Request a resource from the selected server.
+    /// </summary>
+    /// <param name="path">Path to the resource to fetch.</param>
+    /// <returns>The status and striungified contents.</returns>
+    public Task<(HttpStatusCode status, string content)> RequestFromPlex(string path)
     {
-        if (_plexMediaDevices != null)
-        {
-            return _plexMediaDevices;
-        }
+        return Request($"{ConnectionCache.Uri}{path}", HttpMethod.Get,
+                new Dictionary<string, string> { { "X-Plex-Token", SelectedServer.AccessToken } });
+    }
 
+    /// <summary>
+    /// Get an OAuth2 autentication url, optional with a provided callback url
+    /// for when the autentication is complete.
+    /// </summary>
+    /// <param name="forwardUrl"></param>
+    /// <returns></returns>
+    public string GetAuthenticationURL(string forwardUrl = null)
+    {
+        var url = $"https://app.plex.tv/auth#?clientID={ClientIdentifier}&code={GetPlexKey().Code}";
+        if (!string.IsNullOrEmpty(forwardUrl))
+            url += $"&forwardUrl=${HttpUtility.UrlEncode(forwardUrl)}";
+        return url;
+    }
+
+    /// <summary>
+    /// Get all available servers.
+    /// </summary>
+    /// <param name="force"></param>
+    /// <returns></returns>
+    public List<MediaDevice> GetAllServers(bool force = false)
+    {
         if (!IsAuthenticated)
+            throw new Exception($"User \"{User.Username}\" has not authenticated with plex yet. Authenticate first before retrying.");
+
+        if (!force && __allDevices != null)
         {
-            _plexMediaDevices = new MediaDevice[0];
-            return _plexMediaDevices;
+            return __allDevices
+                .Where(d => d.Provides.Split(',')
+                .Contains("server"))
+                .ToList();
         }
 
-        var (_, content) = RequestAsync("https://plex.tv/api/resources?includeHttps=1", HttpMethod.Get,
+        var (_, content) = Request("https://plex.tv/api/resources?includeHttps=1", HttpMethod.Get,
             AuthenticationHeaders).Result;
         var serializer = new XmlSerializer(typeof(MediaContainer));
         using (TextReader reader = new StringReader(content))
-        {
-            try
-            {
-                return ((MediaContainer)serializer.Deserialize(reader)).Device ?? new MediaDevice[0];
-            }
-            catch
-            {
-                Logger.Trace($"Unable to deserialize Plex Devices from server. Response was \n{reader}");
-                return new MediaDevice[0];
-            }
-        }
+            __allDevices = ((MediaContainer)serializer.Deserialize(reader))?.Device?.ToList() ?? new();
+
+        return __allDevices
+            .Where(d => d.Provides.Split(',').Contains("server"))
+            .ToList();
     }
 
-    public List<MediaDevice> GetPlexServers()
-    {
-        if (!IsAuthenticated)
-        {
-            return new List<MediaDevice>();
-        }
-
-        return GetPlexDevices().Where(d => d.Provides.Split(',').Contains("server")).ToList();
-    }
-
+    /// <summary>
+    /// Select the server to use.
+    /// </summary>
+    /// <param name="server">The new server to use.</param>
     public void UseServer(MediaDevice server)
     {
-        var settings = Utils.SettingsProvider.GetSettings();
+        var previousServer = SelectedServer;
+        var settings = User.Plex;
         if (server == null)
         {
-            settings.Plex.Server = null;
+            // Update the settings if the server is not already unset.
+            if (!string.IsNullOrEmpty(settings.SelectedServer))
+            {
+                settings.SelectedServer = null;
+                settings.SelectedLibraries = new();
+                RepoFactory.JMMUser_Plex.Save(settings);
+            }
             return;
         }
 
-        if (!server.Provides.Split(',').Contains("server"))
-        {
-            return; //not allowed.
-        }
+        if (!IsAuthenticated)
+            throw new Exception($"User \"{User.Username}\" has not authenticated with plex yet. Authenticate first before retrying.");
 
-        settings.Plex.Server = server.ClientIdentifier;
-        ServerCache = server;
+        if (server == null || !server.Provides.Split(',').Contains("server"))
+            throw new Exception("Invalid server selection.");
+
+        // Reset the selected libraries if we're switching server.
+        settings.SelectedServer = server.ClientIdentifier;
+        if (previousServer != null && server.ClientIdentifier != previousServer.ClientIdentifier)
+        {
+            settings.SelectedLibraries = new();
+        }
+        RepoFactory.JMMUser_Plex.Save(settings);
+        SelectedServer = server;
     }
 
-    public User GetAccount()
+    /// <summary>
+    /// Get the directories for the selected server. Returns an empty array if
+    /// no server is currently selected.
+    /// </summary>
+    /// <returns>All the directories for the currently selected server.</returns>
+    public SVR_Directory[] GetDirectories()
     {
-        //https://plex.tv/users/account.json
-        var (resp, data) =
-            RequestAsync("https://plex.tv/users/account.json", HttpMethod.Get, AuthenticationHeaders)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
-        if (resp != HttpStatusCode.OK)
-        {
-            return null;
-        }
+        if (!IsAuthenticated)
+            throw new Exception($"User \"{User.Username}\" has not authenticated with plex yet. Authenticate first before retrying.");
 
-        return JsonConvert.DeserializeObject<PlexAccount>(data).User;
+        if (SelectedServer == null)
+            return new SVR_Directory[0];
+
+        var (_, data) = RequestFromPlex("/library/sections").Result;
+        return JsonConvert
+            .DeserializeObject<MediaContainer<Shoko.Models.Plex.Libraries.MediaContainer>>(data, SerializerSettings)
+            .Container.Directory?
+            .Cast<SVR_Directory>()
+            .ToArray() ?? new SVR_Directory[0];
     }
 
-
-    public Directory[] GetDirectories()
+    /// <summary>
+    /// Get only the selected directories for the selected server. Returns an
+    /// empty array if no server is currently selected.
+    /// </summary>
+    /// <returns>The selected directories for the currently selected server.</returns>
+    public SVR_Directory[] GetSelectedDirectories()
     {
-        if (ServerCache == null)
-        {
-            return new Directory[0];
-        }
-
-        try
-        {
-            var (_, data) = RequestFromPlexAsync("/library/sections").Result;
-            return JsonConvert
-                .DeserializeObject<MediaContainer<Shoko.Models.Plex.Libraries.MediaContainer>>(data, SerializerSettings)
-                .Container.Directory ?? new Directory[0];
-        }
-        catch (Exception) //I really just don't care now.
-        {
-            return new Directory[0];
-        }
+        var plexUserSettings = User.Plex;
+        return GetDirectories()
+            .Where(dir => plexUserSettings.SelectedLibraries.Contains(dir.Key))
+            .ToArray();
     }
 
-    public async Task<(HttpStatusCode status, string content)> RequestFromPlexAsync(string path,
-        HttpMethod method = null)
+    /// <summary>
+    /// Update the directory selection.
+    /// </summary>
+    /// <param name="selection"></param>
+    /// <returns>All the directories for the currently selected server.</returns>
+    public SVR_Directory[] SetSelectedDirectories(HashSet<int> selection)
     {
-        return await RequestAsync($"{ConnectionCache.Uri}{path}", method ?? HttpMethod.Get,
-                new Dictionary<string, string> { { "X-Plex-Token", ServerCache.AccessToken } })
-            .ConfigureAwait(false);
+        if (!IsAuthenticated)
+            throw new Exception($"User \"{User.Username}\" has not authenticated with plex yet. Authenticate first before retrying.");
+
+        // Sanity check #1 – Check if the user have selected a server.
+        var currentServer = SelectedServer;
+        if (currentServer == null)
+            throw new Exception("A server has not been selected yet. Select a server first.");
+
+        var directories = GetDirectories();
+        var directorySet = directories
+            .Select(directory => directory.Key)
+            .ToHashSet();
+
+        // Sanity check #2 – Check if the user have selected only valid directory keys.
+        if (selection.Any(library => !directorySet.Contains(library)))
+            throw new Exception("Invalid library selection.");
+
+        var plexUserSettings = User.Plex;
+        plexUserSettings.SelectedLibraries = selection;
+        RepoFactory.JMMUser_Plex.Save(plexUserSettings);
+
+        // Return all the directories.
+        return GetDirectories();
     }
 
-    public void InvalidateToken()
+    /// <summary>
+    /// Invalidate the current token for the user.
+    /// </summary>
+    /// <returns>True if the token was invalidated.</returns>
+    public bool InvalidateToken()
     {
-        _user.PlexToken = string.Empty;
-        isAuthenticated = false;
-        SaveUser(_user);
+        if (!IsAuthenticated)
+            return false;
+
+        // Reset the cached in-memory values.
+        __isAuthenticated = false;
+        __plexUser = null;
+
+        // Update the user's settings.
+        var plexUserSettings = User.Plex;
+        plexUserSettings.Token = null;
+        RepoFactory.JMMUser_Plex.Save(plexUserSettings);
+
+        // TODO: Invalidate the token on Plex's side if it's not expired.
+
+        return true;
     }
 }

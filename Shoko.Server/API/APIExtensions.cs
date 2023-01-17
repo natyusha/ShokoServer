@@ -55,7 +55,7 @@ public static class APIExtensions
         services.AddAuthorization(auth =>
         {
             auth.AddPolicy("admin",
-                policy => policy.Requirements.Add(new UserHandler(user => user.IsAdmin == 1)));
+                policy => policy.Requirements.Add(new UserHandler(user => user.IsAdmin)));
             auth.AddPolicy("init",
                 policy => policy.Requirements.Add(new UserHandler(user =>
                     user.JMMUserID == 0 && user.UserName == "init")));

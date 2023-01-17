@@ -138,13 +138,13 @@ public static class Helper
         var allusers = RepoFactory.JMMUser.GetAll();
         foreach (var n in allusers)
         {
-            if (userid.FindIn(n.GetPlexUsers()))
+            if (userid.FindIn(n.Plex.LocalUsers))
             {
                 return n;
             }
         }
 
-        return allusers.FirstOrDefault(a => a.IsAdmin == 1) ??
+        return allusers.FirstOrDefault(a => a.IsAdmin) ??
                allusers.FirstOrDefault(a => a.Username == "Default") ?? allusers.First();
     }
 
@@ -153,7 +153,7 @@ public static class Helper
         var allusers = RepoFactory.JMMUser.GetAll();
         int.TryParse(userid, out var id);
         return allusers.FirstOrDefault(a => a.JMMUserID == id) ??
-               allusers.FirstOrDefault(a => a.IsAdmin == 1) ??
+               allusers.FirstOrDefault(a => a.IsAdmin) ??
                allusers.FirstOrDefault(a => a.Username == "Default") ?? allusers.First();
     }
 

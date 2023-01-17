@@ -64,12 +64,12 @@ public class JMMUserRepository : BaseCachedRepository<SVR_JMMUser, int>
 
     public List<SVR_JMMUser> GetAniDBUsers()
     {
-        return ReadLock(() => Cache.Values.Where(a => a.IsAniDBUser == 1).ToList());
+        return ReadLock(() => Cache.Values.Where(a => a.IsAniDBUser).ToList());
     }
 
     public List<SVR_JMMUser> GetTraktUsers()
     {
-        return ReadLock(() => Cache.Values.Where(a => a.IsTraktUser == 1).ToList());
+        return ReadLock(() => Cache.Values.Where(a => a.IsTraktUser).ToList());
     }
 
     public SVR_JMMUser AuthenticateUser(string userName, string password)
@@ -86,7 +86,7 @@ public class JMMUserRepository : BaseCachedRepository<SVR_JMMUser, int>
         var user = GetByID(userID);
         if (!skipValidation)
         {
-            var allAdmins = GetAll().Where(a => a.IsAdminUser()).ToList();
+            var allAdmins = GetAll().Where(a => a.IsAdmin).ToList();
             allAdmins.Remove(user);
             if (allAdmins.Count < 1)
             {
@@ -97,6 +97,7 @@ public class JMMUserRepository : BaseCachedRepository<SVR_JMMUser, int>
         var toSave = RepoFactory.GroupFilter.GetAll().AsParallel().Where(a => a.RemoveUser(userID)).ToList();
         RepoFactory.GroupFilter.Save(toSave);
 
+        RepoFactory.JMMUser_Plex.Delete(RepoFactory.JMMUser_Plex.GetByUserID(userID));
         RepoFactory.AnimeSeries_User.Delete(RepoFactory.AnimeSeries_User.GetByUserID(userID));
         RepoFactory.AnimeGroup_User.Delete(RepoFactory.AnimeGroup_User.GetByUserID(userID));
         RepoFactory.AnimeEpisode_User.Delete(RepoFactory.AnimeEpisode_User.GetByUserID(userID));

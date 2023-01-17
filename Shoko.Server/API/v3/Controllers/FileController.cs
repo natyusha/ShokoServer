@@ -301,7 +301,7 @@ public class FileController : BaseController
     [NonAction]
     private void ScrobbleToTrakt(SVR_VideoLocal file, SVR_AnimeEpisode episode, long position, ScrobblePlayingStatus status)
     {
-        if (User.IsTraktUser == 0)
+        if (!User.IsTraktUser)
             return;
 
         float percentage = 100 * (position / file.Duration);

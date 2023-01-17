@@ -450,7 +450,7 @@ public class Common : BaseController
     [HttpGet("myid/get")]
     public object MyID()
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         dynamic x = new ExpandoObject();
         if (user != null)
         {
@@ -510,7 +510,7 @@ public class Common : BaseController
     [HttpGet("search")]
     public ActionResult<Filter> BigSearch([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var query = para.query.ToLowerInvariant();
         if (para.limit == 0)
@@ -543,7 +543,7 @@ public class Common : BaseController
     [HttpGet("serie/startswith")]
     public ActionResult<Filter> SearchStartsWith([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var query = para.query.ToLowerInvariant();
         if (para.limit == 0)
@@ -819,7 +819,7 @@ public class Common : BaseController
     [HttpGet("file")]
     public object GetFile(int id = 0, int limit = 0, int level = 0)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         return id == 0
             ? GetAllFiles(limit, level, user.JMMUserID)
@@ -833,7 +833,7 @@ public class Common : BaseController
     [HttpGet("file/needsavdumped")]
     public ActionResult<List<RawFile>> GetFilesWithMismatchedInfo(int level)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var allvids = RepoFactory.VideoLocal.GetAll().Where(vid => !vid.IsEmpty() && vid.Media != null)
             .ToDictionary(a => a, a => a.GetAniDBFile());
@@ -883,7 +883,7 @@ public class Common : BaseController
     [HttpGet("file/deprecated")]
     public ActionResult<List<RawFile>> GetDeprecatedFiles(int level)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var allvids = RepoFactory.VideoLocal.GetAll()
             .Where(a => !a.IsEmpty() && a.GetAniDBFile() != null && a.GetAniDBFile().IsDeprecated).ToList();
@@ -897,7 +897,7 @@ public class Common : BaseController
     [HttpGet("file/multiple")]
     public object GetMultipleFiles([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var userID = user.JMMUserID;
         var results = new Dictionary<int, Serie>();
@@ -993,7 +993,7 @@ public class Common : BaseController
     [HttpGet("file/unsort")]
     public List<RawFile> GetUnsort(int offset = 0, int level = 0, int limit = 0)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var lst = new List<RawFile>();
 
@@ -1026,7 +1026,7 @@ public class Common : BaseController
     [HttpPost("file/offset")]
     public ActionResult SetFileOffset([FromBody] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var id = para.id;
         var offset = para.offset;
@@ -1054,7 +1054,7 @@ public class Common : BaseController
     [HttpGet("file/watch")]
     private object MarkFileAsWatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkFile(true, id, user.JMMUserID);
@@ -1070,7 +1070,7 @@ public class Common : BaseController
     [HttpGet("file/unwatch")]
     private object MarkFileAsUnwatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkFile(false, id, user.JMMUserID);
@@ -1192,7 +1192,7 @@ public class Common : BaseController
     [HttpGet("ep")]
     public object GetEpisode([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.id == 0)
         {
@@ -1210,7 +1210,7 @@ public class Common : BaseController
     [ApiVersion("2.0")]
     public ActionResult<Episode> GetEpisodeFromName(string filename, int pic = 1)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (string.IsNullOrEmpty(filename))
         {
             return BadRequest("missing 'filename'");
@@ -1232,7 +1232,7 @@ public class Common : BaseController
     [HttpGet("ep/getbyhash")]
     public ActionResult<List<Episode>> GetEpisodeFromHash(string hash, int pic = 1)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (string.IsNullOrEmpty(hash))
         {
             return BadRequest("missing 'hash'");
@@ -1272,7 +1272,7 @@ public class Common : BaseController
     [HttpGet("ep/recent")]
     public List<Episode> GetRecentEpisodes([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.limit == 0)
         {
@@ -1313,7 +1313,7 @@ public class Common : BaseController
     [HttpGet("ep/missing")]
     public List<Serie> GetMissingEpisodes(bool all, int pic, TagFilter.Filter tagfilter)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         var lst = new List<Serie>();
 
         var eps = RepoFactory.AnimeEpisode.GetEpisodesWithNoFiles(all);
@@ -1322,7 +1322,7 @@ public class Common : BaseController
         foreach (var ser in lookup)
         {
             var series = RepoFactory.AnimeSeries.GetByID(ser.Key);
-            if (series.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? false)
+            if (series.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? false)
             {
                 continue;
             }
@@ -1354,7 +1354,7 @@ public class Common : BaseController
     [HttpGet("ep/watch")]
     public ActionResult MarkEpisodeAsWatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkEpisode(true, id, user.JMMUserID);
@@ -1370,7 +1370,7 @@ public class Common : BaseController
     [HttpGet("ep/unwatch")]
     public ActionResult MarkEpisodeAsUnwatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkEpisode(false, id, user.JMMUserID);
@@ -1386,7 +1386,7 @@ public class Common : BaseController
     [HttpGet("ep/vote")]
     public ActionResult VoteOnEpisode(int id, int score)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (id != 0)
         {
@@ -1451,7 +1451,7 @@ public class Common : BaseController
     [HttpGet("ep/last_watched")]
     public List<Episode> ListWatchedEpisodes(string query, int pic, int level, int limit, int offset)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         var date_after = new DateTime(1900, 01, 01);
         if (!string.IsNullOrEmpty(query))
         {
@@ -1676,7 +1676,7 @@ public class Common : BaseController
     [HttpGet("serie/today")]
     public ActionResult<Group> SeriesToday([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         // 1. get series airing
         // 2. get eps for those series
@@ -1684,7 +1684,7 @@ public class Common : BaseController
         var allSeries = RepoFactory.AnimeSeries.GetAll().AsParallel()
             .Where(a => a?.Contract?.AniDBAnime?.AniDBAnime != null &&
                         !a.Contract.AniDBAnime.Tags.Select(b => b.TagName)
-                            .FindInEnumerable(user.GetHideCategories()));
+                            .FindInEnumerable(user.RestrictedTags));
         var now = DateTime.Now;
         var result = allSeries.Where(ser =>
             {
@@ -1725,7 +1725,7 @@ public class Common : BaseController
     [HttpGet("serie/bookmark")]
     public ActionResult<Group> SeriesBookmark([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var result = RepoFactory.BookmarkedAnime.GetAll().Select(ser =>
             Serie.GenerateFromBookmark(HttpContext, ser, user.JMMUserID, para.nocast == 1, para.notag == 1,
@@ -1749,7 +1749,7 @@ public class Common : BaseController
     [HttpGet("serie/bookmark/add")]
     public ActionResult SeriesBookmarkAdd(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         BookmarkedAnime ba = null;
         if (id != 0)
@@ -1779,7 +1779,7 @@ public class Common : BaseController
     [HttpGet("serie/bookmark/remove")]
     public ActionResult SeriesBookmarkRemove(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         BookmarkedAnime ba = null;
         if (id != 0)
@@ -1825,12 +1825,12 @@ public class Common : BaseController
     [HttpGet("serie/calendar")]
     public ActionResult<Group> SeriesSoon([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         var now = DateTime.Now;
 
         var allSeries = RepoFactory.AniDB_Anime.GetAll().AsParallel()
             .Where(a => a.AirDate != null && a.AirDate.Value > now &&
-                        !a.GetAllTags().FindInEnumerable(user.GetHideCategories())).OrderBy(a => a.AirDate.Value)
+                        !a.GetAllTags().FindInEnumerable(user.RestrictedTags)).OrderBy(a => a.AirDate.Value)
             .ToList();
         var offset_count = 0;
         var anime_count = 0;
@@ -1877,7 +1877,7 @@ public class Common : BaseController
     [HttpGet("serie/byfolder")]
     public ActionResult<IEnumerable<Serie>> GetSeriesByFolderId([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.id != 0)
         {
@@ -1895,7 +1895,7 @@ public class Common : BaseController
     [HttpGet("serie/infobyfolder")]
     public object GetSeriesInfoByFolderId(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (id != 0)
         {
@@ -1912,7 +1912,7 @@ public class Common : BaseController
     [HttpGet("serie/recent")]
     public ActionResult<IEnumerable<Serie>> GetSeriesRecent([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         var allseries = new List<Serie>();
 
@@ -1940,7 +1940,7 @@ public class Common : BaseController
     [HttpGet("serie/watch")]
     public ActionResult MarkSerieAsWatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkSerieWatchStatus(id, true, user.JMMUserID);
@@ -1956,7 +1956,7 @@ public class Common : BaseController
     [HttpGet("serie/unwatch")]
     public ActionResult MarkSerieAsUnwatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (id != 0)
         {
             return MarkSerieWatchStatus(id, false, user.JMMUserID);
@@ -1972,7 +1972,7 @@ public class Common : BaseController
     [HttpGet("serie/vote")]
     public ActionResult VoteOnSerie(int id, int score)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (id != 0)
         {
@@ -1994,7 +1994,7 @@ public class Common : BaseController
     [HttpGet("serie/search")]
     public ActionResult<IEnumerable<Serie>> SearchForSerie([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.limit == 0)
         {
@@ -2020,7 +2020,7 @@ public class Common : BaseController
     [HttpGet("serie/tag")]
     public ActionResult<IEnumerable<Serie>> SearchForTag([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.limit == 0)
         {
@@ -2048,7 +2048,7 @@ public class Common : BaseController
     [HttpGet("serie/fromep")]
     public ActionResult<Serie> GetSeriesFromEpisode([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (para.id != 0)
         {
             return GetSerieFromEpisode(para.id, user.JMMUserID, para.nocast != 0, para.notag != 0, para.level,
@@ -2066,7 +2066,7 @@ public class Common : BaseController
     [HttpGet("serie/groups")]
     public ActionResult<IEnumerable<Group>> GetSeriesGroups([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (para.id != 0)
         {
             var anime = RepoFactory.AnimeSeries.GetByID(para.id);
@@ -2091,7 +2091,7 @@ public class Common : BaseController
     [HttpGet("serie/fromaid")]
     public ActionResult<Serie> GetSeriesFromAniDBID([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (para.id != 0)
         {
             return GetSerieFromAniDBID(para.id, para.nocast != 0, para.notag != 0, para.all != 0, para.allpics != 0,
@@ -2568,7 +2568,7 @@ public class Common : BaseController
         var allSeries = RepoFactory.AnimeSeries.GetAll()
             .Where(a => a?.Contract?.AniDBAnime?.AniDBAnime != null &&
                         !a.Contract.AniDBAnime.Tags.Select(b => b.TagName)
-                            .FindInEnumerable(user.GetHideCategories()))
+                            .FindInEnumerable(user.RestrictedTags))
             .AsParallel();
 
         #region Search_TitlesOnly
@@ -2705,7 +2705,7 @@ public class Common : BaseController
     [HttpGet("filter")]
     public object GetFilters([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.id == 0)
         {
@@ -2822,7 +2822,7 @@ public class Common : BaseController
     [HttpGet("group")]
     public object GetGroups([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.id == 0)
         {
@@ -2841,7 +2841,7 @@ public class Common : BaseController
     [HttpGet("group/watch")]
     public object MarkGroupAsWatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         return MarkWatchedStatusOnGroup(id, user.JMMUserID, true);
     }
 
@@ -2852,7 +2852,7 @@ public class Common : BaseController
     [HttpGet("group/unwatch")]
     private object MarkGroupAsUnwatched(int id)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         return MarkWatchedStatusOnGroup(id, user.JMMUserID, false);
     }
 
@@ -2863,7 +2863,7 @@ public class Common : BaseController
     [HttpGet("group/search")]
     public object SearchGroup([FromQuery] API_Call_Parameters para)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
 
         if (para.limit == 0)
         {
@@ -3044,7 +3044,7 @@ public class Common : BaseController
         var allGroups = RepoFactory.AnimeGroup.GetAll().Where(a =>
             !RepoFactory.AnimeSeries.GetByGroupID(a.AnimeGroupID).Select(b => b?.Contract?.AniDBAnime?.Tags)
                 .Where(b => b != null)
-                .Any(b => b.Select(c => c.TagName).FindInEnumerable(user.GetHideCategories())));
+                .Any(b => b.Select(c => c.TagName).FindInEnumerable(user.RestrictedTags)));
 
         #region Search_TitlesOnly
 
@@ -3295,7 +3295,7 @@ public class Common_v2_1 : BaseController
     public ActionResult<IEnumerable<Episode>> GetEpisodeFromName_v2([FromQuery] string filename,
         [FromQuery] int pic = 1, [FromQuery] int level = 0)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         if (string.IsNullOrEmpty(filename))
         {
             return BadRequest("missing 'filename'");

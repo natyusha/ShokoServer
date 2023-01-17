@@ -609,7 +609,7 @@ public class GroupFilterRepository : BaseCachedRepository<SVR_GroupFilter, int>
                 var seriesTags = series.GetAnime()?.GetAllTags();
                 foreach (var user in users)
                 {
-                    if (user?.GetHideCategories().FindInEnumerable(seriesTags) ?? false)
+                    if (user?.RestrictedTags.FindInEnumerable(seriesTags) ?? false)
                     {
                         continue;
                     }

@@ -1446,33 +1446,64 @@ public class CommonImplementation
 
     public void UseDirectories(int userId, List<Directory> directories)
     {
-        var settings = _settingsProvider.GetSettings();
-        if (directories == null)
+        try
         {
-            settings.Plex.Libraries = new List<int>();
-            return;
+            PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).SetSelectedDirectories(directories.Select(dir => dir.Key).ToHashSet());
         }
-
-        settings.Plex.Libraries = directories.Select(s => s.Key).ToList();
+        catch (Exception e)
+        {
+            _logger.LogError(e, e.Message);
+        }
     }
 
     public Directory[] Directories(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetDirectories();
+        try
+        {
+            return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetDirectories();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, e.Message);
+            return new Directory[0];
+        }
     }
 
     public void UseDevice(int userId, MediaDevice server)
     {
-        PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).UseServer(server);
+        try
+        {
+            PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).UseServer(server);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, e.Message);
+        }
     }
 
     public MediaDevice[] AvailableDevices(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetPlexServers().ToArray();
+        try
+        {
+            return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetAllServers().ToArray();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, e.Message);
+            return new MediaDevice[0];
+        }
     }
 
     public MediaDevice CurrentDevice(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).ServerCache;
+        try
+        {
+            return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).SelectedServer;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, e.Message);
+            return null;
+        }
     }
 }

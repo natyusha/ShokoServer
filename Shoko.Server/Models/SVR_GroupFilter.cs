@@ -311,7 +311,7 @@ public class SVR_GroupFilter : GroupFilter
         return contract;
     }
 
-    public bool UpdateGroupFilterFromSeries(CL_AnimeSeries_User ser, JMMUser user)
+    public bool UpdateGroupFilterFromSeries(CL_AnimeSeries_User ser, SVR_JMMUser user)
     {
         if (ser == null)
         {
@@ -399,7 +399,7 @@ public class SVR_GroupFilter : GroupFilter
         return true;
     }
 
-    public bool UpdateGroupFilterFromGroup(CL_AnimeGroup_User grp, JMMUser user)
+    public bool UpdateGroupFilterFromGroup(CL_AnimeGroup_User grp, SVR_JMMUser user)
     {
         if (grp == null)
         {
@@ -464,7 +464,7 @@ public class SVR_GroupFilter : GroupFilter
     }
 
 
-    private bool CalculateGroupFilterSeries(HashSet<int> allSeriesIds, CL_AnimeSeries_User ser, JMMUser user)
+    private bool CalculateGroupFilterSeries(HashSet<int> allSeriesIds, CL_AnimeSeries_User ser, SVR_JMMUser user)
     {
         if (ser == null)
         {
@@ -493,7 +493,7 @@ public class SVR_GroupFilter : GroupFilter
         return change;
     }
 
-    private bool CalculateGroupFilterGroups(HashSet<int> allGroupIds, CL_AnimeGroup_User grp, JMMUser user)
+    private bool CalculateGroupFilterGroups(HashSet<int> allGroupIds, CL_AnimeGroup_User grp, SVR_JMMUser user)
     {
         if (grp == null) return false;
 
@@ -657,7 +657,7 @@ public class SVR_GroupFilter : GroupFilter
     }
 
 
-    public bool EvaluateGroupFilter(CL_AnimeGroup_User contractGroup, JMMUser curUser)
+    public bool EvaluateGroupFilter(CL_AnimeGroup_User contractGroup, SVR_JMMUser curUser)
     {
         //Directories don't count
         if ((FilterType & (int)GroupFilterType.Directory) == (int)GroupFilterType.Directory)
@@ -670,7 +670,7 @@ public class SVR_GroupFilter : GroupFilter
             return false;
         }
 
-        if (curUser?.GetHideCategories().FindInEnumerable(contractGroup.Stat_AllTags) ?? false)
+        if (curUser?.RestrictedTags.FindInEnumerable(contractGroup.Stat_AllTags) ?? false)
         {
             return false;
         }
@@ -1364,7 +1364,7 @@ public class SVR_GroupFilter : GroupFilter
         return true;
     }
 
-    public bool EvaluateGroupFilter(CL_AnimeSeries_User contractSerie, JMMUser curUser)
+    public bool EvaluateGroupFilter(CL_AnimeSeries_User contractSerie, SVR_JMMUser curUser)
     {
         //Directories don't count
         if ((FilterType & (int)GroupFilterType.Directory) == (int)GroupFilterType.Directory)
@@ -1377,7 +1377,7 @@ public class SVR_GroupFilter : GroupFilter
             return false;
         }
 
-        if (curUser?.GetHideCategories().FindInEnumerable(contractSerie.AniDBAnime.AniDBAnime.GetAllTags()) ??
+        if (curUser?.RestrictedTags.FindInEnumerable(contractSerie.AniDBAnime.AniDBAnime.GetAllTags()) ??
             false)
         {
             return false;

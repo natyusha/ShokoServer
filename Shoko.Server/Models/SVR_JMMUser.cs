@@ -16,6 +16,27 @@ public class SVR_JMMUser : JMMUser, IIdentity
     {
     }
 
+    private JMMUser_Plex __plex = null;
+
+    public JMMUser_Plex Plex
+    {
+        get
+        {
+            if (__plex != null)
+                return __plex;
+
+            // Try to get existing settings.
+            var plexUserSettings = RepoFactory.JMMUser_Plex.GetByUserID(JMMUserID);
+            if (plexUserSettings != null)
+                return __plex = plexUserSettings;
+
+            // Create the settings now.
+            plexUserSettings = new(JMMUserID);
+            RepoFactory.JMMUser_Plex.Save(plexUserSettings);
+            return __plex = plexUserSettings;
+        }
+    }
+
     /// <summary>
     /// Returns whether a user is allowed to view this series
     /// </summary>
@@ -23,10 +44,10 @@ public class SVR_JMMUser : JMMUser, IIdentity
     /// <returns></returns>
     public bool AllowedSeries(SVR_AnimeSeries ser)
     {
-        if (this.GetHideCategories().Count == 0) return true;
+        if (this.RestrictedTags.Count == 0) return true;
         var anime = ser?.GetAnime();
         if (anime == null) return false;
-        return !this.GetHideCategories().FindInEnumerable(anime.GetTags().Select(a => a.TagName));
+        return !this.RestrictedTags.FindInEnumerable(anime.GetTags().Select(a => a.TagName));
     }
 
     /// <summary>
@@ -36,25 +57,25 @@ public class SVR_JMMUser : JMMUser, IIdentity
     /// <returns></returns>
     public bool AllowedAnime(SVR_AniDB_Anime anime)
     {
-        if (this.GetHideCategories().Count == 0) return true;
-        return !this.GetHideCategories().FindInEnumerable(anime.GetTags().Select(a => a.TagName));
+        if (this.RestrictedTags.Count == 0) return true;
+        return !this.RestrictedTags.FindInEnumerable(anime.GetTags().Select(a => a.TagName));
     }
 
     public bool AllowedGroup(SVR_AnimeGroup grp)
     {
-        if (this.GetHideCategories().Count == 0) return true;
+        if (this.RestrictedTags.Count == 0) return true;
         if (grp.Contract == null) return false;
-        return !this.GetHideCategories().FindInEnumerable(grp.Contract.Stat_AllTags);
+        return !this.RestrictedTags.FindInEnumerable(grp.Contract.Stat_AllTags);
     }
 
     public bool AllowedTag(AniDB_Tag tag)
     {
-        return !this.GetHideCategories().Contains(tag.TagName);
+        return !this.RestrictedTags.Contains(tag.TagName);
     }
 
-    public static bool CompareUser(JMMUser olduser, JMMUser newuser)
+    public static bool CompareUser(SVR_JMMUser olduser, SVR_JMMUser newuser)
     {
-        if (olduser == null || olduser.HideCategories == newuser.HideCategories)
+        if (olduser == null || !olduser.RestrictedTags.SetEquals(newuser.RestrictedTags))
             return true;
         return false;
     }
@@ -76,6 +97,24 @@ public class SVR_JMMUser : JMMUser, IIdentity
         }
     }
 
+    public CL_JMMUser ToClient()
+    {
+        var plex = Plex;
+        return new()
+        {
+            CanEditServerSettings = IsAdmin ? 1 : 0,
+            HideCategories = string.Join(",", RestrictedTags),
+            IsAdmin = IsAdmin ? 1 : 0,
+            IsAniDBUser = IsAniDBUser ? 1 : 0,
+            IsTraktUser = IsTraktUser ? 1 : 0,
+            JMMUserID = JMMUserID,
+            Password = Password,
+            PlexToken = !string.IsNullOrEmpty(plex.Token) ? "<hidden>" : null,
+            PlexUsers = string.Join(",", plex.LocalUsers),
+            Username = Username,
+        };
+    }
+
     // IUserIdentity implementation
     public string UserName
     {
@@ -90,26 +129,4 @@ public class SVR_JMMUser : JMMUser, IIdentity
     [NotMapped] bool IIdentity.IsAuthenticated => true;
 
     [NotMapped] string IIdentity.Name => Username;
-
-
-    public SVR_JMMUser(string username)
-    {
-        foreach (SVR_JMMUser us in RepoFactory.JMMUser.GetAll())
-        {
-            if (us.Username.ToLower() == username.ToLower())
-            {
-                JMMUserID = us.JMMUserID;
-                Username = us.Username;
-                Password = us.Password;
-                IsAdmin = us.IsAdmin;
-                IsAniDBUser = us.IsAniDBUser;
-                IsTraktUser = us.IsTraktUser;
-                HideCategories = us.HideCategories;
-                CanEditServerSettings = us.CanEditServerSettings;
-                PlexUsers = us.PlexUsers;
-                Claims = us.Claims;
-                break;
-            }
-        }
-    }
 }

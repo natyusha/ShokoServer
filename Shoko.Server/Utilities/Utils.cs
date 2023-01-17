@@ -96,8 +96,8 @@ public static class Utils
                 new SignalRTarget { Name = "signalr", MaxLogsCount = 1000, Layout = "${message}" }, 50,
                 AsyncTargetWrapperOverflowAction.Discard);
         LogManager.Configuration.AddTarget("signalr", signalrTarget);
-        LogManager.Configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Info, signalrTarget));
-        var consoleTarget = (ColoredConsoleTarget)LogManager.Configuration.FindTargetByName("console");
+        LogManager.Configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Debug, signalrTarget));
+        var consoleTarget = LogManager.Configuration.FindTargetByName("console") as ColoredConsoleTarget;
         if (consoleTarget != null)
         {
             consoleTarget.Layout = "${date:format=HH\\:mm\\:ss}| ${logger:shortname=true} --- ${message}";

@@ -14,9 +14,7 @@ public class InitUser : SVR_JMMUser, IIdentity
         JMMUserID = 0;
         Username = "init";
         Password = "";
-        IsAdmin = 1;
-        HideCategories = "";
-        CanEditServerSettings = 1;
+        IsAdmin = true;
     }
 
     [NotMapped] string IIdentity.AuthenticationType => "API";

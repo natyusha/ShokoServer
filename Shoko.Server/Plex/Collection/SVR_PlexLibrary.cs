@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Newtonsoft.Json;
 using Shoko.Models.Plex;
 using Shoko.Models.Plex.Collection;
-using Shoko.Models.Plex.TVShow;
+using Shoko.Server.Plex.TVShow;
 using MediaContainer = Shoko.Models.Plex.TVShow.MediaContainer;
 
 namespace Shoko.Server.Plex.Collection;
 
-internal class SVR_PlexLibrary : PlexLibrary
+public class SVR_PlexLibrary : PlexLibrary
 {
     public SVR_PlexLibrary(PlexHelper helper)
     {
@@ -15,12 +17,15 @@ internal class SVR_PlexLibrary : PlexLibrary
 
     private PlexHelper Helper { get; }
 
-    public Episode[] GetEpisodes()
+    public List<SVR_Episode> GetEpisodes()
     {
-        var (_, data) = Helper.RequestFromPlexAsync($"/library/metadata/{RatingKey}/allLeaves").GetAwaiter()
+        var (_, data) = Helper.RequestFromPlex($"/library/metadata/{RatingKey}/allLeaves").GetAwaiter()
             .GetResult();
         return JsonConvert
             .DeserializeObject<MediaContainer<MediaContainer>>(data, Helper.SerializerSettings)
-            .Container.Metadata;
+            .Container?.Metadata?
+            .Where(episode => episode != null)
+            .Cast<SVR_Episode>()
+            .ToList() ?? new();
     }
 }

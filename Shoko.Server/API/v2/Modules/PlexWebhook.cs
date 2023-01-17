@@ -9,22 +9,17 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Plex.Collection;
 using Shoko.Models.Plex.Libraries;
-using Shoko.Models.Server;
 using Shoko.Server.API.v2.Models.core;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.Plex;
-using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Plex;
-using Shoko.Server.Plex.Libraries;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
-using Shoko.Server.Utilities;
 
 namespace Shoko.Server.API.v2.Modules;
 
@@ -34,7 +29,9 @@ namespace Shoko.Server.API.v2.Modules;
 public class PlexWebhook : BaseController
 {
     private readonly ILogger<PlexWebhook> _logger;
+
     private readonly ICommandRequestFactory _commandFactory;
+
     private readonly TraktTVHelper _traktHelper;
 
     public PlexWebhook(ICommandRequestFactory commandFactory, ILogger<PlexWebhook> logger, TraktTVHelper traktHelper, ISettingsProvider settingsProvider) : base(settingsProvider)
@@ -117,12 +114,21 @@ public class PlexWebhook : BaseController
 
         _logger.LogTrace($"Got anime: {anime}, ep: {episode.AniDB_Episode.EpisodeNumber}");
 
-        var user = RepoFactory.JMMUser.GetAll().FirstOrDefault(u => data.Account.Title.FindIn(u.GetPlexUsers()));
+        var plexUsername = data.Account.Title;
+        var user = RepoFactory.JMMUser.GetAll().FirstOrDefault(u =>
+        {
+            // Plex account id matches the id assosiated with a shoko user.
+            var plexUserSettings = u.Plex;
+            if (plexUserSettings.AccountID.HasValue && data.Account.Id == plexUserSettings.AccountID.Value)
+                return true;
+
+            // Local plex username matches what is stored in shoko.
+            return plexUserSettings.LocalUsers.Contains(plexUsername);
+        });
         if (user == null)
         {
-            _logger.LogInformation(
-                $"Unable to determine who \"{data.Account.Title}\" is in Shoko, make sure this is set under user settings in Desktop");
-            return; //At this point in time, we don't want to scrobble for unknown users
+            _logger.LogWarning("Unable to determine who {PlexUser} is in Shoko. Make sure the username is added to the local Plex users list for a Shoko user under the user's Plex settings.", plexUsername);
+            return;
         }
 
         episode.ToggleWatchedStatus(true, true, FromUnixTime(metadata.LastViewedAt), false, user.JMMUserID,
@@ -222,7 +228,7 @@ public class PlexWebhook : BaseController
     [HttpGet("loginurl")]
     public string GetLoginUrl()
     {
-        return CallPlexHelper(h => h.LoginUrl);
+        return CallPlexHelper(h => h.GetAuthenticationURL());
     }
 
     [Authorize]
@@ -236,12 +242,7 @@ public class PlexWebhook : BaseController
     [HttpGet("token/invalidate")]
     public bool InvalidateToken()
     {
-        return CallPlexHelper(h =>
-        {
-            if (!h.IsAuthenticated) return false;
-            h.InvalidateToken();
-            return true;
-        });
+        return CallPlexHelper(h => h.InvalidateToken());
     }
 
     [Authorize]
@@ -258,7 +259,7 @@ public class PlexWebhook : BaseController
     public ActionResult SyncAll()
     {
         var users = RepoFactory.JMMUser.GetAll()
-            .Where(user => !string.IsNullOrEmpty(user.PlexToken));
+            .Where(user => !string.IsNullOrEmpty(user.Plex.Token));
 
         foreach (var user in users)
             _commandFactory.Create<CommandRequest_PlexSyncWatched>(c => c.User = user).Save();
@@ -292,14 +293,14 @@ public class PlexWebhook : BaseController
     [HttpGet("test/lib/{id}")]
     public PlexLibrary[] GetShowsForDirectory(int id)
     {
-        return CallPlexHelper(h => ((SVR_Directory)h.GetDirectories().FirstOrDefault(d => d.Key == id))?.GetShows());
+        return CallPlexHelper(h => h.GetDirectories().FirstOrDefault(d => d.Key == id)?.GetShows().ToArray());
     }
 #endif
 
     [NonAction]
     private T CallPlexHelper<T>(Func<PlexHelper, T> act)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         return act(PlexHelper.GetForUser(user));
     }
 

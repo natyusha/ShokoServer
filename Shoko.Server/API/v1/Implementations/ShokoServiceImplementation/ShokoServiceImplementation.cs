@@ -884,23 +884,19 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     [HttpGet("User/Plex/LoginUrl/{userID}")]
     public string LoginUrl(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
-        return PlexHelper.GetForUser(user).LoginUrl;
+        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userID)).GetAuthenticationURL();
     }
 
     [HttpGet("User/Plex/Authenticated/{userID}")]
     public bool IsPlexAuthenticated(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
-        return PlexHelper.GetForUser(user).IsAuthenticated;
+        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userID)).IsAuthenticated;
     }
 
     [HttpGet("User/Plex/Remove/{userID}")]
     public bool RemovePlexAuth(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
-        PlexHelper.GetForUser(user).InvalidateToken();
-        return true;
+        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userID)).InvalidateToken();
     }
 
     #endregion
@@ -1083,7 +1079,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     continue;
                 }
 
-                if (!user.GetHideCategories().FindInEnumerable(anime.Contract.AniDBAnime.GetAllTags()))
+                if (!user.RestrictedTags.FindInEnumerable(anime.Contract.AniDBAnime.GetAllTags()))
                 {
                     animeList.Add(anime.Contract.AniDBAnime);
                 }
@@ -1123,7 +1119,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     continue;
                 }
 
-                if (!user.GetHideCategories().FindInEnumerable(anime.Contract.AniDBAnime.GetAllTags()))
+                if (!user.RestrictedTags.FindInEnumerable(anime.Contract.AniDBAnime.GetAllTags()))
                 {
                     animeList.Add(anime.Contract.AniDBAnime);
                 }

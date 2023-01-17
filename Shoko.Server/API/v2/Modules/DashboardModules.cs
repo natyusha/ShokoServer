@@ -43,7 +43,7 @@ public class DashboardModules : BaseController
         if (user != null)
         {
             var series = RepoFactory.AnimeSeries.GetAll().Where(a =>
-                !a.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? false).ToList();
+                !a.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? false).ToList();
             series_count = series.Count;
 
             var files = series.SelectMany(a => a.GetAnimeEpisodes()).SelectMany(a => a.GetVideoLocals())
@@ -75,7 +75,7 @@ public class DashboardModules : BaseController
             tags = RepoFactory.AniDB_Anime_Tag.GetAllForLocalSeries().GroupBy(a => a.TagID)
                 .ToDictionary(a => a.Key, a => a.Count()).OrderByDescending(a => a.Value)
                 .Select(a => RepoFactory.AniDB_Tag.GetByTagID(a.Key)?.TagName)
-                .Where(a => a != null && !user.GetHideCategories().Contains(a)).ToList();
+                .Where(a => a != null && !user.RestrictedTags.Contains(a)).ToList();
             var tagfilter = TagFilter.Filter.AnidbInternal | TagFilter.Filter.Misc | TagFilter.Filter.Source;
             tags = TagFilter.String.ProcessTags(tagfilter, tags).Take(10).ToList();
         }

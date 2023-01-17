@@ -22,7 +22,7 @@ public class UserController : BaseController
 {
     private readonly ICommandRequestFactory CommandFactory;
 
-    public UserController(ICommandRequestFactory commandFactory)
+    public UserController(ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider) : base(settingsProvider)
     {
         CommandFactory = commandFactory;
     }
@@ -92,10 +92,10 @@ public class UserController : BaseController
             return BadRequest(ModelState);
         }
 
-        var changedAdmin = user.IsAdminUser() != patchModel.IsAdmin;
+        var changedAdmin = user.IsAdmin != patchModel.IsAdmin;
         if (changedAdmin)
         {
-            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
+            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdmin).ToList();
             allAdmins.Remove(user);
             if (allAdmins.Count < 1)
             {
@@ -128,10 +128,10 @@ public class UserController : BaseController
             return NotFound("User not found.");
         }
 
-        var changedAdmin = existing.IsAdminUser() != user.IsAdmin;
+        var changedAdmin = existing.IsAdmin != user.IsAdmin;
         if (changedAdmin)
         {
-            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
+            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdmin).ToList();
             allAdmins.Remove(existing);
             if (allAdmins.Count < 1)
             {
@@ -218,7 +218,7 @@ public class UserController : BaseController
             return NotFound("User not found.");
         }
 
-        if (user.JMMUserID != User.JMMUserID && !User.IsAdminUser())
+        if (user.JMMUserID != User.JMMUserID && !User.IsAdmin)
         {
             return Forbid("User must be admin to change other's password.");
         }
@@ -266,7 +266,7 @@ public class UserController : BaseController
             return NotFound("User not found.");
         }
 
-        var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
+        var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdmin).ToList();
         allAdmins.Remove(user);
         if (allAdmins.Count < 1)
         {

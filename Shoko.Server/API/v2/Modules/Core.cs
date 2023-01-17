@@ -12,7 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog;
 using Shoko.Models.Client;
-using Shoko.Models.Server;
 using Shoko.Server.API.v2.Models.core;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.AniDB;
@@ -630,11 +629,9 @@ public class Core : BaseController
     /// <returns></returns>
     [Authorize("admin")]
     [HttpPost("user/create")]
-    public ActionResult CreateUser(JMMUser user)
+    public ActionResult CreateUser(CL_JMMUser user)
     {
         user.Password = Digest.Hash(user.Password);
-        user.HideCategories = string.Empty;
-        user.PlexUsers = string.Empty;
         return _service.SaveUser(user) == string.Empty
             ? APIStatus.OK()
             : APIStatus.InternalError();
@@ -645,7 +642,7 @@ public class Core : BaseController
     /// </summary>
     /// <returns></returns>
     [HttpPost("user/password")]
-    public ActionResult ChangePassword(JMMUser user)
+    public ActionResult ChangePassword(CL_JMMUser user)
     {
         return _service.ChangePassword(user.JMMUserID, user.Password) == string.Empty
             ? APIStatus.OK()
@@ -658,7 +655,7 @@ public class Core : BaseController
     /// <returns></returns>
     [HttpPost("user/password/{uid}")]
     [Authorize("admin")]
-    public ActionResult ChangePassword(int uid, JMMUser user)
+    public ActionResult ChangePassword(int uid, CL_JMMUser user)
     {
         return _service.ChangePassword(uid, user.Password) == string.Empty
             ? APIStatus.OK()
@@ -671,7 +668,7 @@ public class Core : BaseController
     /// <returns></returns>
     [HttpPost("user/delete")]
     [Authorize("admin")]
-    public ActionResult DeleteUser(JMMUser user)
+    public ActionResult DeleteUser(CL_JMMUser user)
     {
         return _service.DeleteUser(user.JMMUserID) == string.Empty
             ? APIStatus.OK()

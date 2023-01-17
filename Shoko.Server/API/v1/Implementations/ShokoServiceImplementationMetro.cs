@@ -160,11 +160,11 @@ public class ShokoServiceImplementationMetro : IShokoServerMetro, IHttpContextAc
     }
 
     [HttpPost("User/Auth/{username}/{password}")]
-    public JMMUser AuthenticateUser(string username, string password)
+    public CL_JMMUser AuthenticateUser(string username, string password)
     {
         try
         {
-            return RepoFactory.JMMUser.AuthenticateUser(username, password);
+            return RepoFactory.JMMUser.AuthenticateUser(username, password)?.ToClient();
         }
         catch (Exception ex)
         {
@@ -174,19 +174,18 @@ public class ShokoServiceImplementationMetro : IShokoServerMetro, IHttpContextAc
     }
 
     [HttpGet("User")]
-    public List<JMMUser> GetAllUsers()
+    public List<CL_JMMUser> GetAllUsers()
     {
         // get all the users
         try
         {
-            return RepoFactory.JMMUser.GetAll().Cast<JMMUser>().ToList();
+            return RepoFactory.JMMUser.GetAll().Select(u => u.ToClient()).ToList();
         }
         catch (Exception ex)
         {
             logger.Error(ex, ex.ToString());
+            return new();
         }
-
-        return new List<JMMUser>();
     }
 
     [HttpGet("Group/{userID}")]

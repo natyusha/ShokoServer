@@ -4,9 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
-using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models;
 using Shoko.Server.Repositories;
 
@@ -53,17 +51,17 @@ public class User
             var tags = RestrictedTags
                 .Select(tagID => RepoFactory.AniDB_Tag.GetByTagID(tagID))
                 .Where(tag => tag != null)
-                .Select(tag => tag.TagName);
+                .Select(tag => tag.TagName.ToLowerInvariant())
+                .ToHashSet();
             var user = new SVR_JMMUser
             {
                 Username = Username,
                 JMMUserID = ID,
                 Password = Digest.Hash(Password),
-                HideCategories = string.Join(',', tags),
-                IsAdmin = IsAdmin ? 1 : 0,
-                IsTraktUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.Trakt) ? 1 : 0,
-                CanEditServerSettings = IsAdmin ? 1 : 0,
-                IsAniDBUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.AniDB) ? 1 : 0
+                RestrictedTags = tags,
+                IsAdmin = IsAdmin,
+                IsTraktUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.Trakt),
+                IsAniDBUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.AniDB),
             };
             return user;
         }
@@ -75,24 +73,24 @@ public class User
     {
         ID = user.JMMUserID;
         Username = user.Username;
-        IsAdmin = user.IsAdmin == 1;
+        IsAdmin = user.IsAdmin;
         CommunitySites = new List<CommunitySites>();
-        if (user.IsAniDBUser == 1)
+        if (user.IsAniDBUser)
         {
             CommunitySites.Add(global::Shoko.Models.Enums.CommunitySites.AniDB);
         }
 
-        if (user.IsTraktUser == 1)
+        if (user.IsTraktUser)
         {
             CommunitySites.Add(global::Shoko.Models.Enums.CommunitySites.Trakt);
         }
 
-        if (!string.IsNullOrEmpty(user.PlexToken))
+        if (!string.IsNullOrEmpty(user.Plex.Token))
         {
             CommunitySites.Add(global::Shoko.Models.Enums.CommunitySites.Plex);
         }
 
-        RestrictedTags = user.GetHideCategories()
+        RestrictedTags = user.RestrictedTags
             .Select(name => RepoFactory.AniDB_Tag.GetByName(name).FirstOrDefault())
             .Where(tag => tag != null)
             .Select(tag => tag.TagID)
@@ -104,37 +102,19 @@ public class User
         var tags = RestrictedTags
             .Select(tagID => RepoFactory.AniDB_Tag.GetByTagID(tagID))
             .Where(tag => tag != null)
-            .Select(tag => tag.TagName);
+            .Select(tag => tag.TagName.ToLowerInvariant())
+            .ToHashSet();
         var user = new SVR_JMMUser
         {
             Username = Username,
             JMMUserID = ID,
-            HideCategories = string.Join(',', tags),
-            IsAdmin = IsAdmin ? 1 : 0,
-            IsTraktUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.Trakt) ? 1 : 0,
-            CanEditServerSettings = IsAdmin ? 1 : 0,
-            IsAniDBUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.AniDB) ? 1 : 0,
+            RestrictedTags = tags,
+            IsAdmin = IsAdmin,
+            IsTraktUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.Trakt),
+            IsAniDBUser = CommunitySites.Contains(global::Shoko.Models.Enums.CommunitySites.AniDB),
             Password = existing?.Password ?? string.Empty,
-            PlexToken = existing?.PlexToken,
-            PlexUsers = existing?.PlexUsers ?? string.Empty
         };
         return user;
-    }
-
-    /// <summary>
-    /// The Plex User Settings...
-    /// </summary>
-    public class PlexUserSettings
-    {
-        /// <summary>
-        /// This means something. Cazzar help me out here.
-        /// </summary>
-        public string PlexUsers { get; set; }
-
-        /// <summary>
-        /// The token for authentication with the Plex Server API
-        /// </summary>
-        public string PlexToken { get; set; }
     }
 
 #nullable enable

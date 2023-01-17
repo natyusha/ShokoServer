@@ -1,11 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Server.API.Annotations;
-using Shoko.Server.API.v3.Plex;
+using Shoko.Server.API.v3.Models.Plex;
 using Shoko.Server.Plex;
+using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.API.v3.Controllers;
@@ -16,58 +17,37 @@ namespace Shoko.Server.API.v3.Controllers;
 [Authorize]
 public class PlexController : BaseController
 {
-    private const string AlreadyAuthenticated = "User has already authenticated with plex yet. Invalidate the current token before re-authenticating.";
-
-    private const string NotAuthenticated = "User has not authenticated with plex yet. Authenticate first before retrying.";
-
-    private const string NoSelectedServer = "A server has not been selected yet. Select a server first.";
-
-    private const string InvalidServerSelection = "Invalid server selection.";
-
-    private const string InvalidLibrarySelection = "Selected libraries are invalid.";
+    public PlexController(ISettingsProvider settingsProvider) : base(settingsProvider) {}
 
     /// <summary>
     /// Get an OAuth2 authenticate url to authenticate the current user.
     /// </summary>
+    /// <param name="callbackUrl">Callback url to forward the user back to the callback trampoline after they've authenticated.</param>
     /// <returns></returns>
-    [HttpGet("Auth/Authenticate")]
-    public ActionResult<string> GetOAuthRequestUrl([FromQuery] bool force = false)
+    [HttpGet("Authenticate")]
+    public ActionResult<string> GetOAuthRequestUrl([FromQuery] string callbackUrl = null)
     {
-        var helper = GetHelperForUser();
-
-        if (helper.IsAuthenticated && !force)
-            return BadRequest(AlreadyAuthenticated);
-
-        return helper.LoginUrl;
+        return PlexHelper.GetForUser(User).GetAuthenticationURL(callbackUrl);
     }
 
     /// <summary>
     /// Check if the current user is currently authenticated against the plex api.
     /// </summary>
     /// <returns></returns>
-    [HttpGet("Auth/IsAuthenticated")]
-    public ActionResult<bool> IsAuthenticated()
+    [HttpGet("IsAuthenticated")]
+    public ActionResult<bool> CheckIfAuthenticated()
     {
-        var helper = GetHelperForUser();
-
-        return helper.IsAuthenticated;
+        return PlexHelper.GetForUser(User).IsAuthenticated;
     }
 
     /// <summary>
     /// Invalidate and remove the current plex authentication token.
     /// </summary>
     /// <returns></returns>
-    [HttpPost("Auth/InvalidateToken")]
+    [HttpDelete("IsAuthenticated")]
     public ActionResult<bool> InvalidateToken()
     {
-        var helper = GetHelperForUser();
-
-        if (!helper.IsAuthenticated)
-            return false;
-
-        helper.InvalidateToken();
-
-        return true;
+        return PlexHelper.GetForUser(User).InvalidateToken();
     }
 
     /// <summary>
@@ -75,129 +55,325 @@ public class PlexController : BaseController
     /// </summary>
     /// <param name="userId"></param>
     /// <returns></returns>
-    [HttpGet("Linking/AvailableServers")]
-    public ActionResult<List<PlexServer>> AvailableServers(int userId)
+    [HttpGet("AvailableServers")]
+    public ActionResult<List<PlexServer>> GetAvailableServers(int userId)
     {
-        var helper = GetHelperForUser();
-
-        if (!helper.IsAuthenticated)
-            return BadRequest(NotAuthenticated);
-
-        var currentServerID = helper.ServerCache?.ClientIdentifier ?? "";
-        return helper.GetPlexServers()
+        var helper = PlexHelper.GetForUser(User);
+        var currentServerID = helper.SelectedServer?.ClientIdentifier ?? "";
+        return helper.GetAllServers()
             .Select(device => new PlexServer(device, device.ClientIdentifier == currentServerID))
             .ToList();
     }
 
     /// <summary>
-    /// Get the active server.
+    /// Get the selected server for the current user.
     /// </summary>
     /// <returns></returns>
-    [HttpGet("Linking/Server")]
-    public ActionResult<PlexServer> CurrentDevice()
+    [HttpGet("SelectedServer")]
+    public ActionResult<PlexServer> GetServer()
     {
-        var helper = GetHelperForUser();
-
-        if (!helper.IsAuthenticated)
-            return BadRequest(NotAuthenticated);
-
-        var currentServer = helper.ServerCache;
+        var helper = PlexHelper.GetForUser(User);
+        var currentServer = helper.SelectedServer;
         if (currentServer == null)
-            return BadRequest(NoSelectedServer);
+            return NoContent();
 
         return new PlexServer(currentServer, true);
     }
 
     /// <summary>
-    /// Select the active server.
+    /// Change/set the selected server for the current user.
     /// </summary>
-    /// <param name="server"></param>
+    /// <param name="server">The new selected server.</param>
     /// <returns></returns>
-    [HttpPut("Linking/Server")]
-    public ActionResult<PlexServer> UseDevice(PlexServer server)
+    [HttpPut("SelectedServer")]
+    public ActionResult<PlexServer> SelectServer(PlexServer server)
     {
-        var helper = GetHelperForUser();
-
-        if (!helper.IsAuthenticated)
-            return BadRequest(NotAuthenticated);
-
-        var previousServer = helper.ServerCache;
-        var currentServer = helper.GetPlexServers()
+        var helper = PlexHelper.GetForUser(User);
+        var selectedServer = helper.GetAllServers()
             .FirstOrDefault(ser => ser.ClientIdentifier == server.ID);
 
-        if (currentServer == null || !currentServer.Provides.Split(',').Contains("server"))
-            return BadRequest(InvalidServerSelection);
+        if (selectedServer == null)
+            return BadRequest("");
 
-        helper.UseServer(currentServer);
-
-        // Reset the selected libraries if we're switching server.
-        if (previousServer != null && currentServer.ClientIdentifier != previousServer.ClientIdentifier)
+        try {
+            helper.UseServer(selectedServer);
+        }
+        catch (Exception e)
         {
-            ServerSettings.Instance.Plex.Libraries = new();
-            ServerSettings.Instance.SaveSettings();
+            return BadRequest(e.Message);
         }
 
-        return new PlexServer(currentServer, true);
+        return new PlexServer(selectedServer, true);
     }
 
     /// <summary>
-    /// Display all the libraries available in the selected server.
+    /// Unselect the server for the current user.
     /// </summary>
     /// <returns></returns>
-    [HttpGet("Linking/Server/Libraries")]
-    public ActionResult<List<PlexLibrary>> GetLibraries()
+    [HttpDelete("SelectedServer")]
+    public ActionResult UnselectServer()
     {
-        var helper = GetHelperForUser();
+        try {
+            PlexHelper.GetForUser(User).UseServer(null);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
 
-        if (!helper.IsAuthenticated)
-            return BadRequest(NotAuthenticated);
-
-        var currentServer = helper.ServerCache;
-        if (currentServer == null)
-            return BadRequest(NoSelectedServer);
-
-        var directories = helper.GetDirectories();
-        return directories
-            .Select(directory => new PlexLibrary(directory, currentServer))
-            .ToList();
+        return NoContent();
     }
 
     /// <summary>
-    /// Select the libraries used for the plex syncing.
+    /// Display all the libraries available in the selected server for the
+    /// current user.
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet("SelectedServer/Libraries")]
+    public ActionResult<List<PlexLibrary>> GetLibraries()
+    {
+        try
+        {
+            var helper = PlexHelper.GetForUser(User);
+            var currentServer = helper.SelectedServer;
+            var directories = helper.GetDirectories();
+            return directories
+                .Select(directory => new PlexLibrary(directory, currentServer))
+                .ToList();
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    /// <summary>
+    /// Select the libraries used for the plex syncing for the current user.
     /// </summary>
     /// <param name="libraries"></param>
     /// <returns></returns>
-    [HttpPut("Linking/Server/Libraries")]
+    [HttpPut("SelectedServer/Libraries")]
     public ActionResult<List<PlexLibrary>> SelectLibraries([FromBody] List<PlexLibrary> libraries)
     {
-        var helper = GetHelperForUser();
+        try
+        {
+            var helper = PlexHelper.GetForUser(User);
+            var selectedServer = helper.SelectedServer;
+            var selectedIDs = libraries
+                .Select(library => library.ID)
+                .ToHashSet();
+            return helper.SetSelectedDirectories(selectedIDs)
+                .Select(directory => new PlexLibrary(directory, selectedServer, selectedIDs.Contains(directory.Key)))
+                .ToList();
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+    /// <summary>
+    /// Get an OAuth2 authenticate url to authenticate the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <param name="callbackUrl">Callback url to forward the user back to the callback trampoline after they've authenticated.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("{userID}/Authenticate")]
+    public ActionResult<string> GetOAuthRequestUrlForUser([FromRoute] int userID, [FromQuery] string callbackUrl = null)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
 
-        if (!helper.IsAuthenticated)
-            return BadRequest(NotAuthenticated);
+        return PlexHelper.GetForUser(user).GetAuthenticationURL(callbackUrl);
+    }
 
-        var currentServer = helper.ServerCache;
-        if (currentServer == null)
-            return BadRequest(NoSelectedServer);
+    /// <summary>
+    /// Check if the user is currently authenticated against the plex api.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("{userID}/IsAuthenticated")]
+    public ActionResult<bool> CheckIfAuthenticatedForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
 
-        var directories = helper.GetDirectories();
-        var directorySet = directories
-            .Select(directory => directory.Key)
-            .ToHashSet();
+        return PlexHelper.GetForUser(user).IsAuthenticated;
+    }
 
-        if (libraries.Any(library => !directorySet.Contains(library.ID) || library.ServerID != currentServer.ClientIdentifier))
-            return BadRequest(InvalidLibrarySelection);
+    /// <summary>
+    /// Invalidate and remove the plex authentication token.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("{userID}/IsAuthenticated")]
+    public ActionResult<bool> InvalidateTokenForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
 
-        ServerSettings.Instance.Plex.Libraries = libraries?.Select(s => s.ID).ToList() ?? new();
-        ServerSettings.Instance.SaveSettings();
+        return PlexHelper.GetForUser(user).InvalidateToken();
+    }
 
-        return directories
-            .Select(directory => new PlexLibrary(directory, currentServer, directorySet.Contains(directory.Key)))
+    /// <summary>
+    /// Show all available server for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("{userID}/AvailableServers")]
+    public ActionResult<List<PlexServer>> GetAvailableServersForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        var helper = PlexHelper.GetForUser(user);
+        var currentServerID = helper.SelectedServer?.ClientIdentifier ?? "";
+        return helper.GetAllServers()
+            .Select(device => new PlexServer(device, device.ClientIdentifier == currentServerID))
             .ToList();
     }
 
-    [NonAction]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public PlexHelper GetHelperForUser()
-        => PlexHelper.GetForUser(User);
+    /// <summary>
+    /// Get the selected server for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("{userID}/SelectedServer")]
+    public ActionResult<PlexServer> GetServerForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
 
+        var helper = PlexHelper.GetForUser(user);
+        var currentServer = helper.SelectedServer;
+        if (currentServer == null)
+            return NoContent();
+
+        return new PlexServer(currentServer, true);
+    }
+
+    /// <summary>
+    /// Change/set the selected server for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <param name="server">The new selected server.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpPut("{userID}/SelectedServer")]
+    public ActionResult<PlexServer> SelectServerForUser([FromRoute] int userID, PlexServer server)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        var helper = PlexHelper.GetForUser(user);
+        var selectedServer = helper.GetAllServers()
+            .FirstOrDefault(ser => ser.ClientIdentifier == server.ID);
+
+        if (selectedServer == null)
+            return BadRequest("");
+
+        try {
+            helper.UseServer(selectedServer);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+
+        return new PlexServer(selectedServer, true);
+    }
+
+    /// <summary>
+    /// Unselect the server for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("{userID}/SelectedServer")]
+    public ActionResult UnselectServerForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        var helper = PlexHelper.GetForUser(user);
+        try {
+            helper.UseServer(null);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Display all the libraries available in the selected server for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("{userID}/SelectedServer/Libraries")]
+    public ActionResult<List<PlexLibrary>> GetLibrariesForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        var helper = PlexHelper.GetForUser(user);
+        try
+        {
+            var currentServer = helper.SelectedServer;
+            var directories = helper.GetDirectories();
+            return directories
+                .Select(directory => new PlexLibrary(directory, currentServer))
+                .ToList();
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    /// <summary>
+    /// Select the libraries used for the plex syncing for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <param name="libraries"></param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpPut("{userID}/SelectedServer/Libraries")]
+    public ActionResult<List<PlexLibrary>> SelectLibrariesForUser([FromRoute] int userID, [FromBody] List<PlexLibrary> libraries)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        var helper = PlexHelper.GetForUser(user);
+        try
+        {
+            var selectedServer = helper.SelectedServer;
+            var selectedIDs = libraries
+                .Select(library => library.ID)
+                .ToHashSet();
+            return helper.SetSelectedDirectories(selectedIDs)
+                .Select(directory => new PlexLibrary(directory, selectedServer, selectedIDs.Contains(directory.Key)))
+                .ToList();
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
 }

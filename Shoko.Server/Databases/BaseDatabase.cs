@@ -449,11 +449,9 @@ public abstract class BaseDatabase<T>
             : Digest.Hash(settings.Database.DefaultUserPassword);
         var defaultUser = new SVR_JMMUser
         {
-            CanEditServerSettings = 1,
-            HideCategories = string.Empty,
-            IsAdmin = 1,
-            IsAniDBUser = 1,
-            IsTraktUser = 1,
+            IsAdmin = true,
+            IsAniDBUser = true,
+            IsTraktUser = true,
             Password = defaultPassword,
             Username = settings.Database.DefaultUserUsername
         };
@@ -461,11 +459,10 @@ public abstract class BaseDatabase<T>
 
         var familyUser = new SVR_JMMUser
         {
-            CanEditServerSettings = 1,
-            HideCategories = "ecchi,nudity,sex,sexual abuse,horror,erotic game,incest,18 restricted",
-            IsAdmin = 1,
-            IsAniDBUser = 1,
-            IsTraktUser = 1,
+            RestrictedTags = new() { "ecchi", "nudity", "sex", "sexual abuse", "horror", "erotic game", "incest", "18 restricted" },
+            IsAdmin = false,
+            IsAniDBUser = true,
+            IsTraktUser = true,
             Password = string.Empty,
             Username = "Family Friendly"
         };

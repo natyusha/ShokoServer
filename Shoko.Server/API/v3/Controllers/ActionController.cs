@@ -374,7 +374,7 @@ public class ActionController : BaseController
     public ActionResult PlexSyncAll()
     {
         var users = RepoFactory.JMMUser.GetAll()
-            .Where(user => !string.IsNullOrEmpty(user.PlexToken));
+            .Where(user => !string.IsNullOrEmpty(user.Plex.Token));
 
         foreach (var user in users)
             _commandFactory.Create<CommandRequest_PlexSyncWatched>(c => c.User = user).Save();

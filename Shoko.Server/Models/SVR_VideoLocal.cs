@@ -260,41 +260,31 @@ public class SVR_VideoLocal : VideoLocal, IHash
         var user = RepoFactory.JMMUser.GetByID(userID);
         if (user == null) return;
 
-        var aniDBUsers = RepoFactory.JMMUser.GetAniDBUsers();
-
-        if (user.IsAniDBUser == 0)
-            SaveWatchedStatus(watched, userID, watchedDate, updateWatchedDate);
+        if (user.IsAniDBUser)
+            foreach (var juser in RepoFactory.JMMUser.GetAniDBUsers().Where(u => u.IsAniDBUser))
+                SaveWatchedStatus(watched, juser.JMMUserID, watchedDate, updateWatchedDate);
         else
-            foreach (var juser in aniDBUsers)
-                if (juser.IsAniDBUser == 1)
-                    SaveWatchedStatus(watched, juser.JMMUserID, watchedDate, updateWatchedDate);
+            SaveWatchedStatus(watched, userID, watchedDate, updateWatchedDate);
 
 
         // now lets find all the associated AniDB_File record if there is one
-        if (user.IsAniDBUser == 1)
+        if (user.IsAniDBUser && updateOnline &&
+            ((watched && settings.AniDb.MyList_SetWatched) || (!watched && settings.AniDb.MyList_SetUnwatched)))
         {
-            if (updateOnline)
-                if ((watched && settings.AniDb.MyList_SetWatched) ||
-                    (!watched && settings.AniDb.MyList_SetUnwatched))
+            commandFactory
+                .Create<CommandRequest_UpdateMyListFileStatus>(c =>
                 {
-                    var cmd = commandFactory.Create<CommandRequest_UpdateMyListFileStatus>(
-                        c =>
-                        {
-                            c.Hash = Hash;
-                            c.Watched = watched;
-                            c.UpdateSeriesStats = false;
-                            c.WatchedDateAsSecs = AniDB.GetAniDBDateAsSeconds(watchedDate?.ToUniversalTime());
-                        }
-                    );
-                    cmd.Save();
-                }
+                    c.Hash = Hash;
+                    c.Watched = watched;
+                    c.UpdateSeriesStats = false;
+                    c.WatchedDateAsSecs = AniDB.GetAniDBDateAsSeconds(watchedDate?.ToUniversalTime());
+                })
+                .Save();
         }
 
         // now find all the episode records associated with this video file
-        // but we also need to check if theer are any other files attached to this episode with a watched
-        // status, 
-
-
+        // but we also need to check if there are any other files attached to
+        // this episode with a watched status.
         SVR_AnimeSeries ser;
         // get all files associated with this episode
         var xrefs = RepoFactory.CrossRef_File_Episode.GetByHash(Hash);
@@ -330,12 +320,11 @@ public class SVR_VideoLocal : VideoLocal, IHash
                     if (ser == null) continue;
                     if (!toUpdateSeries.ContainsKey(ser.AnimeSeriesID))
                         toUpdateSeries.Add(ser.AnimeSeriesID, ser);
-                    if (user.IsAniDBUser == 0)
-                        ep.SaveWatchedStatus(true, userID, watchedDate, updateWatchedDate);
+                    if (user.IsAniDBUser)
+                        foreach (var juser in RepoFactory.JMMUser.GetAniDBUsers().Where(u => u.IsAniDBUser))
+                            ep.SaveWatchedStatus(true, juser.JMMUserID, watchedDate, updateWatchedDate);
                     else
-                        foreach (var juser in aniDBUsers)
-                            if (juser.IsAniDBUser == 1)
-                                ep.SaveWatchedStatus(true, juser.JMMUserID, watchedDate, updateWatchedDate);
+                        ep.SaveWatchedStatus(true, userID, watchedDate, updateWatchedDate);
 
                     if (syncTrakt && settings.TraktTv.Enabled &&
                         !string.IsNullOrEmpty(settings.TraktTv.AuthToken))
@@ -375,12 +364,11 @@ public class SVR_VideoLocal : VideoLocal, IHash
 
                 if (epPercentWatched < 95)
                 {
-                    if (user.IsAniDBUser == 0)
-                        ep.SaveWatchedStatus(false, userID, watchedDate, true);
+                    if (user.IsAniDBUser)
+                        foreach (var juser in RepoFactory.JMMUser.GetAniDBUsers().Where(u => u.IsAniDBUser))
+                            ep.SaveWatchedStatus(true, juser.JMMUserID, watchedDate, updateWatchedDate);
                     else
-                        foreach (var juser in aniDBUsers)
-                            if (juser.IsAniDBUser == 1)
-                                ep.SaveWatchedStatus(false, juser.JMMUserID, watchedDate, true);
+                        ep.SaveWatchedStatus(true, userID, watchedDate, updateWatchedDate);
 
                     ser = ep.GetAnimeSeries();
                     // a problem

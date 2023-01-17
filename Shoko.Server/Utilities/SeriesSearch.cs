@@ -214,10 +214,10 @@ public static class SeriesSearch
         var allSeries =
             RepoFactory.AnimeSeries.GetAll().AsParallel().Where(a =>
                 a?.GetAnime() != null && (a.GetAnime().GetAllTags().Count == 0 ||
-                                          !a.GetAnime().GetAllTags().FindInEnumerable(user.GetHideCategories())));
+                                          !a.GetAnime().GetAllTags().FindInEnumerable(user.RestrictedTags)));
 
         var allTags = RepoFactory.AniDB_Tag.GetAll().AsParallel()
-            .Where(a => !user.GetHideCategories().Contains(a.TagName) &&
+            .Where(a => !user.RestrictedTags.Contains(a.TagName) &&
                         !TagFilter.IsTagBlackListed(a.TagName, tagFilter));
 
         //search by anime id
@@ -306,7 +306,7 @@ public static class SeriesSearch
                         var anime = RepoFactory.AnimeSeries.GetByAnimeID(xref.CrossRefID);
                         // Because we are searching tags, then getting series from it, we need to make sure it's allowed
                         // for example, porn could have the drugs tag, even though it's not a "porn tag"
-                        if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? true)
+                        if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? true)
                         {
                             return null;
                         }
@@ -333,7 +333,7 @@ public static class SeriesSearch
                         var anime = RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
                         // Because we are searching tags, then getting series from it, we need to make sure it's allowed
                         // for example, porn could have the drugs tag, even though it's not a "porn tag"
-                        if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? true)
+                        if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? true)
                         {
                             return null;
                         }
@@ -357,7 +357,7 @@ public static class SeriesSearch
         var series = new List<SearchResult<SVR_AnimeSeries>>();
         IEnumerable<Misc.SearchInfo<CustomTag>> customTags = RepoFactory.CustomTag.GetAll().Select(a =>
         {
-            if (user.GetHideCategories().Contains(a.TagName))
+            if (user.RestrictedTags.Contains(a.TagName))
             {
                 return null;
             }
@@ -383,7 +383,7 @@ public static class SeriesSearch
                     var anime = RepoFactory.AnimeSeries.GetByAnimeID(xref.CrossRefID);
                     // Because we are searching tags, then getting series from it, we need to make sure it's allowed
                     // for example, porn could have the drugs tag, even though it's not a "porn tag"
-                    if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? true)
+                    if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? true)
                     {
                         return null;
                     }
@@ -419,7 +419,7 @@ public static class SeriesSearch
                     var anime = RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
                     // Because we are searching tags, then getting series from it, we need to make sure it's allowed
                     // for example, porn could have the drugs tag, even though it's not a "porn tag"
-                    if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? true)
+                    if (anime?.GetAnime()?.GetAllTags().FindInEnumerable(user.RestrictedTags) ?? true)
                     {
                         return null;
                     }

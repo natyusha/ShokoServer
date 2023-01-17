@@ -3,7 +3,7 @@ using Shoko.Models.Plex.Connections;
 using Shoko.Models.Plex.Libraries;
 
 # nullable enable
-namespace Shoko.Server.API.v3.Plex;
+namespace Shoko.Server.API.v3.Models.Plex;
 
 public class PlexLibrary
 {

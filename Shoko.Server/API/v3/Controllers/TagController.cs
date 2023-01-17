@@ -41,7 +41,7 @@ public class TagController : BaseController
         var tagFilter = new TagFilter<AniDB_Tag>(name => RepoFactory.AniDB_Tag.GetByName(name).FirstOrDefault(), tag => tag.TagName);
         return tagFilter
             .ProcessTags(filter, selectedTags)
-            .Where(tag => user.IsAdmin == 1 || user.AllowedTag(tag))
+            .Where(tag => user.IsAdmin || user.AllowedTag(tag))
             .OrderBy(tag => tag.TagName)
             .ToListResult(tag => new Tag(tag, excludeDescriptions), page, pageSize);
     }
@@ -60,7 +60,7 @@ public class TagController : BaseController
             return NotFound("No AniDB Tag entry for the given tagID");
 
         var user = User;
-        if (user.IsAdmin != 1 && !user.AllowedTag(tag))
+        if (!user.IsAdmin && !user.AllowedTag(tag))
             return Forbid("Accessing Tag is not allowed for the current user");
 
         return new Tag(tag, excludeDescription);

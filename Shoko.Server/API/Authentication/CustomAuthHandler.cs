@@ -61,7 +61,7 @@ public class CustomAuthHandler : AuthenticationHandler<CustomAuthOptions>
             new(ClaimTypes.NameIdentifier, user.JMMUserID.ToString()),
             new(ClaimTypes.AuthenticationMethod, "apikey")
         };
-        if (user.IsAdmin == 1)
+        if (user.IsAdmin)
         {
             claims.Add(new Claim(ClaimTypes.Role, "admin"));
         }
