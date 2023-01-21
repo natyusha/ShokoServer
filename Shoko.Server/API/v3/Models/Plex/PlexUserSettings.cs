@@ -1,6 +1,8 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Shoko.Models.Server;
+using Shoko.Server.Repositories;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Models.Plex;
@@ -10,9 +12,20 @@ namespace Shoko.Server.API.v3.Models.Plex;
 /// </summary>
 public class PlexUserSettings
 {
-    public PlexUserSettings()
+    public PlexUserSettings(JMMUser_Plex settings)
     {
         LocalUsers = new();
+    }
+    
+    public PlexUserSettings MergeWithExisting(JMMUser_Plex existing)
+    {
+        if (!existing.LocalUsers.SetEquals(LocalUsers))
+        {
+            existing.LocalUsers = LocalUsers;
+            RepoFactory.JMMUser_Plex.Save(existing);
+        }
+
+        return new(existing);
     }
 
     /// <summary>

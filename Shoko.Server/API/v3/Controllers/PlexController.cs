@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.v3.Models.Plex;
@@ -18,6 +19,56 @@ namespace Shoko.Server.API.v3.Controllers;
 public class PlexController : BaseController
 {
     public PlexController(ISettingsProvider settingsProvider) : base(settingsProvider) {}
+
+    /// <summary>
+    /// Get the user plex settings for the current user.
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet("UserSettings")]
+    public ActionResult<PlexUserSettings> GetPlexUserSettings()
+    {
+        return new PlexUserSettings(User.Plex);
+    }
+
+    /// <summary>
+    /// Replace the user plex settings for the current user with the provided
+    /// <paramref name="userSettings"/>.
+    /// </summary>
+    /// <param name="userSettings">The new user settings to save.</param>
+    /// <returns>The updated user settings.</returns>
+    [HttpPut("UserSettings")]
+    public ActionResult PutPlexUserSettings([FromBody] PlexUserSettings userSettings)
+    {
+        // Merge the settings with the existing settings and return the updated
+        // model.
+        userSettings.MergeWithExisting(User.Plex);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Patch the user plex settings for the current user with the changes in
+    /// the provided <paramref name="userSettings"/>.
+    /// </summary>
+    /// <param name="userSettings">JSON patch document with changes to apply to
+    /// the user plex settings.</param>
+    /// <returns></returns>
+    [HttpPatch("UserSettings")]
+    public ActionResult PatchPlexUserSettings([FromBody] JsonPatchDocument<PlexUserSettings> userSettings)
+    {
+        // Load the database settings and convert it to the api model.
+        var dbUserSettings = User.Plex;
+        var apiUserSettings = new PlexUserSettings(dbUserSettings);
+
+        // Apply the json patch document to the api model and vaildate the state.
+        userSettings.ApplyTo(apiUserSettings, ModelState);
+        TryValidateModel(apiUserSettings);
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Potentially merge the modified settings back into the database model.
+        apiUserSettings.MergeWithExisting(dbUserSettings);
+        return NoContent();
+    }
 
     /// <summary>
     /// Get an OAuth2 authenticate url to authenticate the current user.
@@ -41,7 +92,7 @@ public class PlexController : BaseController
     }
 
     /// <summary>
-    /// Invalidate and remove the current plex authentication token.
+    /// Invalidate and remove the plex authentication token for the current user.
     /// </summary>
     /// <returns></returns>
     [HttpDelete("IsAuthenticated")]
@@ -171,6 +222,72 @@ public class PlexController : BaseController
             return BadRequest(e.Message);
         }
     }
+
+    /// <summary>
+    /// Get the user plex settings for the user.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <returns></returns>
+    [HttpGet("UserSettings")]
+    public ActionResult<PlexUserSettings> GetPlexUserSettingsForUser([FromRoute] int userID)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        return new PlexUserSettings(user.Plex);
+    }
+
+    /// <summary>
+    /// Replace the user plex settings for the user with the provided
+    /// <paramref name="userSettings"/>.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <param name="userSettings">The new user settings to save.</param>
+    /// <returns>The updated user settings.</returns>
+    [HttpPut("UserSettings")]
+    public ActionResult PutPlexUserSettingsForUser([FromRoute] int userID, [FromBody] PlexUserSettings userSettings)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        // Merge the settings with the existing settings and return the updated
+        // model.
+        userSettings.MergeWithExisting(user.Plex);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Patch the user plex settings for the user with the changes in
+    /// the provided <paramref name="userSettings"/>.
+    /// </summary>
+    /// <param name="userID">User ID</param>
+    /// <param name="userSettings">JSON patch document with changes to apply to
+    /// the user plex settings.</param>
+    /// <returns></returns>
+    [HttpPatch("UserSettings")]
+    public ActionResult PatchPlexUserSettingsForUser([FromRoute] int userID, [FromBody] JsonPatchDocument<PlexUserSettings> userSettings)
+    {
+        var user = RepoFactory.JMMUser.GetByID(userID);
+        if (user == null)
+            return NotFound("Unable to find user with the given id.");
+
+        // Load the database settings and convert it to the api model.
+        var dbUserSettings = user.Plex;
+        var apiUserSettings = new PlexUserSettings(dbUserSettings);
+
+        // Apply the json patch document to the api model and vaildate the state.
+        userSettings.ApplyTo(apiUserSettings, ModelState);
+        TryValidateModel(apiUserSettings);
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Potentially merge the modified settings back into the database model.
+        apiUserSettings.MergeWithExisting(dbUserSettings);
+        return NoContent();
+    }
+
     /// <summary>
     /// Get an OAuth2 authenticate url to authenticate the user.
     /// </summary>
