@@ -1,22 +1,23 @@
-using Shoko.Plugin.Abstractions;
+using Shoko.Plugin.Abstractions.Events;
 
+#nullable enable
 namespace Shoko.Server.API.SignalR.Models;
 
 public class FileRenamedEventSignalRModel : FileEventSignalRModel
 {
-    public FileRenamedEventSignalRModel(FileRenamedEventArgs eventArgs) : base(eventArgs)
-    {
-        NewFileName = eventArgs.NewFileName;
-        OldFileName = eventArgs.OldFileName;
-    }
-
     /// <summary>
     /// The new File name.
     /// </summary>
-    public string NewFileName { get; set; }
+    public string FileName { get; }
 
     /// <summary>
     /// The old file name.
     /// </summary>
-    public string OldFileName { get; set; }
+    public string OldFileName { get; }
+
+    public FileRenamedEventSignalRModel(FileRenamedEventArgs eventArgs) : base(eventArgs)
+    {
+        FileName = eventArgs.FileName;
+        OldFileName = eventArgs.OldFileName;
+    }
 }

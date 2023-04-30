@@ -1,6 +1,7 @@
 using System;
 using Microsoft.AspNetCore.SignalR;
 using Shoko.Plugin.Abstractions;
+using Shoko.Plugin.Abstractions.Events;
 using Shoko.Server.API.SignalR.Models;
 
 namespace Shoko.Server.API.SignalR.Aggregate;
@@ -19,7 +20,7 @@ public class ShokoEventEmitter : BaseEmitter, IDisposable
         EventHandler.FileMoved += OnFileMoved;
         EventHandler.FileNotMatched += OnFileNotMatched;
         EventHandler.FileDeleted += OnFileDeleted;
-        EventHandler.SeriesUpdated += OnSeriesUpdated;
+        EventHandler.ShowUpdated += OnShowUpdated;
         EventHandler.EpisodeUpdated += OnEpisodeUpdated;
     }
 
@@ -32,7 +33,7 @@ public class ShokoEventEmitter : BaseEmitter, IDisposable
         EventHandler.FileRenamed -= OnFileRenamed;
         EventHandler.FileMoved -= OnFileMoved;
         EventHandler.FileDeleted -= OnFileDeleted;
-        EventHandler.SeriesUpdated -= OnSeriesUpdated;
+        EventHandler.ShowUpdated -= OnShowUpdated;
         EventHandler.EpisodeUpdated -= OnEpisodeUpdated;
     }
 
@@ -71,14 +72,14 @@ public class ShokoEventEmitter : BaseEmitter, IDisposable
         await SendAsync("FileNotMatched", new FileNotMatchedEventSignalRModel(e));
     }
 
-    private async void OnSeriesUpdated(object sender, SeriesInfoUpdatedEventArgs e)
+    private async void OnShowUpdated(object sender, ShowUpdatedEventArgs e)
     {
-        await SendAsync("SeriesUpdated", new SeriesInfoUpdatedEventSignalRModel(e));
+        await SendAsync("SeriesUpdated", new ShowUpdatedEventSignalRModel(e));
     }
 
-    private async void OnEpisodeUpdated(object sender, EpisodeInfoUpdatedEventArgs e)
+    private async void OnEpisodeUpdated(object sender, EpisodeUpdatedEventArgs e)
     {
-        await SendAsync("EpisodeUpdated", new EpisodeInfoUpdatedEventSignalRModel(e));
+        await SendAsync("EpisodeUpdated", new EpisodeUpdatedEventSignalRModel(e));
     }
 
     public override object GetInitialMessage()
