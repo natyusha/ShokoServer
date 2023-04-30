@@ -1,16 +1,23 @@
+using Shoko.Plugin.Abstractions.DataModels;
 
-namespace Shoko.Plugin.Abstractions
+#nullable enable
+namespace Shoko.Plugin.Abstractions.Events;
+
+public class FileRenamedEventArgs : FileEventArgs
 {
-    public class FileRenamedEventArgs : FileEventArgs
-    {
-        /// <summary>
-        /// The new Filename, after the rename
-        /// </summary>
-        public string NewFileName { get; set; }
+    /// <summary>
+    /// The new file name.
+    /// </summary>
+    public string FileName { get; set; }
 
-        /// <summary>
-        /// The old Filename, before we renamed it
-        /// </summary>
-        public string OldFileName { get; set; }
+    /// <summary>
+    /// The old file name.
+    /// </summary>
+    public string OldFileName { get; set; }
+
+    public FileRenamedEventArgs(IShokoVideoFileLocation fileLocation, string newFileName, string oldFileName) : base(fileLocation)
+    {
+        FileName = newFileName;
+        OldFileName = oldFileName;
     }
 }

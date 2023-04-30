@@ -1,24 +1,44 @@
 using System.Collections.Generic;
+using System.Linq;
 using Shoko.Plugin.Abstractions.DataModels;
 
-namespace Shoko.Plugin.Abstractions
+namespace Shoko.Plugin.Abstractions.Events;
+
+public class FileMatchedEventArgs : FileEventArgs
 {
+    /// <summary>
+    /// The cross-references for the video.
+    /// </summary>
+    public IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; set; }
 
-    public class FileMatchedEventArgs : FileEventArgs
+    /// <summary>
+    /// The episodes linked directly to the video.
+    /// </summary>
+    public IReadOnlyList<IShokoEpisode> Episodes { get; set; }
+
+    /// <summary>
+    /// The series linked directly to the video.
+    /// </summary>
+    public IReadOnlyList<IShokoSeries> Series { get; set; }
+
+    /// <summary>
+    /// The groups linked indirectly to the video.
+    /// </summary>
+    public IReadOnlyList<IShokoGroup> Groups { get; set; }
+
+    public FileMatchedEventArgs(IShokoVideoFileLocation fileLocation) : base(fileLocation)
     {
-        /// <summary>
-        /// Information about the Anime, such as titles
-        /// </summary>
-        public IList<IAnime> AnimeInfo { get; set; }
-
-        /// <summary>
-        /// Information about the group
-        /// </summary>
-        public IList<IGroup> GroupInfo { get; set; }
-
-        /// <summary>
-        /// Information about the episode, such as titles
-        /// </summary>
-        public IList<IEpisode> EpisodeInfo { get; set; }
+        CrossReferences = Video.CrossReferences;
+        Episodes = CrossReferences
+            .Select(xref => xref.Episode)
+            .ToList();
+        Series = CrossReferences
+            .Select(xref => xref.Series)
+            .DistinctBy(series => series.Id)
+            .ToList();
+        Groups = Series
+            .Select(series => series.ParentGroup)
+            .DistinctBy(group => group.Id)
+            .ToList();
     }
 }

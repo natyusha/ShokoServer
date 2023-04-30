@@ -1,25 +1,28 @@
-namespace Shoko.Plugin.Abstractions.DataModels
+using Shoko.Plugin.Abstractions.Enums;
+
+#nullable enable
+namespace Shoko.Plugin.Abstractions.DataModels;
+
+public interface IImportFolder
 {
-    public interface IImportFolder
-    {
-        /// <summary>
-        /// Import folder ID.
-        /// </summary>
-        int ImportFolderID { get; }
+    /// <summary>
+    /// Import folder ID.
+    /// </summary>
+    int Id { get; }
 
-        /// <summary>
-        /// The Import Folder's name. This is user specified in WebUI, or NA for legacy
-        /// </summary>
-        string Name { get; }
-        
-        /// <summary>
-        /// The Base Location of the Import Folder in the host, VM, or container filesystem
-        /// </summary>
-        string Location { get; }
+    /// <summary>
+    /// The Import Folder's name. This is user specified in WebUI,
+    /// or "NA" for legacy.
+    /// </summary>
+    string Name { get; }
 
-        /// <summary>
-        /// The rules that this Import Folder should adhere to. A folder that is both a Source and Destination cares not how files are moved in or out of it.
-        /// </summary>
-        DropFolderType DropFolderType { get; }
-    }
+    /// <summary>
+    /// The Base Location of the Import Folder in the host, VM, or container filesystem
+    /// </summary>
+    string Path { get; }
+
+    /// <summary>
+    /// The rules that this Import Folder should adhere to. A folder that is both a Source and Destination cares not how files are moved in or out of it.
+    /// </summary>
+    ImportFolderType Type { get; }
 }

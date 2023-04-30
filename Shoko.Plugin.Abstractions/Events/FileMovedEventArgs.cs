@@ -1,33 +1,23 @@
-
 using Shoko.Plugin.Abstractions.DataModels;
 
-namespace Shoko.Plugin.Abstractions
+#nullable enable
+namespace Shoko.Plugin.Abstractions.Events;
+
+public class FileMovedEventArgs : FileEventArgs
 {
-    public class FileMovedEventArgs
+    /// <summary>
+    /// The old relative path relative to the root of the old import folder.
+    /// /// </summary>
+    public string OldRelativePath { get; set; }
+
+    /// <summary>
+    /// The old import folder for the file location.
+    /// </summary>
+    public IImportFolder OldImportFolder { get; set; }
+
+    public FileMovedEventArgs(IShokoVideoFileLocation fileLocation, string newRelativePath, IImportFolder newImportFolder, string oldRelativePath, IImportFolder oldImportFolder) : base(fileLocation, newRelativePath, newImportFolder)
     {
-        /// <summary>
-        /// Information about the file itself, such as media info or hashes.
-        /// </summary>
-        public IVideoFile FileInfo { get; set; }
-
-        /// <summary>
-        /// The new import folder that the file is in
-        /// </summary>
-        public IImportFolder NewImportFolder { get; set; }
-
-        /// <summary>
-        /// The new relative path of the file from the ImportFolder base location
-        /// </summary>
-        public string NewRelativePath { get; set; }
-
-        /// <summary>
-        /// The old import folder that the file was in
-        /// </summary>
-        public IImportFolder OldImportFolder { get; set; }
-
-        /// <summary>
-        /// The old relative path of the file from the old ImportFolder base location
-        /// </summary>
-        public string OldRelativePath { get; set; }
+        OldRelativePath = oldRelativePath;
+        OldImportFolder = oldImportFolder;
     }
 }

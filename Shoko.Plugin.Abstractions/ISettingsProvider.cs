@@ -1,7 +1,8 @@
-namespace Shoko.Plugin.Abstractions
+
+#nullable enable
+namespace Shoko.Plugin.Abstractions;
+
+public interface ISettingsProvider
 {
-    public interface ISettingsProvider
-    {
-        void SaveSettings(IPluginSettings settings);
-    }
+    void SaveSettings(IPluginSettings settings);
 }

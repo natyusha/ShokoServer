@@ -1,10 +1,6 @@
-﻿namespace Shoko.Plugin.Abstractions.DataModels;
 
-public interface IRelatedAnime
-{
-    IAnime RelatedAnime { get; }
-    RelationType RelationType { get; }
-}
+#nullable enable
+namespace Shoko.Plugin.Abstractions.Enums;
 
 /// <summary>
 /// Explains how the main entry relates to the related entry.

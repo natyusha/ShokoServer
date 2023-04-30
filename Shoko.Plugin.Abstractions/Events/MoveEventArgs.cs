@@ -1,44 +1,78 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Shoko.Plugin.Abstractions.DataModels;
 
-namespace Shoko.Plugin.Abstractions
+namespace Shoko.Plugin.Abstractions.Events;
+
+/// <summary>
+/// Represents the event arguments for a Move event. The event can be cancelled
+/// by setting the <see cref="CancelEventArgs.Cancel"/> property to true or
+/// skipped by not setting the result parameters.
+/// </summary>
+public class MoveEventArgs : CancelEventArgs
 {
     /// <summary>
-    /// The event arguments for a Move event. It can be cancelled by setting Cancel to true or skipped by not setting the result parameters.
+    /// A read-only list of import folders available to choose as a destination.
+    /// Set the <see cref="DestinationImportFolder"/> property to one of these
+    /// folders. Folders with <see cref="DropFolderType.Excluded"/> set are not
+    /// included in this list.
     /// </summary>
-    public class MoveEventArgs : CancelEventArgs
+    public IReadOnlyList<IImportFolder> AvailableFolders { get; set; }
+
+    /// <summary>
+    /// The file location being moved.
+    /// </summary>
+    public IShokoVideoFileLocation FileLocation { get; set; }
+
+    /// <summary>
+    /// The video metadata for the file being moved.
+    /// </summary>
+    public IShokoVideo Video { get; set; }
+
+    /// <summary>
+    /// The cross-references for the video.
+    /// </summary>
+    public IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; set; }
+
+    /// <summary>
+    /// The episodes linked directly to the file being moved.
+    /// </summary>
+    public IReadOnlyList<IShokoEpisode> Episodes { get; set; }
+
+    /// <summary>
+    /// The series linked directly to the file being moved.
+    /// </summary>
+    public IReadOnlyList<IShokoSeries> Series { get; set; }
+
+    /// <summary>
+    /// The groups linked indirectly to the file being moved.
+    /// </summary>
+    public IReadOnlyList<IShokoGroup> Groups { get; set; }
+
+    /// <summary>
+    /// The contents of the renamer script.
+    /// </summary>
+    public IRenameScript Script { get; set; }
+    
+    public MoveEventArgs(IEnumerable<IImportFolder> availableFolders, IShokoVideoFileLocation fileLocation, IRenameScript script) : base()
     {
-        /// <summary>
-        /// The available import folders to choose as a destination. You can set the <see cref="DestinationImportFolder"/> to one of these.
-        /// If a Folder has <see cref="DropFolderType.Excluded"/> set, then it won't be in this list.
-        /// </summary>
-        public List<IImportFolder> AvailableFolders { get; set; }
-
-        /// <summary>
-        /// Information about the file itself, such as MediaInfo
-        /// </summary>
-        public IVideoFile FileInfo { get; set; }
-
-        /// <summary>
-        /// Information about the Anime, such as titles
-        /// </summary>
-        public IList<IAnime> AnimeInfo { get; set; }
-
-        /// <summary>
-        /// Information about the group
-        /// </summary>
-        public IList<IGroup> GroupInfo { get; set; }
-
-        /// <summary>
-        /// Information about the episode, such as titles
-        /// </summary>
-        public IList<IEpisode> EpisodeInfo { get; set; }
-
-        /// <summary>
-        /// The renamer script contents
-        /// </summary>
-        public IRenameScript Script { get; set; }
+        AvailableFolders = availableFolders is IReadOnlyList<IImportFolder> list ? list : availableFolders.ToList();
+        FileLocation = fileLocation;
+        Video = fileLocation.Video;
+        CrossReferences = Video.CrossReferences;
+        Episodes = CrossReferences
+            .Select(xref => xref.Episode)
+            .ToList();
+        Series = CrossReferences
+            .Select(xref => xref.Series)
+            .DistinctBy(series => series.Id)
+            .ToList();
+        Groups = Series
+            .Select(series => series.ParentGroup)
+            .DistinctBy(group => group.Id)
+            .ToList();
+        Script = script;
     }
 }

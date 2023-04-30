@@ -2,23 +2,31 @@ using System;
 using System.IO;
 using Shoko.Plugin.Abstractions.DataModels;
 
-namespace Shoko.Plugin.Abstractions
+#nullable enable
+namespace Shoko.Plugin.Abstractions.Events;
+
+public class FileDetectedEventArgs : EventArgs
 {
-    public class FileDetectedEventArgs : EventArgs
+    /// <summary>
+    /// The relative path of the file from the root of the import folder.
+    /// </summary>
+    public string RelativePath { get; set; }
+
+    /// <summary>
+    /// The import folder that the file is in
+    /// </summary>
+    public IImportFolder ImportFolder { get; set; }
+
+    /// <summary>
+    /// FileInfo for the file, since this event is fired before a file location
+    /// has been assigned to the on-disk file.
+    /// </summary>
+    public FileInfo FileInfo { get; set; }
+
+    public FileDetectedEventArgs(FileInfo fileInfo, string relativePath, IImportFolder importFolder) : base()
     {
-        /// <summary>
-        /// The relative path of the file from the ImportFolder base location
-        /// </summary>
-        public string RelativePath { get; set; }
-
-        /// <summary>
-        /// FileInfo for the file. Be careful with this
-        /// </summary>
-        public FileInfo FileInfo { get; set; }
-
-        /// <summary>
-        /// The import folder that the file is in
-        /// </summary>
-        public IImportFolder ImportFolder { get; set; }
+        RelativePath = relativePath;
+        ImportFolder = importFolder;
+        FileInfo = fileInfo;
     }
 }
