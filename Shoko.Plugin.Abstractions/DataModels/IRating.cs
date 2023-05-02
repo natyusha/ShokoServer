@@ -18,7 +18,7 @@ public interface IRating
     /// <summary>
     /// The data source of the rating, e.g. AniDB.
     /// </summary>
-    DataSource Source { get; }
+    DataSource DataSource { get; }
 
     /// <summary>
     /// The number of votes cast for this rating, if known, otherwise null.

@@ -1,7 +1,6 @@
-
-#nullable enable
 using Shoko.Plugin.Abstractions.DataModels;
 
+#nullable enable
 namespace Shoko.Plugin.Abstractions.Events;
 
 public class FileNotMatchedEventArgs : FileEventArgs

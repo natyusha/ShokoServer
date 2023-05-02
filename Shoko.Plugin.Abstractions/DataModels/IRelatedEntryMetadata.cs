@@ -1,4 +1,3 @@
-
 using Shoko.Plugin.Abstractions.Enums;
 
 #nullable enable

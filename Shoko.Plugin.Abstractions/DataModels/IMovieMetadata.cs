@@ -1,8 +1,8 @@
-
 using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
 
+#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IMovieMetadata : IMetadata, ITitleContainer, IOverviewContainer
@@ -23,13 +23,13 @@ public interface IMovieMetadata : IMetadata, ITitleContainer, IOverviewContainer
     /// <summary>
     /// The user rating for the show.
     /// </summary>
-    IRating Rating { get; }
+    IRating? Rating { get; }
 
     /// <summary>
     /// The preferred content-rating according to the language preference
     /// settings.
     /// </summary>
-    IContentRating PrefferedContentRating { get; }
+    IContentRating? PreferredContentRating { get; }
 
     /// <summary>
     /// All content ratings available for the show.

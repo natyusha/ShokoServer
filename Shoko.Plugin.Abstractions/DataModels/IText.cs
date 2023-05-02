@@ -5,7 +5,8 @@ namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IText
 {
-    public TextLanguage Language { get; }
-    public string LanguageCode { get; }
-    public string Value { get; }
+    TextLanguage Language { get; }
+    string LanguageCode { get; }
+    string Value { get; }
+    DataSource DataSource { get; }
 }

@@ -1,10 +1,13 @@
-
+using System;
 using System.Collections.Generic;
 
+#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewContainer
 {
+    #region Identifiers
+
     int Id { get; }
 
     int ParentGroupId { get; }
@@ -12,6 +15,10 @@ public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewConta
     int TopLevelGroupId { get; }
 
     int AniDBId { get; }
+
+    #endregion
+    
+    #region Links
 
     IShokoGroup ParentGroup { get; }
 
@@ -23,5 +30,19 @@ public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewConta
 
     IReadOnlyList<IShowMetadata> Shows { get; }
 
+    IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; }
+
     IReadOnlyList<IShokoEpisode> Episodes { get; }
+
+    IReadOnlyList<IShokoVideo> Videos { get; }
+
+    #endregion
+
+    #region Metadata
+
+    DateTime CreatedAt { get; }
+
+    DateTime LastUpdatedAt { get; }
+
+    #endregion
 }

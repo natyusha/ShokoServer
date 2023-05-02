@@ -6,7 +6,7 @@ public enum EpisodeType
 {
     Unknown = 0,
     Normal = 1,
-    Credits = 2,
+    ThemeSong = 2,
     Special = 3,
     Trailer = 4,
     Parody = 5,

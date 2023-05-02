@@ -1,10 +1,11 @@
-
-
 using Shoko.Plugin.Abstractions.Enums;
+
+#nullable enable
+namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IMetadata
 {
-    public string Id { get; }
+    string Id { get; }
 
     /// <summary>
     /// The metadata source.

@@ -45,20 +45,31 @@ public interface IEpisodeMetadata : IImageContainer, IMetadata, ITitleContainer,
     /// </summary>
     int? SeasonNumber { get; }
 
+    int? AirsAfterSeason { get; }
+
+    int? AirsBeforeSeason { get; }
+
+    int? AirsBeforeEpisode { get; }
+
     /// <summary>
     /// The episode type.
     /// </summary>
     EpisodeType Type { get; }
 
     /// <summary>
+    /// The episode duration.
+    /// </summary>
+    TimeSpan Duration { get; }
+
+    /// <summary>
+    /// The user rating for the episode.
+    /// </summary>
+    IRating? Rating { get; }
+
+    /// <summary>
     /// The first air date of the episode, if known, otherwise null.
     /// </summary>
     DateTime? AirDate { get; }
-
-    /// <summary>
-    /// The episode duration, if it's known, otherwise null.
-    /// </summary>
-    TimeSpan? Duration { get; }
 
     /// <summary>
     /// When the metadata was last updated.

@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.DataModels.AniDB;
@@ -74,9 +73,10 @@ public interface IShokoVideo
     IHashes Hashes { get; }
 
     /// <summary>
-    /// The MediaInfo data for the video file. This may be null, but it is not recommended to rely on null values.
+    /// The media information data for the video file. This may be null if we
+    /// failed to parse the media info for the file.
     /// </summary>
-    IMediaContainer? MediaInfo { get; }
+    IMediaInfo? Media { get; }
 
     /// <summary>
     /// When the file was last imported. "Imported" in this context is when it

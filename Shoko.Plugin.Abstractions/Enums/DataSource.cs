@@ -1,5 +1,6 @@
 using System;
 
+#nullable enable
 namespace Shoko.Plugin.Abstractions.Enums;
 
 /// <summary>

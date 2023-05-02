@@ -1,5 +1,6 @@
 ﻿using System;
 
+#nullable enable
 namespace Shoko.Plugin.Abstractions.Attributes;
 
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
@@ -11,7 +12,7 @@ public class RenamerAttribute : Attribute
     }
 
     public string RenamerId { get; }
-    private string _desc;
+    private string? _desc;
 
     public string Description
     {

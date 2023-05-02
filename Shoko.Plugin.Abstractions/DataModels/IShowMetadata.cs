@@ -55,13 +55,13 @@ public interface IShowMetadata : IMetadata, IImageContainer, ITitleContainer, IO
     /// <summary>
     /// The user rating for the show.
     /// </summary>
-    IRating Rating { get; }
+    IRating? Rating { get; }
 
     /// <summary>
     /// The preferred content rating according to the language preference
     /// settings.
     /// </summary>
-    IContentRating PrefferedContentRating { get; }
+    IContentRating? PreferredContentRating { get; }
 
     /// <summary>
     /// All content ratings available for the show.

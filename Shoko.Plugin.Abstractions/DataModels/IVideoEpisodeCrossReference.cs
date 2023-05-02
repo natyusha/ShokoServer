@@ -6,7 +6,7 @@ public interface IVideoEpisodeCrossReference : IMetadata
 {
     #region Identifiers
 
-    int VideoId { get; }
+    int? VideoId { get; }
 
     int EpisodeId { get; }
 
@@ -16,7 +16,7 @@ public interface IVideoEpisodeCrossReference : IMetadata
 
     #region Links
 
-    IShokoVideo Video { get; }
+    IShokoVideo? Video { get; }
 
     IShokoEpisode Episode { get; }
 

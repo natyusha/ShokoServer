@@ -20,5 +20,4 @@ public interface ITitleContainer
     /// All available titles for the episode.
     /// </summary>
     IReadOnlyList<ITitle> Titles { get; }
-
 }
