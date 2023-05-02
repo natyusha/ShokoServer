@@ -14,7 +14,7 @@ public class FileMovedEventArgs : FileEventArgs
     /// </summary>
     public IImportFolder OldImportFolder { get; set; }
 
-    public FileMovedEventArgs(IShokoVideoFileLocation fileLocation, string newRelativePath, IImportFolder newImportFolder, string oldRelativePath, IImportFolder oldImportFolder) : base(fileLocation, newRelativePath, newImportFolder)
+    public FileMovedEventArgs(IShokoVideoLocation fileLocation, string newRelativePath, IImportFolder newImportFolder, string oldRelativePath, IImportFolder oldImportFolder) : base(fileLocation, newRelativePath, newImportFolder)
     {
         OldRelativePath = oldRelativePath;
         OldImportFolder = oldImportFolder;

@@ -23,7 +23,7 @@ public class MoveEventArgs : CancelEventArgs
     /// <summary>
     /// The file location being moved.
     /// </summary>
-    public IShokoVideoFileLocation FileLocation { get; set; }
+    public IShokoVideoLocation FileLocation { get; set; }
 
     /// <summary>
     /// The video metadata for the file being moved.
@@ -55,7 +55,7 @@ public class MoveEventArgs : CancelEventArgs
     /// </summary>
     public IRenameScript Script { get; set; }
     
-    public MoveEventArgs(IEnumerable<IImportFolder> availableFolders, IShokoVideoFileLocation fileLocation, IRenameScript script) : base()
+    public MoveEventArgs(IEnumerable<IImportFolder> availableFolders, IShokoVideoLocation fileLocation, IRenameScript script) : base()
     {
         AvailableFolders = availableFolders is IReadOnlyList<IImportFolder> list ? list : availableFolders.ToList();
         FileLocation = fileLocation;

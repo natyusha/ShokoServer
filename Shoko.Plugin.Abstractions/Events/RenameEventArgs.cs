@@ -10,7 +10,7 @@ public class RenameEventArgs : CancelEventArgs
     /// <summary>
     /// The file location being renamed.
     /// </summary>
-    public IShokoVideoFileLocation FileLocation { get; set; }
+    public IShokoVideoLocation FileLocation { get; set; }
 
     /// <summary>
     /// The video metadata for the file being renamed.
@@ -42,7 +42,7 @@ public class RenameEventArgs : CancelEventArgs
     /// </summary>
     public IRenameScript Script { get; set; }
 
-    public RenameEventArgs(IShokoVideoFileLocation fileLocation, IRenameScript script) : base()
+    public RenameEventArgs(IShokoVideoLocation fileLocation, IRenameScript script) : base()
     {
         FileLocation = fileLocation;
         Video = fileLocation.Video;

@@ -20,7 +20,7 @@ public class FileNotMatchedEventArgs : FileEventArgs
     /// </summary>
     public bool IsUDPBanned { get; set; }
 
-    public FileNotMatchedEventArgs(IShokoVideoFileLocation fileLocation, int attempts, bool hasXRefs, bool isBanned) : base(fileLocation)
+    public FileNotMatchedEventArgs(IShokoVideoLocation fileLocation, int attempts, bool hasXRefs, bool isBanned) : base(fileLocation)
     {
         AutoMatchAttempts = attempts;
         HasCrossReferences = hasXRefs;

@@ -23,9 +23,9 @@ public class FileEventArgs : EventArgs
     /// <summary>
     /// Either the best matching location, or the location for this particular event.
     /// </summary>
-    public IShokoVideoFileLocation FileLocation { get; set; }
+    public IShokoVideoLocation FileLocation { get; set; }
 
-    public FileEventArgs(IShokoVideoFileLocation fileLocation) : base()
+    public FileEventArgs(IShokoVideoLocation fileLocation) : base()
     {
         ImportFolder = fileLocation.ImportFolder;
         RelativePath = fileLocation.RelativePath;
@@ -33,7 +33,7 @@ public class FileEventArgs : EventArgs
         FileLocation = fileLocation;
     }
 
-    public FileEventArgs(IShokoVideoFileLocation fileLocation, string relativePath, IImportFolder importFolder) : base()
+    public FileEventArgs(IShokoVideoLocation fileLocation, string relativePath, IImportFolder importFolder) : base()
     {
         ImportFolder = importFolder;
         RelativePath = relativePath;

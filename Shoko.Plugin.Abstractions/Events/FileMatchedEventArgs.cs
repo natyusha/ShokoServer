@@ -26,7 +26,7 @@ public class FileMatchedEventArgs : FileEventArgs
     /// </summary>
     public IReadOnlyList<IShokoGroup> Groups { get; set; }
 
-    public FileMatchedEventArgs(IShokoVideoFileLocation fileLocation) : base(fileLocation)
+    public FileMatchedEventArgs(IShokoVideoLocation fileLocation) : base(fileLocation)
     {
         CrossReferences = Video.CrossReferences;
         Episodes = CrossReferences

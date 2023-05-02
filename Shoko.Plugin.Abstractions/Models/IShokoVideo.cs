@@ -21,7 +21,7 @@ public interface IShokoVideo
     /// <summary>
     /// A read-only list of video files associated with the video.
     /// </summary>
-    IReadOnlyList<IShokoVideoFileLocation> Locations { get; }
+    IReadOnlyList<IShokoVideoLocation> Locations { get; }
 
     IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; }
 

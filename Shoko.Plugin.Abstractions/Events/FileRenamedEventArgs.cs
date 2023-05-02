@@ -14,7 +14,7 @@ public class FileRenamedEventArgs : FileEventArgs
     /// </summary>
     public string OldFileName { get; set; }
 
-    public FileRenamedEventArgs(IShokoVideoFileLocation fileLocation, string newFileName, string oldFileName) : base(fileLocation)
+    public FileRenamedEventArgs(IShokoVideoLocation fileLocation, string newFileName, string oldFileName) : base(fileLocation)
     {
         FileName = newFileName;
         OldFileName = oldFileName;

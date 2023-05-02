@@ -1,7 +1,7 @@
 
 namespace Shoko.Plugin.Abstractions.Models;
 
-public interface IShokoVideoFileLocation
+public interface IShokoVideoLocation
 {
     #region Identifiers
 
