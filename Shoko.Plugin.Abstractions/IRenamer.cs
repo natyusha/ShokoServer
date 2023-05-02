@@ -1,4 +1,4 @@
-﻿using Shoko.Plugin.Abstractions.DataModels;
+﻿using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Events;
 
 namespace Shoko.Plugin.Abstractions;
