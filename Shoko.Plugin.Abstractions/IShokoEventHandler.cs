@@ -1,7 +1,6 @@
 using System;
 using Shoko.Plugin.Abstractions.Events;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions;
 
 public interface IShokoEventHandler

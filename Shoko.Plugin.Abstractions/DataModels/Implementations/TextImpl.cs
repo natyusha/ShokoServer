@@ -1,7 +1,6 @@
 using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Plugin.Abstractions.Extensions;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels.Implementations;
 
 public class TextImpl : IText

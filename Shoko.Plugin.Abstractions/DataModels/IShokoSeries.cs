@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewContainer

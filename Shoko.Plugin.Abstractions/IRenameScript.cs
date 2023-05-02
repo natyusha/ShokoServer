@@ -1,5 +1,4 @@
 ﻿
-#nullable enable
 namespace Shoko.Plugin.Abstractions;
 
 public interface IRenameScript

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IMediaInfo

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Shoko.Plugin.Abstractions.Enums;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public class AniDBMediaData

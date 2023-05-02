@@ -2,7 +2,6 @@
 using System.Linq;
 using Shoko.Plugin.Abstractions.Enums;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.Extensions;
 
 public static class LanguageExtensions

@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Linq;
 using Shoko.Plugin.Abstractions.DataModels;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.Events;
 
 /// <summary>

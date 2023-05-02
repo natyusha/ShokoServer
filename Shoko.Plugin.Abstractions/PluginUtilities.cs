@@ -1,6 +1,5 @@
 using System;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions;
 
 public static class PluginUtilities

@@ -1,6 +1,5 @@
 using Shoko.Plugin.Abstractions.Enums;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels.Implementations;
 
 public class RatingImpl : IRating

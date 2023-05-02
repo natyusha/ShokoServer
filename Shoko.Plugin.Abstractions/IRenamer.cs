@@ -1,7 +1,6 @@
 ﻿using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Events;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions;
 
 /// <summary>

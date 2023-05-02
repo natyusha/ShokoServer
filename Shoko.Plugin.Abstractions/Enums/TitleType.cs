@@ -1,6 +1,5 @@
 using System.Xml.Serialization;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.Enums;
 
 public enum TitleType

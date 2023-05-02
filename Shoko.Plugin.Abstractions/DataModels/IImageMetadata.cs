@@ -2,7 +2,6 @@ using System;
 using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Plugin.Abstractions.Extensions;
 
-#nullable enable
 namespace Shoko.Plugin.Abstractions.DataModels;
 
 public interface IImageMetadata
