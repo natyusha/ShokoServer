@@ -31,7 +31,12 @@ public interface IAniDBFile
     string Description { get; }
 
     /// <summary>
-    /// Usually 1. Sometimes 2. 3 happens. It's incremented when a release is updated due to errors 
+    /// ED2K Hash for the anidb file.
+    /// </summary>
+    string ED2K { get; }
+
+    /// <summary>
+    /// Usually 1. Sometimes 2. 3 happens. It's incremented when a release is updated due to errors
     /// </summary>
     int Version { get; }
 
@@ -41,7 +46,7 @@ public interface IAniDBFile
     /// later releases a BD (or DVD) version without the censorship.
     /// </summary>
     bool IsCensored { get; }
-    
+
     /// <summary>
     /// Indicates this file version is depreacated and you should seek out a
     /// newer version from the release group (or another source).
@@ -52,7 +57,7 @@ public interface IAniDBFile
     /// Indicates the video contains chapters.
     /// </summary>
     bool IsChaptered { get; }
-    
+
     /// <summary>
     /// The reported file size from AniDB.
     /// If you got this far and it doesn't match, something very odd has
@@ -63,15 +68,16 @@ public interface IAniDBFile
     /// <summary>
     /// AniDB's user input data for streams
     /// </summary>
-    AniDBMediaData MediaInfo { get; }
+    AniDBMediaData Media { get; }
 
     /// <summary>
-    /// When the file was released, according to AniDB. This will be wrong for a lot of older or less popular anime
+    /// When the file was released, according to AniDB. This will be wrong for a
+    /// lot of older or less popular anime.
     /// </summary>
-    DateTime? ReleaseDate { get; }
+    DateTime? ReleasedAt { get; }
 
     /// <summary>
     /// When the local metadata was last updated.
     /// </summary>
-    DateTime LastUpdated { get; }
+    DateTime LastUpdatedAt { get; }
 }

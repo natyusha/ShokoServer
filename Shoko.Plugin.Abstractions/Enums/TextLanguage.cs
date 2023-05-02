@@ -113,4 +113,9 @@ public enum TextLanguage
     Yiddish,
     Yoruba,
     Zulu,
+    Hindi,
+    Filipino,
+    KoreanTranscription,
+    ThaiTranscription,
+    Urdu,
 }

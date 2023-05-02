@@ -51,11 +51,6 @@ public interface IShokoVideoLocation
         => ImportFolder != null ?  System.IO.Path.Join(ImportFolder.Path, RelativePath) : null;
 
     /// <summary>
-    /// The file size counted in bytes.
-    /// </summary>
-    long FileSize { get; }
-
-    /// <summary>
     /// Indicates the server can access the file location right now, and the
     /// file location exists.
     /// </summary>

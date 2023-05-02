@@ -9,6 +9,6 @@ public interface IContentRating
     TextLanguage Language { get; }
 
     string Rating { get; }
-    
-    DataSource Source { get; }
+
+    DataSource DataSource { get; }
 }

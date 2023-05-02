@@ -4,7 +4,7 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models;
 
-public interface IEpisodeMetadata : IImageContainer, IMetadata, ITitleContainer, IOverviewContainer
+public interface IEpisodeMetadata : IMetadata, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Idenitifers
 

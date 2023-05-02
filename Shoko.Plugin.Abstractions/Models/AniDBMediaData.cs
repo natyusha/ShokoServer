@@ -14,12 +14,12 @@ public class AniDBMediaData
     /// <summary>
     /// Subtitle languages.
     /// </summary>
-    public IReadOnlyList<TextLanguage> SubLanguages { get; set; }
+    public IReadOnlyList<TextLanguage> SubtitleLanguages { get; set; }
 
     public AniDBMediaData(IEnumerable<TextLanguage> audio, IEnumerable<TextLanguage> sub)
     {
         AudioLanguages = audio is IReadOnlyList<TextLanguage> audioList ? audioList : audio.ToList();
-        SubLanguages = sub is IReadOnlyList<TextLanguage> subList ? subList : sub.ToList();
+        SubtitleLanguages = sub is IReadOnlyList<TextLanguage> subList ? subList : sub.ToList();
     }
 }
 

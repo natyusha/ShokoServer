@@ -8,7 +8,7 @@ public static class LanguageExtensions
 {
     public static TextLanguage ToTextLanguage(this string lang)
     {
-        return lang.ToUpper() switch
+        return lang.ToUpperInvariant() switch
         {
             "EN" or "ENG" => TextLanguage.English,
             "X-JAT" => TextLanguage.Romaji,
@@ -30,6 +30,7 @@ public static class LanguageExtensions
             "HU" or "HUN" => TextLanguage.Hungarian,
             "IT" or "ITA" => TextLanguage.Italian,
             "KO" or "KOR" => TextLanguage.Korean,
+            "X-KOT" => TextLanguage.KoreanTranscription,
             "LT" or "LIT" => TextLanguage.Lithuanian,
             "MN" or "MON" => TextLanguage.Mongolian,
             "MS" or "MSA" or "MY" => TextLanguage.Malaysian,
@@ -67,11 +68,13 @@ public static class LanguageExtensions
             "HR" or "HRV" => TextLanguage.Croatian,
             "DV" or "DIV" => TextLanguage.Divehi,
             "EO" or "EPO" => TextLanguage.Esperanto,
+            "TL" or "FIL" => TextLanguage.Filipino,
             "FJ" or "FIJ" => TextLanguage.Fijian,
             "KA" or "KAT" => TextLanguage.Georgian,
             "GU" or "GUJ" => TextLanguage.Gujarati,
             "HT" or "HAT" => TextLanguage.HaitianCreole,
             "HA" or "HAU" => TextLanguage.Hausa,
+            "HI" or "HIN" => TextLanguage.Hindi,
             "IS" or "ISL" => TextLanguage.Icelandic,
             "IG" or "IBO" => TextLanguage.Igbo,
             "ID" or "IND" => TextLanguage.Indonesian,
@@ -119,7 +122,22 @@ public static class LanguageExtensions
             "YI" or "YID" => TextLanguage.Yiddish,
             "YO" or "YOR" => TextLanguage.Yoruba,
             "ZU" or "ZUL" => TextLanguage.Zulu,
-            _ => TextLanguage.Unknown,
+            "UR" or "URD" => TextLanguage.Urdu,
+            "GREEK (ANCIENT)" => TextLanguage.Greek,
+            "JAVANESE" or "MALAY" or "INDONESIAN" => TextLanguage.Malaysian,
+            "PORTUGUESE (BRAZILIAN)" => TextLanguage.BrazilianPortuguese,
+            "THAI (TRANSCRIPTION)" => TextLanguage.ThaiTranscription,
+            "CHINESE (SIMPLIFIED)" => TextLanguage.ChineseSimplified,
+            "CHINESE (TRADITIONAL)" => TextLanguage.ChineseTraditional,
+            "CHINESE (CANTONESE)" or "CHINESE (MANDARIN)" or
+            "CHINESE (UNSPECIFIED)" or "TAIWANESE" => TextLanguage.Chinese,
+            "CHINESE (TRANSCRIPTION)" => TextLanguage.Pinyin,
+            "JAPANESE (TRANSCRIPTION)" => TextLanguage.Romaji,
+            "CATALAN" or "SPANISH (LATIN AMERICAN)" => TextLanguage.Spanish,
+            "KOREAN (TRANSCRIPTION)" => TextLanguage.KoreanTranscription,
+            "FILIPINO (TAGALOG)" => TextLanguage.Filipino,
+            _ => Enum.TryParse<TextLanguage>(lang.ToLowerInvariant(), out var textLanguage) ?
+                textLanguage : TextLanguage.Unknown,
         };
     }
     
@@ -136,6 +154,8 @@ public static class LanguageExtensions
             TextLanguage.ChineseSimplified => "Chinese (simplified)",
             TextLanguage.ChineseTraditional => "Chinese (traditional)",
             TextLanguage.Pinyin => "Chinese (pinyin/x-zhn)",
+            TextLanguage.KoreanTranscription => "Korean (x-kot)",
+            TextLanguage.ThaiTranscription => "Thai (x-tha)",
             _ => lang.ToString(),
         };
     }
@@ -164,6 +184,7 @@ public static class LanguageExtensions
             TextLanguage.Hungarian => "hu",
             TextLanguage.Italian => "it",
             TextLanguage.Korean => "ko",
+            TextLanguage.KoreanTranscription => "x-kot",
             TextLanguage.Lithuanian => "lt",
             TextLanguage.Mongolian => "mn",
             TextLanguage.Malaysian => "ms",
@@ -179,6 +200,7 @@ public static class LanguageExtensions
             TextLanguage.Serbian => "sr",
             TextLanguage.Swedish => "sv",
             TextLanguage.Thai => "th",
+            TextLanguage.ThaiTranscription => "x-tha",
             TextLanguage.Turkish => "tr",
             TextLanguage.Ukrainian => "uk",
             TextLanguage.Vietnamese => "vi",
@@ -201,11 +223,13 @@ public static class LanguageExtensions
             TextLanguage.Croatian => "hr",
             TextLanguage.Divehi => "dv",
             TextLanguage.Esperanto => "eo",
+            TextLanguage.Filipino => "tl",
             TextLanguage.Fijian => "fj",
             TextLanguage.Georgian => "ka",
             TextLanguage.Gujarati => "gu",
             TextLanguage.HaitianCreole => "ht",
             TextLanguage.Hausa => "ha",
+            TextLanguage.Hindi => "hi",
             TextLanguage.Icelandic => "is",
             TextLanguage.Igbo => "ig",
             TextLanguage.Indonesian => "id",
@@ -248,6 +272,7 @@ public static class LanguageExtensions
             TextLanguage.Turkmen => "tk",
             TextLanguage.Uighur => "ug",
             TextLanguage.Uzbek => "uz",
+            TextLanguage.Urdu => "ur",
             TextLanguage.Welsh => "cy",
             TextLanguage.Xhosa => "xh",
             TextLanguage.Yiddish => "yi",

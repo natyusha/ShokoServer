@@ -3,11 +3,9 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models;
 
-public interface ISeasonMetadata : IImageContainer, ITitleContainer, IOverviewContainer
+public interface ISeasonMetadata : IMetadata, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Ids
-
-    string Id { get; }
 
     string ShowId { get; }
 
@@ -26,6 +24,4 @@ public interface ISeasonMetadata : IImageContainer, ITitleContainer, IOverviewCo
     int Number { get; }
 
     #endregion
-
-    DataSource Source { get; }
 }
