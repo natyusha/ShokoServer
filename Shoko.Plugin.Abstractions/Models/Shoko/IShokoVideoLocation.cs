@@ -1,5 +1,5 @@
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
 public interface IShokoVideoLocation
 {

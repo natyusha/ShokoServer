@@ -1,6 +1,7 @@
 using System;
 using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Provider;
 
 namespace Shoko.Plugin.Abstractions.Events;
 

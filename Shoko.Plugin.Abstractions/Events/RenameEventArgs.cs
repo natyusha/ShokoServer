@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Events;
 

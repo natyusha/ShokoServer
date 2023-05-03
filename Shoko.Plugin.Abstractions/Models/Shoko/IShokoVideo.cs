@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Models.AniDB;
 using Shoko.Plugin.Abstractions.Enums;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
 public interface IShokoVideo
 {
@@ -14,21 +14,44 @@ public interface IShokoVideo
     /// </summary>
     int Id { get; }
 
+    /// <summary>
+    /// The identifier of the <see cref="IAniDBFile"/> assosiated with the
+    /// video, if any.
+    /// </summary>
+    int? AniDBId { get; }
+
     #endregion
 
     #region Links
 
     /// <summary>
-    /// A read-only list of video files associated with the video.
+    /// The preferred video file location for the video.
+    /// </summary>
+    IShokoVideoLocation PreferredLocation { get;}
+
+    /// <summary>
+    /// A list of all file locations associated with the video.
     /// </summary>
     IReadOnlyList<IShokoVideoLocation> Locations { get; }
 
+    /// <summary>
+    /// 
+    /// </summary>
     IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; }
 
+    /// <summary>
+    /// 
+    /// </summary>
     IReadOnlyList<IShokoEpisode> Episodes { get; }
 
+    /// <summary>
+    /// 
+    /// </summary>
     IReadOnlyList<IShokoSeries> Series { get; }
 
+    /// <summary>
+    /// 
+    /// </summary>
     IReadOnlyList<IShokoGroup> Groups { get; }
 
     /// <summary>
@@ -45,6 +68,12 @@ public interface IShokoVideo
     /// the video is still not linked to any episodes.
     /// </summary>
     DataSource CrossReferenceSources { get; }
+
+    /// <summary>
+    /// Indicates the video should be ignored by shoko, and is most likely
+    /// still unrecognised.
+    /// </summary>
+    bool IsIgnored { get; }
 
     /// <summary>
     /// Indicates the video is marked as a variation.
@@ -84,7 +113,7 @@ public interface IShokoVideo
     /// Usually a file is only imported once, but there may be exceptions,
     /// especially when manually linking the video files.
     /// </summary>
-    DateTime? ImportedAt { get; }
+    DateTime? LastImportedAt { get; }
 
     /// <summary>
     /// When the first file location for this video was discovered, and the

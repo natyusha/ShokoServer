@@ -1,3 +1,4 @@
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models;
 

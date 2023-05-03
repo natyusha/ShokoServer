@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using Shoko.Plugin.Abstractions.Models.Provider;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
 public interface IShokoEpisode : IImageContainer, ITitleContainer, IOverviewContainer
 {

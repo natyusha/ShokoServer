@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IShowMetadata : IMetadata, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShowMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Identifiers
 
@@ -77,6 +78,8 @@ public interface IShowMetadata : IMetadata, IImageContainer, ITitleContainer, IO
     /// </summary>
     IReadOnlyList<ITag> Tags { get; }
 
+    IReadOnlyList<IShowRoleMetadata> Roles { get; }
+
     /// <summary>
     /// A list of relations to other shows or movies related to the show.
     /// </summary>
@@ -91,7 +94,7 @@ public interface IShowMetadata : IMetadata, IImageContainer, ITitleContainer, IO
     /// The total episode counts for all episodes (potentially across all
     /// seasons) in the show.
     /// </summary>
-    EpisodeCounts EpisodeCounts { get; }
+    IEpisodeCounts EpisodeCounts { get; }
 
     /// <summary>
     /// The material source of the show, if known, or "Original Work" if there

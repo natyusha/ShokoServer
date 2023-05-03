@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IMovieMetadata : IMetadata, ITitleContainer, IOverviewContainer
+public interface IMovieMetadata : IMetadata<string>, ITitleContainer, IOverviewContainer
 {
     IReadOnlyList<int> ShokoSeriesIds { get; }
 
@@ -38,6 +39,8 @@ public interface IMovieMetadata : IMetadata, ITitleContainer, IOverviewContainer
     IReadOnlyList<IGenre> Genres { get; }
 
     IReadOnlyList<ITag> Tags { get; }
+
+    IReadOnlyList<IMovieRoleMetadata> Roles { get; }
 
     IReadOnlyList<IRelatedEntryMetadata> Relations { get; }
 }

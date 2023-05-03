@@ -1,6 +1,6 @@
 using Shoko.Plugin.Abstractions.Enums;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Provider;
 
 public interface IRelatedEntryMetadata
 {

@@ -1,14 +1,20 @@
 using System.Collections.Generic;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
 public interface IShokoGroup : IImageContainer, ITitleContainer, IOverviewContainer
 {
+    #region Identifiers
+
     int Id { get; }
 
     int? ParentGroudId { get; }
 
     int TopLevelGroupId { get; }
+
+    #endregion
+
+    #region Links
 
     IShokoGroup ParentGroup { get; }
 
@@ -23,4 +29,7 @@ public interface IShokoGroup : IImageContainer, ITitleContainer, IOverviewContai
     /// The series in a group, ordered by AirDate
     /// </summary>
     IReadOnlyList<IShokoSeries> Series { get; }
+
+    #endregion
+
 }

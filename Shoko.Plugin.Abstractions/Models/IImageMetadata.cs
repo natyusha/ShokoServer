@@ -2,7 +2,7 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models;
 
-public interface IImageMetadata : IMetadata
+public interface IImageMetadata : IMetadata<string>
 {
     /// <summary>
     /// Image type.
@@ -26,6 +26,11 @@ public interface IImageMetadata : IMetadata
     /// still be disabled though.
     /// </summary>
     public bool IsLocked { get; }
+    
+    /// <summary>
+    /// Indicates the image is locally available.
+    /// </summary>
+    public bool IsAvailable { get; }
 
     /// <summary>
     /// Image aspect ratio.
@@ -54,12 +59,20 @@ public interface IImageMetadata : IMetadata
     TextLanguage? Language { get; }
 
     /// <summary>
-    /// Remote path relative a provided base to fetch the image.
+    /// A full remote URL to fetch the image, if the provider uses remote
+    /// images.
     /// </summary>
-    string RemotePath { get; }
+    string? RemoteURL { get; }
 
     /// <summary>
-    /// Local path relative to the image directory for the provider.
+    /// Local absolute path to where the image is stored. Will be null if the
+    /// image is currently not locally available.
     /// </summary>
-    string LocalPath { get; }
+    string? Path { get; }
+    
+    /// <summary>
+    /// Get a stream that reads the image contents from the local copy or remote
+    /// copy of the image. Returns null if the image is currently unavailable.
+    /// </summary>
+    System.IO.Stream? GetStream();
 }

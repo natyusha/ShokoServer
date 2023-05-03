@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface ISeasonMetadata : IMetadata, IImageContainer, ITitleContainer, IOverviewContainer
+public interface ISeasonMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Ids
 

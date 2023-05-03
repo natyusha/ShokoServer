@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IEpisodeMetadata : IMetadata, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IEpisodeMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Idenitifers
 
