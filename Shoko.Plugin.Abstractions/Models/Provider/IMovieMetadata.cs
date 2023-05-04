@@ -5,7 +5,7 @@ using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IMovieMetadata : IMetadata<string>, ITitleContainer, IOverviewContainer
+public interface IMovieMetadata : IBaseMetadata
 {
     IReadOnlyList<int> ShokoSeriesIds { get; }
 
@@ -42,5 +42,5 @@ public interface IMovieMetadata : IMetadata<string>, ITitleContainer, IOverviewC
 
     IReadOnlyList<IMovieRoleMetadata> Roles { get; }
 
-    IReadOnlyList<IRelatedEntryMetadata> Relations { get; }
+    IReadOnlyList<IRelationMetadata> Relations { get; }
 }

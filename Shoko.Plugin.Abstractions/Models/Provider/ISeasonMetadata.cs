@@ -3,7 +3,7 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface ISeasonMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface ISeasonMetadata : IBaseMetadata
 {
     #region Ids
 

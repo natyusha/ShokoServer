@@ -5,7 +5,7 @@ using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IShowMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShowMetadata : IBaseMetadata
 {
     #region Identifiers
 
@@ -83,7 +83,7 @@ public interface IShowMetadata : IMetadata<string>, IImageContainer, ITitleConta
     /// <summary>
     /// A list of relations to other shows or movies related to the show.
     /// </summary>
-    IReadOnlyList<IRelatedEntryMetadata> Relations { get; }
+    IReadOnlyList<IRelationMetadata> Relations { get; }
 
     /// <summary>
     /// Indicates whether the show is considered "pornographic."
