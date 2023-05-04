@@ -7,6 +7,8 @@ public interface IRoleMetadata : IMetadata<string>
 {
     #region Identifiers
 
+    string BaseId { get; }
+
     string StaffMemberId { get; }
 
     string? CharacterId { get; }
@@ -14,6 +16,8 @@ public interface IRoleMetadata : IMetadata<string>
     #endregion
 
     #region Links
+
+    IBaseMetadata Base { get; }
 
     IStaffMemberMetadata StaffMember { get; }
 

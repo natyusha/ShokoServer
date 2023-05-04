@@ -96,7 +96,9 @@ public interface IShokoVideo
     TimeSpan Duration { get; }
 
     /// <summary>
-    /// The relevant hashes for the video file. The CRC hash is the only one that should be used, but other hashes may be used for clever uses of the API.
+    /// The relevant hashes for the video file. The ED2k hash is the only one
+    /// that is gurenteed to be present, but other hashes may be used if
+    /// present.
     /// </summary>
     IHashes Hashes { get; }
 

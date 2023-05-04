@@ -78,7 +78,7 @@ public interface IShowMetadata : IBaseMetadata
     /// </summary>
     IReadOnlyList<ITag> Tags { get; }
 
-    IReadOnlyList<IShowRoleMetadata> Roles { get; }
+    IReadOnlyList<IRoleMetadata> Roles { get; }
 
     /// <summary>
     /// A list of relations to other shows or movies related to the show.
@@ -101,6 +101,11 @@ public interface IShowMetadata : IBaseMetadata
     /// is no source, since it's an original.
     /// </summary>
     string? Source { get; }
+
+    /// <summary>
+    /// When the metadata was last updated.
+    /// </summary>
+    DateTime LastUpdated { get; }
 
     #endregion
 }

@@ -4,6 +4,6 @@ namespace Shoko.Plugin.Abstractions.Models;
 
 public interface ITitle : IText
 {
-    bool IsDefault { get; }
+    bool IsPreferred { get; }
     TitleType Type { get; }
 }

@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
@@ -22,6 +22,11 @@ public interface ISeasonMetadata : IBaseMetadata
     #region Metadata
 
     int Number { get; }
+
+    /// <summary>
+    /// When the metadata was last updated.
+    /// </summary>
+    DateTime LastUpdated { get; }
 
     #endregion
 }

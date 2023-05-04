@@ -7,21 +7,41 @@ namespace Shoko.Plugin.Abstractions.Models.Provider;
 
 public interface IMovieMetadata : IBaseMetadata
 {
-    IReadOnlyList<int> ShokoSeriesIds { get; }
+    #region Identifiers
 
-    IReadOnlyList<int> IShokoEpisodeIds { get; }
+    int? ShokoSeriesId { get; }
 
-    IReadOnlyList<IShokoSeries> ShokoSeries { get; }
+    int? ShokoEpisodeId { get; }
 
-    IReadOnlyList<IShokoEpisode> ShokoEpisodes { get; }
+    #endregion
+
+    #region Links
 
     /// <summary>
-    /// The first air date for the show, if known.
+    /// The shoko series linked to the movie.
+    /// </summary>
+    /// <value></value>
+    IShokoSeries? ShokoSeries { get; }
+
+    /// <summary>
+    /// The Shoko episode linked to the movie.
+    /// </summary>
+    IShokoEpisode? ShokoEpisode { get; }
+
+    #endregion
+
+    /// <summary>
+    /// The movie duration.
+    /// </summary>
+    TimeSpan Duration { get; }
+
+    /// <summary>
+    /// The air date for the movie, if known.
     /// </summary>
     DateTime? AirDate { get; }
 
     /// <summary>
-    /// The user rating for the show.
+    /// The user rating for the movie, if known.
     /// </summary>
     IRating? Rating { get; }
 
@@ -32,7 +52,7 @@ public interface IMovieMetadata : IBaseMetadata
     IContentRating? PreferredContentRating { get; }
 
     /// <summary>
-    /// All content ratings available for the show.
+    /// All content ratings available for the movie.
     /// </summary>
     IReadOnlyDictionary<TextLanguage, IContentRating> ContentRatings { get; }
 
@@ -40,7 +60,12 @@ public interface IMovieMetadata : IBaseMetadata
 
     IReadOnlyList<ITag> Tags { get; }
 
-    IReadOnlyList<IMovieRoleMetadata> Roles { get; }
+    IReadOnlyList<IRoleMetadata> Roles { get; }
 
     IReadOnlyList<IRelationMetadata> Relations { get; }
+
+    /// <summary>
+    /// When the metadata was last updated.
+    /// </summary>
+    DateTime LastUpdated { get; }
 }
