@@ -21,6 +21,11 @@ public interface IImportFolder
     string Path { get; }
 
     /// <summary>
+    /// Indicates the import folder is actively being monitored for file events.
+    /// </summary>
+    public bool IsWatched { get; set; }
+
+    /// <summary>
     /// The rules that this Import Folder should adhere to. A folder that is both a Source and Destination cares not how files are moved in or out of it.
     /// </summary>
     ImportFolderType Type { get; }
