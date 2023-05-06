@@ -63,9 +63,4 @@ public interface IMovieMetadata : IBaseMetadata
     IReadOnlyList<IRoleMetadata> Roles { get; }
 
     IReadOnlyList<IRelationMetadata> Relations { get; }
-
-    /// <summary>
-    /// When the metadata was last updated.
-    /// </summary>
-    DateTime LastUpdated { get; }
 }

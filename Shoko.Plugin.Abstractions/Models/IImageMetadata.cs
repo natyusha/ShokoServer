@@ -10,10 +10,10 @@ public interface IImageMetadata : IMetadata<string>
     ImageEntityType ImageType { get; }
 
     /// <summary>
-    /// Indicates the image is the default for the given <see cref="ImageType"/>
-    /// for the linked entry.
+    /// Indicates the image is the preferred for the given
+    /// <see cref="ImageType"/> for the linked entry.
     /// </summary>
-    public bool IsDefault { get; }
+    public bool IsPreferred { get; }
 
     /// <summary>
     /// Indicates the image is enabled for use. Disabled images should not be
@@ -68,7 +68,7 @@ public interface IImageMetadata : IMetadata<string>
     /// Local absolute path to where the image is stored. Will be null if the
     /// image is currently not locally available.
     /// </summary>
-    string? Path { get; }
+    string? LocalPath { get; }
     
     /// <summary>
     /// Get a stream that reads the image contents from the local copy or remote

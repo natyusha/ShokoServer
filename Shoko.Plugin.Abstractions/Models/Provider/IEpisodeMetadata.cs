@@ -71,10 +71,5 @@ public interface IEpisodeMetadata : IBaseMetadata
     /// </summary>
     DateTime? AirDate { get; }
 
-    /// <summary>
-    /// When the metadata was last updated.
-    /// </summary>
-    DateTime LastUpdated { get; }
-
     #endregion
 }

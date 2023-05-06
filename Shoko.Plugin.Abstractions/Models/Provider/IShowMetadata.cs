@@ -102,10 +102,5 @@ public interface IShowMetadata : IBaseMetadata
     /// </summary>
     string? Source { get; }
 
-    /// <summary>
-    /// When the metadata was last updated.
-    /// </summary>
-    DateTime LastUpdated { get; }
-
     #endregion
 }

@@ -17,7 +17,7 @@ public class ImageMetadataImpl : IImageMetadata
     public ImageEntityType ImageType { get; }
 
     /// <inheritdoc/>
-    public bool IsDefault { get; set; }
+    public bool IsPreferred { get; set; }
 
     /// <inheritdoc/>
     public bool IsEnabled { get; set; }
@@ -31,7 +31,7 @@ public class ImageMetadataImpl : IImageMetadata
     /// <inheritdoc/>
     public bool IsAvailable
     {
-        get => !string.IsNullOrEmpty(RemoteURL) || !string.IsNullOrEmpty(Path);
+        get => !string.IsNullOrEmpty(RemoteURL) || !string.IsNullOrEmpty(LocalPath);
     }
 
     private decimal? _aspectRatio { get; set; }
@@ -110,7 +110,7 @@ public class ImageMetadataImpl : IImageMetadata
     private string? _localPath { get; set; }
 
     /// <inheritdoc/>
-    public string? Path
+    public string? LocalPath
     {
         get => _localPath;
         set
@@ -127,13 +127,12 @@ public class ImageMetadataImpl : IImageMetadata
 
     public ImageMetadataImpl(DataSource source, ImageEntityType type, string id, string? localPath = null, string? remoteURL = null)
     {
-
         Id = id;
         ImageType = type;
-        IsDefault = false;
+        IsPreferred = false;
         IsEnabled = false;
         RemoteURL = remoteURL;
-        Path = localPath;
+        LocalPath = localPath;
         DataSource = source;
     }
 
@@ -179,11 +178,15 @@ public class ImageMetadataImpl : IImageMetadata
 
         if (!string.IsNullOrEmpty(_remoteURL))
         {
-            using (var client = new HttpClient())
+            try
             {
-                client.DefaultRequestHeaders.Add("User-Agent", $"ShokoServer/v4");
-                return client.GetStreamAsync(_remoteURL).ConfigureAwait(false).GetAwaiter().GetResult();
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Add("User-Agent", $"ShokoServer/v4");
+                    return client.GetStreamAsync(_remoteURL).ConfigureAwait(false).GetAwaiter().GetResult();
+                }
             }
+            catch { }
         }
 
         return null;

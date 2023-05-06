@@ -4,7 +4,7 @@ namespace Shoko.Plugin.Abstractions.Models;
 
 public interface IImageContainer
 {
-    IImageMetadata DefaultImage { get; }
+    IImageMetadata? PreferredImage { get; }
 
     IReadOnlyList<IImageMetadata> Images { get; }
 }

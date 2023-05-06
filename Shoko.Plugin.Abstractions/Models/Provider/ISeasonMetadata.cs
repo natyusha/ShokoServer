@@ -23,10 +23,5 @@ public interface ISeasonMetadata : IBaseMetadata
 
     int Number { get; }
 
-    /// <summary>
-    /// When the metadata was last updated.
-    /// </summary>
-    DateTime LastUpdated { get; }
-
     #endregion
 }
