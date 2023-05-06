@@ -27,7 +27,7 @@ public interface IShokoVideo
     /// <summary>
     /// The preferred video file location for the video.
     /// </summary>
-    IShokoVideoLocation PreferredLocation { get;}
+    IShokoVideoLocation? PreferredLocation { get;}
 
     /// <summary>
     /// A list of all file locations associated with the video.

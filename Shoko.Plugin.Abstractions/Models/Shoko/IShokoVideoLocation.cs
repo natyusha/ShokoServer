@@ -24,8 +24,14 @@ public interface IShokoVideoLocation
 
     #region Links
 
+    /// <summary>
+    /// Import folder.
+    /// </summary>
     IImportFolder ImportFolder { get; }
 
+    /// <summary>
+    /// Video file.
+    /// </summary>
     IShokoVideo Video { get; }
 
     #endregion
@@ -47,7 +53,7 @@ public interface IShokoVideoLocation
     /// <summary>
     /// The Absolute path of the file, if it's still available.
     /// </summary>
-    string? Path
+    string? AbsolutePath
         => ImportFolder != null ?  System.IO.Path.Join(ImportFolder.Path, RelativePath) : null;
 
     /// <summary>

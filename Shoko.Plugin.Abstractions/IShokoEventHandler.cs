@@ -36,7 +36,7 @@ public interface IShokoEventHandler
     event EventHandler<FileMatchedEventArgs> FileMatched;
 
     /// <summary>
-    /// Fired when a file is renamed
+    /// Fired when a file is renamed (but not moved).
     /// </summary>
     event EventHandler<FileRenamedEventArgs> FileRenamed;
 
@@ -54,6 +54,11 @@ public interface IShokoEventHandler
     /// Fired on show metadata updates. Currently, AniDB, TMDB, etc. will trigger this.
     /// </summary>
     event EventHandler<ShowUpdatedEventArgs> ShowUpdated;
+
+    /// <summary>
+    /// Fired on movie metadata updates. Currently, TMDB is the only source for movie data.
+    /// </summary>
+    event EventHandler<SeasonUpdatedEventArgs> SeasonUpdated;
 
     /// <summary>
     /// Fired on episode metadata updates. Currently, AniDB, TMDB, etc. will trigger this.

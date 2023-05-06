@@ -16,7 +16,7 @@ public class ShowUpdatedEventArgs : EventArgs
     public DataSource DataSource { get; set; }
 
     /// <summary>
-    /// The updated show info.
+    /// The updated show data.
     /// </summary>
     public IShowMetadata Show { get; set; }
 
