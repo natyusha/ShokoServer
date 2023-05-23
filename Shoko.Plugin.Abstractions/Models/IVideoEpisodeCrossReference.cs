@@ -1,3 +1,4 @@
+using Shoko.Plugin.Abstractions.Models.AniDB;
 using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models;
@@ -6,21 +7,37 @@ public interface IVideoEpisodeCrossReference : IMetadata
 {
     #region Identifiers
 
-    int? VideoId { get; }
+    /// <summary>
+    /// The shoko video id.
+    /// </summary>
+    int VideoId { get; }
 
+    /// <summary>
+    /// The shoko episode id.
+    /// </summary>
     int EpisodeId { get; }
 
+    /// <summary>
+    /// The shoko series id.
+    /// </summary>
     int SeriesId { get; }
+
+    /// <summary>
+    /// The anidb release group id, if assosiated with this cross-reference.
+    /// </summary>
+    int? ReleaseGroupId { get; }
 
     #endregion
 
     #region Links
 
-    IShokoVideo? Video { get; }
+    IShokoVideo Video { get; }
 
     IShokoEpisode Episode { get; }
 
     IShokoSeries Series { get; }
+
+    IAniDBReleaseGroup? ReleaseGroup { get; }
 
     #endregion
 
