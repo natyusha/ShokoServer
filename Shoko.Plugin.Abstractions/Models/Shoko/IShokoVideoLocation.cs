@@ -1,14 +1,9 @@
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoVideoLocation
+public interface IShokoVideoLocation : IMetadata<int>
 {
     #region Identifiers
-
-    /// <summary>
-    /// The video file location id.
-    /// </summary>
-    int Id { get; }
 
     /// <summary>
     /// The video id.

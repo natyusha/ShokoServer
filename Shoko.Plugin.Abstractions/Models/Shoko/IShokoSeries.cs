@@ -4,11 +4,9 @@ using Shoko.Plugin.Abstractions.Models.Provider;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShokoSeries : IMetadata<int>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Identifiers
-
-    int Id { get; }
 
     int ParentGroupId { get; }
 
@@ -17,7 +15,7 @@ public interface IShokoSeries : IImageContainer, ITitleContainer, IOverviewConta
     int AniDBId { get; }
 
     #endregion
-    
+
     #region Links
 
     IShokoGroup ParentGroup { get; }

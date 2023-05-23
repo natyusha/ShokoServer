@@ -3,11 +3,9 @@ using Shoko.Plugin.Abstractions.Models.Provider;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoEpisode : IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShokoEpisode : IMetadata<int>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Identifiers
-
-    int Id { get; }
     
     int SeriesId { get; }
 

@@ -2,11 +2,9 @@ using System.Collections.Generic;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoGroup : IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShokoGroup : IMetadata<int>, IImageContainer, ITitleContainer, IOverviewContainer
 {
     #region Identifiers
-
-    int Id { get; }
 
     int? ParentGroudId { get; }
 

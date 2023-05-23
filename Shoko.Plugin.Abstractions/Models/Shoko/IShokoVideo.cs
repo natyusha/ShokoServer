@@ -5,14 +5,9 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoVideo
+public interface IShokoVideo : IMetadata<int>
 {
     #region Identifiers
-
-    /// <summary>
-    /// The unique identifier of the video.
-    /// </summary>
-    int Id { get; }
 
     /// <summary>
     /// The identifier of the <see cref="IAniDBFile"/> assosiated with the

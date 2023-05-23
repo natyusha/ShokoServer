@@ -8,12 +8,12 @@ public interface ITitleContainer
     /// The preferred title of the episode, according to the language preference
     /// settings.
     /// </summary>
-    string PreferredTitle { get; }
+    ITitle PreferredTitle { get; }
 
     /// <summary>
     /// The original main title of the episode.
     /// </summary>
-    string MainTitle { get; }
+    ITitle MainTitle { get; }
 
     /// <summary>
     /// All available titles for the episode.

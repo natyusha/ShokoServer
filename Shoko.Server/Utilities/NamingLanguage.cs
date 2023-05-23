@@ -1,13 +1,13 @@
-﻿using Shoko.Plugin.Abstractions.DataModels;
-using Shoko.Plugin.Abstractions.Extensions;
+﻿using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.Utilities;
 
 public class NamingLanguage
 {
-    public TitleLanguage Language { get; set; }
+    public TextLanguage Language { get; set; }
 
-    public string LanguageCode => Language.GetString();
+    public string LanguageCode => Language.ToLanguageCode();
 
     public string LanguageDescription => Language.GetDescription();
 
@@ -15,14 +15,14 @@ public class NamingLanguage
     {
     }
 
-    public NamingLanguage(TitleLanguage language)
+    public NamingLanguage(TextLanguage language)
     {
         Language = language;
     }
 
     public NamingLanguage(string language)
     {
-        Language = language.GetTitleLanguage();
+        Language = language.ToTextLanguage();
     }
 
     public override string ToString()
