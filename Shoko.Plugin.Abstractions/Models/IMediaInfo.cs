@@ -70,6 +70,11 @@ public interface IMediaInfo
     /// Chapter information present in the media container.
     /// </summary>
     IReadOnlyList<IChapterInfo> Chapters { get; }
+
+    /// <summary>
+    /// Container file attachements.
+    /// </summary>
+    IReadOnlyList<string> Attachments { get; }
 }
 
 public interface IStream
