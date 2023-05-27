@@ -5,6 +5,17 @@ namespace Shoko.Plugin.Abstractions.Extensions;
 
 public static class EnumExtensions
 {
+    public static MuxingMode ToMuxingMode(this string mode)
+    {
+        if (string.IsNullOrEmpty(mode))
+            return MuxingMode.Unknown;
+
+        return mode.ToLowerInvariant() switch
+        {
+            _ => MuxingMode.Unknown,
+        };
+    }
+
     public static AnimeType ToAnimeType(this string type)
     {
         if (string.IsNullOrEmpty(type))
@@ -74,7 +85,7 @@ public static class EnumExtensions
             FileSource.VCD => "vcd",
             FileSource.LaserDisc => "ld",
             FileSource.Camera => "camcorder",
-            _ => "",
+            _ => "unknown",
         };
     }
 }

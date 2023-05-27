@@ -48,8 +48,8 @@ public interface IShokoVideoLocation : IMetadata<int>
     /// <summary>
     /// The Absolute path of the file, if it's still available.
     /// </summary>
-    string? AbsolutePath
-        => ImportFolder != null ?  System.IO.Path.Join(ImportFolder.Path, RelativePath) : null;
+    string AbsolutePath =>
+        System.IO.Path.Join(ImportFolder.Path, RelativePath);
 
     /// <summary>
     /// Indicates the server can access the file location right now, and the

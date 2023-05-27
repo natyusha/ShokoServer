@@ -32,7 +32,7 @@ public interface IMediaInfo
     DateTime? Encoded { get; }
 
     /// <summary>
-    /// True if the media is streaming-friendly.
+    /// Indicates the media is streaming-friendly.
     /// </summary>
     bool IsStreamable { get; }
 
@@ -42,14 +42,14 @@ public interface IMediaInfo
     string FileExtension { get; }
 
     /// <summary>
-    /// The media container format.
+    /// The media container format name.
     /// </summary>
-    string MediaContainer { get; }
+    string ContainerName { get; }
 
     /// <summary>
     /// The media container format version.
     /// </summary>
-    int MediaContainerVersion { get; }
+    int ContainerVersion { get; }
 
     /// <summary>
     /// Video streams in the media container.
@@ -95,12 +95,12 @@ public interface IStream
     int Order { get; }
 
     /// <summary>
-    /// True if this is the default stream of the given type.
+    /// Indicates this is the default stream of the given type.
     /// </summary>
     bool IsDefault { get; }
 
     /// <summary>
-    /// True if the stream is forced to be used.
+    /// Indicates the stream is forced to be used.
     /// </summary>
     bool IsForced { get; }
 
@@ -189,7 +189,7 @@ public interface IStreamFormatInfo
     /// HDR format information, if available.
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
     string? HDR { get; }
 
@@ -197,7 +197,7 @@ public interface IStreamFormatInfo
     /// HDR format compatibility informaiton, if available.
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
     string? HDRCompatibility { get; }
 
@@ -205,31 +205,31 @@ public interface IStreamFormatInfo
     /// Context-adaptive binary arithmetic coding (CABAC).
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
-    bool? CABAC { get; }
+    bool CABAC { get; }
 
     /// <summary>
     /// Bi-direcitonal video object planes (BVOP).
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
-    bool? BVOP { get; }
+    bool BVOP { get; }
 
     /// <summary>
     /// Quarter-pixel motion (Qpel).
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
-    bool? QPel { get; }
+    bool QPel { get; }
 
     /// <summary>
     /// Global Motion Compensation (GMC) mode, if available.
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
     string? GMC { get; }
 
@@ -237,9 +237,22 @@ public interface IStreamFormatInfo
     /// Reference frames count, if known.
     /// </summary>
     /// <remarks>
-    /// Only available for <see cref="VideoStreamInfo"/>.
+    /// Only available for <see cref="IVideoStream"/>.
     /// </remarks>
     int? ReferenceFrames { get; }
+}
+
+public interface IStreamMuxingInfo
+{
+    /// <summary>
+    /// Simplified muxing mode using an enum value.
+    /// </summary>
+    public MuxingMode Mode { get; }
+
+    /// <summary>
+    /// Raw muxing mode value.
+    /// </summary>
+    public string? Raw { get; }
 }
 
 public interface IVideoStream : IStream
@@ -308,6 +321,11 @@ public interface IVideoStream : IStream
     /// Bit-depth of the video stream.
     /// </summary>
     int BitDepth { get; }
+
+    /// <summary>
+    /// How the stream is muxed in the media container.
+    /// </summary>
+    IStreamMuxingInfo Muxing { get;}
 }
 
 public interface IAudioStream : IStream
@@ -337,6 +355,8 @@ public interface IAudioStream : IStream
     /// Compression mode used.
     /// </summary>
     string CompressionMode { get; }
+
+    double? DialogNorm { get; }
 
     /// <summary>
     /// Bit-rate of the audio-stream.

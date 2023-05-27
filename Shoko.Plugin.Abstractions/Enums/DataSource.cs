@@ -62,4 +62,9 @@ public enum DataSource
     /// Shoko.
     /// </summary>
     Shoko = 1024,
+
+    /// <summary>
+    /// User.
+    /// </summary>
+    User = 2048,
 }
