@@ -89,10 +89,18 @@ public interface IShokoVideo : IMetadata<int>
     #region Links
 
     /// <summary>
+    /// The AniDB file metadata associated with the video file. This will be
+    /// null for manually added files, which can be used to determine if a file
+    /// was manually added (though please use
+    /// <see cref="CrossReferenceSources"/> instead to determine the sources for
+    /// the file-episode cross-references.)
+    /// </summary>
+    IAniDBFile? AnidbFile { get; }
+
+    /// <summary>
     /// The preferred video file location for the video.
     /// </summary>
     IShokoVideoLocation? PreferredLocation { get; }
-
 
     /// <summary>
     /// A list of all file locations associated with the video.
@@ -103,6 +111,11 @@ public interface IShokoVideo : IMetadata<int>
     /// 
     /// </summary>
     IReadOnlyList<IShokoVideoCrossReference> AllCrossReferences { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IReleaseGroup> AllReleaseGroups { get; }
 
     /// <summary>
     /// 
@@ -118,20 +131,5 @@ public interface IShokoVideo : IMetadata<int>
     /// 
     /// </summary>
     IReadOnlyList<IShokoGroup> AllGroups { get; }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    IReadOnlyList<IReleaseGroup> AllReleaseGroups { get; }
-
-    /// <summary>
-    /// The AniDB file metadata associated with the video file. This will be
-    /// null for manually added files, which can be used to determine if a file
-    /// was manually added (though please use
-    /// <see cref="CrossReferenceSources"/> instead to determine the sources for
-    /// the file-episode cross-references.)
-    /// </summary>
-    IAniDBFile? AnidbFile { get; }
-
     #endregion
 }

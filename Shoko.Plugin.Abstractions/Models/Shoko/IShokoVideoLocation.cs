@@ -36,14 +36,19 @@ public interface IShokoVideoLocation : IMetadata<int>
     /// <summary>
     /// The Absolute path of the file, if it's still available.
     /// </summary>
-    string AbsolutePath =>
-        Path.Join(ImportFolder.Path, RelativePath);
+    string AbsolutePath { get; }
 
     /// <summary>
     /// Indicates the server can access the file location right now, and the
     /// file location exists.
     /// </summary>
-    bool IsAccessible { get; }
+    bool IsAccessible
+    {
+        get
+        {
+            return GetFileInfo() != null;
+        }
+    }
 
     #endregion
 
@@ -59,33 +64,23 @@ public interface IShokoVideoLocation : IMetadata<int>
     /// </summary>
     IShokoVideo Video { get; }
 
+    #endregion
+
+    #region Methods
+
+    /// <summary>
+    /// Get the file-info object for the on-disk location if it exists and the
+    /// file size matches what we know.
+    /// </summary>
+    /// <returns>The file info object if successfull, otherwise null.</returns>
+    FileInfo? GetFileInfo();
+
     /// <summary>
     /// Get a byte-stream for the on-disk content, if the file location still
-    /// exists.
+    /// exists and the file size matches what we know.
     /// </summary>
-    FileStream? GetFileStream()
-    {
-        // It shouldn't be possible that the import folder is null here, but
-        // hey, it doesn't hurt to check.
-        var importFolder = ImportFolder;
-        if (importFolder is null)
-            return null;
-
-        // It shouldn't be possible that the video is null here, but hey, it
-        // doesn't hurt to check.
-        var video = Video;
-        if (video is null)
-            return null;
-
-        // Check if both the file location exists, and that the size is correct.
-        var absolutePath = Path.Join(importFolder.Path, RelativePath);
-        var fileInfo = new FileInfo(absolutePath);
-        if (!fileInfo.Exists || fileInfo.Length != video.Size)
-            return null;
-
-        // Open the stream.
-        return fileInfo.OpenRead();
-    }
+    /// <returns>The file </returns>
+    FileStream? GetFileStream();
 
     #endregion
 }

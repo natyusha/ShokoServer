@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Search;
 
 namespace Shoko.Plugin.Abstractions.Models;
 
