@@ -15,15 +15,7 @@ public interface IRoleMetadata : IMetadata<string>
 
     #endregion
 
-    #region Links
-
-    IBaseMetadata Base { get; }
-
-    IStaffMemberMetadata StaffMember { get; }
-
-    ICharacterMetadata? Character { get; }
-
-    #endregion
+    #region Metadata
 
     /// <summary>
     /// If the role is for a language that is not native to the show (e.g. a
@@ -42,6 +34,18 @@ public interface IRoleMetadata : IMetadata<string>
     /// Character".
     /// </summary>
     string? Details { get; }
+
+    #endregion
+
+    #region Links
+
+    IBaseMetadata Base { get; }
+
+    IStaffMemberMetadata StaffMember { get; }
+
+    ICharacterMetadata? Character { get; }
+
+    #endregion
 }
 
 public interface IVoiceActorMetadata : IRoleMetadata

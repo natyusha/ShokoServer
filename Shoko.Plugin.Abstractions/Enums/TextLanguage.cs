@@ -3,6 +3,7 @@ namespace Shoko.Plugin.Abstractions.Enums;
 
 public enum TextLanguage
 {
+    None = -1,
     Unknown = 0,
     English = 1,
     Romaji,

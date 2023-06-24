@@ -10,7 +10,7 @@ public class FileMatchedEventArgs : FileEventArgs
     /// <summary>
     /// The cross-references for the video.
     /// </summary>
-    public IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; set; }
+    public IReadOnlyList<IShokoVideoCrossReference> CrossReferences { get; set; }
 
     /// <summary>
     /// The episodes linked directly to the video.
@@ -29,7 +29,7 @@ public class FileMatchedEventArgs : FileEventArgs
 
     public FileMatchedEventArgs(IShokoVideoLocation fileLocation) : base(fileLocation)
     {
-        CrossReferences = Video.CrossReferences;
+        CrossReferences = Video.AllCrossReferences;
         Episodes = CrossReferences
             .Select(xref => xref.Episode)
             .ToList();

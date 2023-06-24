@@ -21,7 +21,7 @@ public class RenameEventArgs : CancelEventArgs
     /// <summary>
     /// The cross-references for the video.
     /// </summary>
-    public IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; set; }
+    public IReadOnlyList<IShokoVideoCrossReference> CrossReferences { get; set; }
 
     /// <summary>
     /// The episodes linked directly to the file being renamed.
@@ -47,7 +47,7 @@ public class RenameEventArgs : CancelEventArgs
     {
         FileLocation = fileLocation;
         Video = fileLocation.Video;
-        CrossReferences = Video.CrossReferences;
+        CrossReferences = Video.AllCrossReferences;
         Episodes = CrossReferences
             .Select(xref => xref.Episode)
             .ToList();

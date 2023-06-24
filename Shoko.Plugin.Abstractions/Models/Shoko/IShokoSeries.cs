@@ -1,10 +1,11 @@
-using System;
 using System.Collections.Generic;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Plugin.Abstractions.Models.Provider;
+using Shoko.Plugin.Abstractions.Models.Search;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoSeries : IMetadata<int>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShokoSeries : IBaseMetadata<int>
 {
     #region Identifiers
 
@@ -12,7 +13,11 @@ public interface IShokoSeries : IMetadata<int>, IImageContainer, ITitleContainer
 
     int TopLevelGroupId { get; }
 
-    int AniDBId { get; }
+    int AnidbAnimeId { get; }
+
+    IReadOnlyList<IMetadata<string>> AllMovieIds { get; }
+
+    IReadOnlyList<IMetadata<string>> AllShowIds { get; }
 
     #endregion
 
@@ -22,25 +27,27 @@ public interface IShokoSeries : IMetadata<int>, IImageContainer, ITitleContainer
 
     IShokoGroup TopLevelGroup { get; }
 
-    IShowMetadata AniDB { get; }
+    IShowMetadata AnidbAnime { get; }
 
-    IReadOnlyList<IMovieMetadata> Movies { get; }
+    IReadOnlyList<IMovieMetadata> AllMovies { get; }
 
-    IReadOnlyList<IShowMetadata> Shows { get; }
+    IReadOnlyList<IMovieMetadata> GetMovies(BaseSearchOptions? options = null);
 
-    IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; }
+    IReadOnlyList<IShowMetadata> AllShows { get; }
 
-    IReadOnlyList<IShokoEpisode> Episodes { get; }
+    IReadOnlyList<IShowMetadata> GetShows(BaseSearchOptions? options = null);
 
-    IReadOnlyList<IShokoVideo> Videos { get; }
+    IReadOnlyList<IShokoVideoCrossReference> AllCrossReferences { get; }
 
-    #endregion
+    IReadOnlyList<IShokoVideoCrossReference> GetCrossReferences(ShokoVideoCrossReferenceSearchOptions? options = null);
 
-    #region Metadata
+    IReadOnlyList<IShokoEpisode> AllEpisodes { get; }
 
-    DateTime CreatedAt { get; }
+    IReadOnlyList<IShokoEpisode> GetEpisodes(BaseSearchOptions? options = null);
 
-    DateTime LastUpdatedAt { get; }
+    IReadOnlyList<IShokoVideo> AllVideos { get; }
+
+    IReadOnlyList<IShokoVideo> GetVideos(BaseSearchOptions? options = null);
 
     #endregion
 }

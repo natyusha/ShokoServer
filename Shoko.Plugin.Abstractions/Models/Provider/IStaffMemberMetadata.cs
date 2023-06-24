@@ -4,18 +4,8 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IStaffMemberMetadata : IBaseMetadata
+public interface IStaffMemberMetadata : IBaseMetadata<string>
 {
-    #region Links
-
-    IReadOnlyList<IRoleMetadata> Roles { get; }
-
-    IReadOnlyList<IShowMetadata> Shows { get; }
-
-    IReadOnlyList<IMovieMetadata> Movies { get; }
-
-    #endregion
-
     #region Metadata
 
     StaffMemberType Type { get; }
@@ -23,6 +13,16 @@ public interface IStaffMemberMetadata : IBaseMetadata
     TextLanguage Language { get; }
 
     string LanguageCode { get; }
+
+    #endregion
+
+    #region Links
+
+    IReadOnlyList<IRoleMetadata> Roles { get; }
+
+    IReadOnlyList<IShowMetadata> Shows { get; }
+
+    IReadOnlyList<IMovieMetadata> Movies { get; }
 
     #endregion
 }

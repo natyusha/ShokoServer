@@ -13,53 +13,14 @@ public interface IShokoVideo : IMetadata<int>
     /// The identifier of the <see cref="IAniDBFile"/> assosiated with the
     /// video, if any.
     /// </summary>
-    int? AniDBId { get; }
-
-    #endregion
-
-    #region Links
-
-    /// <summary>
-    /// The preferred video file location for the video.
-    /// </summary>
-    IShokoVideoLocation? PreferredLocation { get;}
-
-    /// <summary>
-    /// A list of all file locations associated with the video.
-    /// </summary>
-    IReadOnlyList<IShokoVideoLocation> Locations { get; }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    IReadOnlyList<IShokoEpisode> Episodes { get; }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    IReadOnlyList<IShokoSeries> Series { get; }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    IReadOnlyList<IShokoGroup> Groups { get; }
-
-    /// <summary>
-    /// The AniDB file metadata associated with the video file. This will be null for manually added files, which can be used to determine if a file was manually added.
-    /// </summary>
-    IAniDBFile? AniDB { get; }
+    int? AnidbFileId { get; }
 
     #endregion
 
     #region Metadata
 
     /// <summary>
-    /// The cross-refernece sources used, or <see cref="DataSource.None"/> if
+    /// The cross-reference sources used, or <see cref="DataSource.None"/> if
     /// the video is still not linked to any episodes.
     /// </summary>
     DataSource CrossReferenceSources { get; }
@@ -104,15 +65,6 @@ public interface IShokoVideo : IMetadata<int>
     IMediaInfo? Media { get; }
 
     /// <summary>
-    /// When the file was last imported. "Imported" in this context is when it
-    /// was linked to any episodes, be it automatically or manually.
-    ///
-    /// Usually a file is only imported once, but there may be exceptions,
-    /// especially when manually linking the video files.
-    /// </summary>
-    DateTime? LastImportedAt { get; }
-
-    /// <summary>
     /// When the first file location for this video was discovered, and the
     /// video record was made.
     /// </summary>
@@ -122,6 +74,64 @@ public interface IShokoVideo : IMetadata<int>
     /// When the video metadata was last updated.
     /// </summary>
     DateTime LastUpdatedAt { get; }
+
+    /// <summary>
+    /// When the file was last imported. "Imported" in this context is when it
+    /// was linked to any episodes, be it automatically or manually.
+    ///
+    /// Usually a file is only imported once, but there may be exceptions,
+    /// especially when manually linking the video files.
+    /// </summary>
+    DateTime? LastImportedAt { get; }
+
+    #endregion
+
+    #region Links
+
+    /// <summary>
+    /// The preferred video file location for the video.
+    /// </summary>
+    IShokoVideoLocation? PreferredLocation { get; }
+
+
+    /// <summary>
+    /// A list of all file locations associated with the video.
+    /// </summary>
+    IReadOnlyList<IShokoVideoLocation> AllLocations { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IShokoVideoCrossReference> AllCrossReferences { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IShokoEpisode> AllEpisodes { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IShokoSeries> AllSeries { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IShokoGroup> AllGroups { get; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    IReadOnlyList<IReleaseGroup> AllReleaseGroups { get; }
+
+    /// <summary>
+    /// The AniDB file metadata associated with the video file. This will be
+    /// null for manually added files, which can be used to determine if a file
+    /// was manually added (though please use
+    /// <see cref="CrossReferenceSources"/> instead to determine the sources for
+    /// the file-episode cross-references.)
+    /// </summary>
+    IAniDBFile? AnidbFile { get; }
 
     #endregion
 }

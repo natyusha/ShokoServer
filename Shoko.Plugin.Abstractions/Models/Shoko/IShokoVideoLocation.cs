@@ -17,20 +17,6 @@ public interface IShokoVideoLocation : IMetadata<int>
 
     #endregion
 
-    #region Links
-
-    /// <summary>
-    /// Import folder.
-    /// </summary>
-    IImportFolder ImportFolder { get; }
-
-    /// <summary>
-    /// Video file.
-    /// </summary>
-    IShokoVideo Video { get; }
-
-    #endregion
-
     #region Metadata
 
     /// <summary>
@@ -56,6 +42,20 @@ public interface IShokoVideoLocation : IMetadata<int>
     /// file location exists.
     /// </summary>
     bool IsAccessible { get; }
+
+    #endregion
+
+    #region Links
+
+    /// <summary>
+    /// Import folder.
+    /// </summary>
+    IImportFolder ImportFolder { get; }
+
+    /// <summary>
+    /// Video file.
+    /// </summary>
+    IShokoVideo Video { get; }
 
     #endregion
 }

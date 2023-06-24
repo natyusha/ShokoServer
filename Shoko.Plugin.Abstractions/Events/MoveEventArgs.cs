@@ -34,7 +34,7 @@ public class MoveEventArgs : CancelEventArgs
     /// <summary>
     /// The cross-references for the video.
     /// </summary>
-    public IReadOnlyList<IVideoEpisodeCrossReference> CrossReferences { get; set; }
+    public IReadOnlyList<IShokoVideoCrossReference> CrossReferences { get; set; }
 
     /// <summary>
     /// The episodes linked directly to the file being moved.
@@ -61,7 +61,7 @@ public class MoveEventArgs : CancelEventArgs
         AvailableFolders = availableFolders is IReadOnlyList<IImportFolder> list ? list : availableFolders.ToList();
         FileLocation = fileLocation;
         Video = fileLocation.Video;
-        CrossReferences = Video.CrossReferences;
+        CrossReferences = Video.AllCrossReferences;
         Episodes = CrossReferences
             .Select(xref => xref.Episode)
             .ToList();

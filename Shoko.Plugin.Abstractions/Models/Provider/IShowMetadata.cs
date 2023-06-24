@@ -5,7 +5,7 @@ using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IShowMetadata : IBaseMetadata
+public interface IShowMetadata : IBaseMetadata<string>
 {
     #region Identifiers
 
@@ -13,25 +13,6 @@ public interface IShowMetadata : IBaseMetadata
     /// A list of Shoko Series IDs associated with the show.
     /// </summary>
     IReadOnlyList<int> ShokoSeriesIds { get; }
-
-    #endregion
-
-    #region Links
-
-    /// <summary>
-    /// A list of Shoko series linked to the show.
-    /// </summary>
-    IReadOnlyList<IShokoSeries> ShokoSeries { get; }
-
-    /// <summary>
-    /// A list of season metadata associated with the show.
-    /// </summary>
-    IReadOnlyList<ISeasonMetadata> Seasons { get; }
-
-    /// <summary>
-    /// A list of episode metadata associated with the show.
-    /// </summary>
-    IReadOnlyList<IEpisodeMetadata> Episodes { get; }
 
     #endregion
 
@@ -48,7 +29,8 @@ public interface IShowMetadata : IBaseMetadata
     DateTime? AirDate { get; }
 
     /// <summary>
-    /// The last air date for the show, unless the show is still airing.
+    /// The last air date for the show, unless the show is still airing or
+    /// haven't aired yet.
     /// </summary>
     DateTime? EndDate { get; }
 
@@ -101,6 +83,25 @@ public interface IShowMetadata : IBaseMetadata
     /// is no source, since it's an original.
     /// </summary>
     string? Source { get; }
+
+    #endregion
+
+    #region Links
+
+    /// <summary>
+    /// A list of Shoko series linked to the show.
+    /// </summary>
+    IReadOnlyList<IShokoSeries> ShokoSeries { get; }
+
+    /// <summary>
+    /// A list of season metadata associated with the show.
+    /// </summary>
+    IReadOnlyList<ISeasonMetadata> Seasons { get; }
+
+    /// <summary>
+    /// A list of episode metadata associated with the show.
+    /// </summary>
+    IReadOnlyList<IEpisodeMetadata> Episodes { get; }
 
     #endregion
 }

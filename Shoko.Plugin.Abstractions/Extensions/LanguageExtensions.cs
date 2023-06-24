@@ -164,6 +164,7 @@ public static class LanguageExtensions
     {
         return lang switch
         {
+            TextLanguage.None => "none",
             TextLanguage.English => "en",
             TextLanguage.Romaji => "x-jat",
             TextLanguage.Japanese => "ja",

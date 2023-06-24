@@ -5,7 +5,7 @@ using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IMovieMetadata : IBaseMetadata
+public interface IMovieMetadata : IBaseMetadata<string>
 {
     #region Identifiers
 
@@ -15,20 +15,7 @@ public interface IMovieMetadata : IBaseMetadata
 
     #endregion
 
-    #region Links
-
-    /// <summary>
-    /// The shoko series linked to the movie.
-    /// </summary>
-    /// <value></value>
-    IShokoSeries? ShokoSeries { get; }
-
-    /// <summary>
-    /// The Shoko episode linked to the movie.
-    /// </summary>
-    IShokoEpisode? ShokoEpisode { get; }
-
-    #endregion
+    #region Metadata
 
     /// <summary>
     /// The movie duration.
@@ -63,4 +50,21 @@ public interface IMovieMetadata : IBaseMetadata
     IReadOnlyList<IRoleMetadata> Roles { get; }
 
     IReadOnlyList<IRelationMetadata> Relations { get; }
+
+    #endregion
+
+    #region Links
+
+    /// <summary>
+    /// The shoko series linked to the movie.
+    /// </summary>
+    /// <value></value>
+    IShokoSeries? ShokoSeries { get; }
+
+    /// <summary>
+    /// The Shoko episode linked to the movie.
+    /// </summary>
+    IShokoEpisode? ShokoEpisode { get; }
+
+    #endregion
 }

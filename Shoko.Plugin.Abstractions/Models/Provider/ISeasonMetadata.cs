@@ -3,25 +3,25 @@ using System.Collections.Generic;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface ISeasonMetadata : IBaseMetadata
+public interface ISeasonMetadata : IBaseMetadata<string>
 {
     #region Ids
 
     string ShowId { get; }
 
     #endregion
-    
+
+    #region Metadata
+
+    int Number { get; }
+
+    #endregion
+
     #region Links
 
     IShowMetadata Show { get; }
 
     IReadOnlyList<IEpisodeMetadata> Episodes { get; }
-
-    #endregion
-
-    #region Metadata
-
-    int Number { get; }
 
     #endregion
 }

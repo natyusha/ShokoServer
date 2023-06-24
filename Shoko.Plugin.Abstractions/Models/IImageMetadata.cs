@@ -28,7 +28,7 @@ public interface IImageMetadata : IMetadata<string>
     public bool IsLocked { get; }
     
     /// <summary>
-    /// Indicates the image is locally available.
+    /// Indicates the image is readily available.
     /// </summary>
     public bool IsAvailable { get; }
 
@@ -50,13 +50,16 @@ public interface IImageMetadata : IMetadata<string>
 
     /// <summary>
     /// Language code for the language used for the text in the image, if any.
+    /// Or "none" if the image doesn't contain any language spesifics.
     /// </summary>
-    string? LanguageCode { get; }
+    string LanguageCode { get; }
 
     /// <summary>
     /// The language used for any text in the image, if any.
+    /// Or <see cref="TextLanguage.None"/> if the image doesn't contain any
+    /// language spesifics.
     /// </summary>
-    TextLanguage? Language { get; }
+    TextLanguage Language { get; }
 
     /// <summary>
     /// A full remote URL to fetch the image, if the provider uses remote

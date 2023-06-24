@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IShokoGroup : IMetadata<int>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IShokoGroup : IBaseMetadata<int>
 {
     #region Identifiers
 
@@ -14,20 +14,35 @@ public interface IShokoGroup : IMetadata<int>, IImageContainer, ITitleContainer,
 
     #region Links
 
+    /// <summary>
+    /// The direct parent of the group if the group is a sub-group.
+    /// </summary>
     IShokoGroup ParentGroup { get; }
 
+    /// <summary>
+    /// The top-level group this group belongs to. It can refer to itself if it
+    /// is a top-level group.
+    /// </summary>
     IShokoGroup TopLevelGroup { get; }
 
     /// <summary>
-    /// The series that is used for the name. Just use Series.FirstOrDefault() at that point.
+    /// The main series within the group. It can be auto-selected (when
+    /// auto-grouping is enabled) or user overwritten, and will fallback to the
+    /// earliest airing series within the group or any sub-groups if nothing is
+    /// selected.
     /// </summary>
     IShokoSeries MainSeries { get; }
 
     /// <summary>
-    /// The series in a group, ordered by AirDate
+    /// The series directly within the group, ordered by air-date.
     /// </summary>
     IReadOnlyList<IShokoSeries> Series { get; }
 
-    #endregion
+    /// <summary>
+    /// All series directly within the group and within all sub-groups (if any),
+    /// ordered by air-date.
+    /// </summary>
+    IReadOnlyList<IShokoSeries> AllSeries { get; }
 
+    #endregion
 }

@@ -1,9 +1,8 @@
-using Shoko.Plugin.Abstractions.Models.AniDB;
-using Shoko.Plugin.Abstractions.Models.Shoko;
+using Shoko.Plugin.Abstractions.Models.Provider;
 
-namespace Shoko.Plugin.Abstractions.Models;
+namespace Shoko.Plugin.Abstractions.Models.Shoko;
 
-public interface IVideoEpisodeCrossReference : IMetadata
+public interface IShokoVideoCrossReference : IMetadata<int>
 {
     #region Identifiers
 
@@ -18,9 +17,19 @@ public interface IVideoEpisodeCrossReference : IMetadata
     int EpisodeId { get; }
 
     /// <summary>
+    /// The anidb episode id.
+    /// </summary>
+    int AnidbEpisodeId { get; }
+
+    /// <summary>
     /// The shoko series id.
     /// </summary>
     int SeriesId { get; }
+
+    /// <summary>
+    /// The anidb anime id.
+    /// </summary>
+    int AnidbAnimeId { get; }
 
     /// <summary>
     /// The anidb release group id, if assosiated with this cross-reference.
@@ -34,23 +43,27 @@ public interface IVideoEpisodeCrossReference : IMetadata
 
     #endregion
 
+    #region Metadata
+
+    int Order { get; }
+
+    decimal Percentage { get; }
+
+    #endregion
+
     #region Links
 
     IShokoVideo Video { get; }
 
     IShokoEpisode Episode { get; }
 
+    IEpisodeMetadata AnidbEpisode { get; }
+
     IShokoSeries Series { get; }
 
+    IShowMetadata AnidbAnime { get; }
+
     IReleaseGroup? ReleaseGroup { get; }
-
-    #endregion
-
-    #region Metadata
-
-    int Order { get; }
-
-    decimal Percentage { get; }
 
     #endregion
 }

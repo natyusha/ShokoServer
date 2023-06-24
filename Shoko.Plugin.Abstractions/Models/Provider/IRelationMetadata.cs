@@ -12,35 +12,25 @@ public interface IRelationMetadata : IMetadata<string>
 
     string RelatedId { get; }
 
-    IReadOnlyList<int> BaseShokoSeriesIds { get; }
-    
-    IReadOnlyList<int> BaseShokoEpisodeIds { get; }
+    #endregion
 
-    IReadOnlyList<int> RelatedShokoSeriesIds { get; }
+    #region Metadata
 
-    IReadOnlyList<int> RelatedShokoEpisodeIds { get; }
+    RelationType Type { get; }
 
     #endregion
 
     #region Links
 
-    IBaseMetadata Base { get; }
+    /// <summary>
+    /// The base entity, if it is locally available.
+    /// </summary>
+    IBaseMetadata? Base { get; }
 
-    IReadOnlyList<IShokoSeries> BaseShokoSeries { get; }
-
-    IReadOnlyList<IShokoEpisode> BaseShokoEpisodes { get; }
-
+    /// <summary>
+    /// The releated entity, if it is locally available.
+    /// </summary>
     IBaseMetadata? Related { get; }
-
-    IReadOnlyList<IShokoSeries> RelatedShokoSeries { get; }
-
-    IReadOnlyList<IShokoEpisode> RelatedShokoEpisodes { get; }
-
-    #endregion
-
-    #region Metadata
-
-    RelationType RelationType { get; }
 
     #endregion
 }

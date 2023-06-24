@@ -5,7 +5,7 @@ using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IEpisodeMetadata : IBaseMetadata
+public interface IEpisodeMetadata : IBaseMetadata<string>
 {
     #region Idenitifers
 
@@ -14,17 +14,6 @@ public interface IEpisodeMetadata : IBaseMetadata
     public string ShowId { get; }
 
     public IReadOnlyList<int> ShokoEpisodeIds { get; }
-
-    #endregion
-
-    #region Links
-
-    public ISeasonMetadata? Season { get; }
-
-
-    public IShowMetadata Show { get; }
-
-    IReadOnlyList<IShokoEpisode> ShokoEpisodes { get; }
 
     #endregion
 
@@ -70,6 +59,17 @@ public interface IEpisodeMetadata : IBaseMetadata
     /// The first air date of the episode, if known, otherwise null.
     /// </summary>
     DateTime? AirDate { get; }
+
+    #endregion
+
+    #region Links
+
+    public ISeasonMetadata? Season { get; }
+
+
+    public IShowMetadata Show { get; }
+
+    IReadOnlyList<IShokoEpisode> ShokoEpisodes { get; }
 
     #endregion
 }
