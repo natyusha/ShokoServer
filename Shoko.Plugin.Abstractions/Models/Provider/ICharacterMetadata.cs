@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface ICharacterMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface ICharacterMetadata : IBaseMetadata
 {
     #region Links
 

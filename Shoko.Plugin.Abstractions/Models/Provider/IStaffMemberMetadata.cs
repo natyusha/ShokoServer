@@ -4,7 +4,7 @@ using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Plugin.Abstractions.Models.Provider;
 
-public interface IStaffMemberMetadata : IMetadata<string>, IImageContainer, ITitleContainer, IOverviewContainer
+public interface IStaffMemberMetadata : IBaseMetadata
 {
     #region Links
 

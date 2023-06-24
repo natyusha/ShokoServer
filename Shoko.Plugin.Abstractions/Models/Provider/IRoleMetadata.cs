@@ -38,8 +38,8 @@ public interface IRoleMetadata : IMetadata<string>
 
     /// <summary>
     /// The role details, if any. For example, if the role is as a voice actor,
-    /// then the details entail the type of role the character is, e.g. a "Main
-    /// Character."
+    /// then the details entail the type of role the character is, e.g. "Main
+    /// Character".
     /// </summary>
     string? Details { get; }
 }

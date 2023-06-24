@@ -25,7 +25,12 @@ public interface IVideoEpisodeCrossReference : IMetadata
     /// <summary>
     /// The anidb release group id, if assosiated with this cross-reference.
     /// </summary>
-    int? ReleaseGroupId { get; }
+    int? AnidbReleaseGroupId { get; }
+
+    /// <summary>
+    /// The custom release group id, if assosiated with this cross-reference.
+    /// </summary>
+    int? CustomReleaseGroupId { get; }
 
     #endregion
 
@@ -37,7 +42,7 @@ public interface IVideoEpisodeCrossReference : IMetadata
 
     IShokoSeries Series { get; }
 
-    IAniDBReleaseGroup? ReleaseGroup { get; }
+    IReleaseGroup? ReleaseGroup { get; }
 
     #endregion
 

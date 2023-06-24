@@ -31,7 +31,7 @@ public interface IAniDBFile
     /// <summary>
     /// Info about the release group of the file
     /// </summary>
-    IAniDBReleaseGroup ReleaseGroup { get; }
+    IReleaseGroup ReleaseGroup { get; }
 
     /// <summary>
     /// The local video entry assosiated with the anidb file.
