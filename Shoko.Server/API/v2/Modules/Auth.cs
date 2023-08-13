@@ -37,7 +37,7 @@ public class Auth : BaseController
         }
 
         //create and save new token for authenticated user or return known one
-        var apiKey = RepoFactory.AuthTokens.ValidateUser(auth.user.Trim(), auth.pass.Trim(), auth.device.Trim());
+        var apiKey = RepoFactory.Shoko_User_AuthToken.ValidateUser(auth.user.Trim(), auth.pass.Trim(), auth.device.Trim());
 
         if (!string.IsNullOrEmpty(apiKey))
         {
@@ -58,8 +58,8 @@ public class Auth : BaseController
         try
         {
             User.Password = Digest.Hash(newPassword.Trim());
-            RepoFactory.JMMUser.Save(User, false);
-            RepoFactory.AuthTokens.DeleteAllWithUserID(User.JMMUserID);
+            RepoFactory.Shoko_User.Save(User, false);
+            RepoFactory.Shoko_User_AuthToken.DeleteAllWithUserID(User.JMMUserID);
             return Ok();
         }
         catch (Exception ex)
@@ -77,7 +77,7 @@ public class Auth : BaseController
     [HttpDelete("")]
     public ActionResult Delete(string apikey)
     {
-        RepoFactory.AuthTokens.DeleteWithToken(apikey);
+        RepoFactory.Shoko_User_AuthToken.DeleteWithToken(apikey);
         return Ok();
     }
 

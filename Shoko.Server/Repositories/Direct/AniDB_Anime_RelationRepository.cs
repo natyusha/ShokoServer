@@ -3,28 +3,28 @@ using System.Linq;
 using NHibernate;
 using NHibernate.Criterion;
 using Shoko.Server.Databases;
-using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
 using Shoko.Server.Repositories.NHibernate;
 
 namespace Shoko.Server.Repositories.Direct;
 
-public class AniDB_Anime_RelationRepository : BaseDirectRepository<SVR_AniDB_Anime_Relation, int>
+public class AniDB_Anime_RelationRepository : BaseDirectRepository<AniDB_Anime_Relation, int>
 {
-    public SVR_AniDB_Anime_Relation GetByAnimeIDAndRelationID(int animeid, int relatedanimeid)
+    public AniDB_Anime_Relation GetByAnimeIDAndRelationID(int animeid, int relatedanimeid)
     {
         lock (GlobalDBLock)
         {
             using var session = DatabaseFactory.SessionFactory.OpenSession();
             var cr = session
-                .CreateCriteria(typeof(SVR_AniDB_Anime_Relation))
+                .CreateCriteria(typeof(AniDB_Anime_Relation))
                 .Add(Restrictions.Eq("AnimeID", animeid))
                 .Add(Restrictions.Eq("RelatedAnimeID", relatedanimeid))
-                .UniqueResult<SVR_AniDB_Anime_Relation>();
+                .UniqueResult<AniDB_Anime_Relation>();
             return cr;
         }
     }
 
-    public List<SVR_AniDB_Anime_Relation> GetByAnimeID(int id)
+    public List<AniDB_Anime_Relation> GetByAnimeID(int id)
     {
         lock (GlobalDBLock)
         {
@@ -33,30 +33,30 @@ public class AniDB_Anime_RelationRepository : BaseDirectRepository<SVR_AniDB_Ani
         }
     }
 
-    public List<SVR_AniDB_Anime_Relation> GetByAnimeID(IEnumerable<int> ids)
+    public List<AniDB_Anime_Relation> GetByAnimeID(IEnumerable<int> ids)
     {
         lock (GlobalDBLock)
         {
             using var session = DatabaseFactory.SessionFactory.OpenSession();
             var cats = session
-                .CreateCriteria(typeof(SVR_AniDB_Anime_Relation))
+                .CreateCriteria(typeof(AniDB_Anime_Relation))
                 .Add(Restrictions.In("AnimeID", ids.ToArray()))
-                .List<SVR_AniDB_Anime_Relation>();
+                .List<AniDB_Anime_Relation>();
 
-            return new List<SVR_AniDB_Anime_Relation>(cats);
+            return new List<AniDB_Anime_Relation>(cats);
         }
     }
 
-    public List<SVR_AniDB_Anime_Relation> GetByAnimeID(ISessionWrapper session, int id)
+    public List<AniDB_Anime_Relation> GetByAnimeID(ISessionWrapper session, int id)
     {
         lock (GlobalDBLock)
         {
             var cats = session
-                .CreateCriteria(typeof(SVR_AniDB_Anime_Relation))
+                .CreateCriteria(typeof(AniDB_Anime_Relation))
                 .Add(Restrictions.Eq("AnimeID", id))
-                .List<SVR_AniDB_Anime_Relation>();
+                .List<AniDB_Anime_Relation>();
 
-            return new List<SVR_AniDB_Anime_Relation>(cats);
+            return new List<AniDB_Anime_Relation>(cats);
         }
     }
 
@@ -67,14 +67,14 @@ public class AniDB_Anime_RelationRepository : BaseDirectRepository<SVR_AniDB_Ani
     {
         lock (GlobalDBLock)
         {
-            var cats = (from relation in session.QueryOver<SVR_AniDB_Anime_Relation>()
-                where (relation.AnimeID == id || relation.RelatedAnimeID == id) &&
-                      (relation.RelationType == "Prequel" || relation.RelationType == "Sequel")
-                select relation.AnimeID).List<int>();
-            var cats2 = (from relation in session.QueryOver<SVR_AniDB_Anime_Relation>()
-                where (relation.AnimeID == id || relation.RelatedAnimeID == id) &&
-                      (relation.RelationType == "Prequel" || relation.RelationType == "Sequel")
-                select relation.RelatedAnimeID).List<int>();
+            var cats = (from relation in session.QueryOver<AniDB_Anime_Relation>()
+                where (relation.AnidbAnimeId == id || relation.RelatedAnidbAnimeId == id) &&
+                      (relation.RawType == "Prequel" || relation.RawType == "Sequel")
+                select relation.AnidbAnimeId).List<int>();
+            var cats2 = (from relation in session.QueryOver<AniDB_Anime_Relation>()
+                where (relation.AnidbAnimeId == id || relation.RelatedAnidbAnimeId == id) &&
+                      (relation.RawType == "Prequel" || relation.RawType == "Sequel")
+                select relation.RelatedAnidbAnimeId).List<int>();
             return new HashSet<int>(cats.Concat(cats2));
         }
     }

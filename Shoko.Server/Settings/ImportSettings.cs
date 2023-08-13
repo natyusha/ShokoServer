@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 using Shoko.Models.Enums;
 
 namespace Shoko.Server.Settings;
@@ -26,10 +28,6 @@ public class ImportSettings
         @"[\\\/]\$RECYCLE\.BIN[\\\/]", @"[\\\/]\.Recycle\.Bin[\\\/]", @"[\\\/]\.Trash-\d+[\\\/]"
     };
 
-    public RenamingLanguage DefaultSeriesLanguage { get; set; } = RenamingLanguage.Romaji;
-
-    public RenamingLanguage DefaultEpisodeLanguage { get; set; } = RenamingLanguage.Romaji;
-
     public bool RunOnStart { get; set; } = false;
 
     /// <summary>
@@ -40,9 +38,29 @@ public class ImportSettings
 
     public bool ScanDropFoldersOnStart { get; set; } = false;
 
-    public bool Hash_CRC32 { get; set; } = false;
-    public bool Hash_MD5 { get; set; } = false;
-    public bool Hash_SHA1 { get; set; } = false;
+    [JsonIgnore]
+    [Obsolete("Use Hasher.CRC")]
+    public bool Hash_CRC32
+    {
+        get => Hasher.CRC;
+        set => Hasher.CRC = value;
+    }
+
+    [Obsolete("Use Hasher.MD5")]
+    [JsonIgnore]
+    public bool Hash_MD5
+    {
+        get => Hasher.MD5;
+        set => Hasher.MD5 = value;
+    }
+
+    [Obsolete("Use Hasher.SHA1")]
+    [JsonIgnore]
+    public bool Hash_SHA1
+    {
+        get => Hasher.SHA1;
+        set => Hasher.SHA1 = value;
+    }
 
     public bool UseExistingFileWatchedStatus { get; set; } = true;
 

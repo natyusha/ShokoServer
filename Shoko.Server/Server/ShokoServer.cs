@@ -473,11 +473,11 @@ public class ShokoServer
     private void WorkerMediaInfo_DoWork(object sender, DoWorkEventArgs e)
     {
         // first build a list of files that we already know about, as we don't want to process them again
-        var filesAll = RepoFactory.VideoLocal.GetAll();
+        var filesAll = RepoFactory.Shoko_Video.GetAll();
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         foreach (var vl in filesAll)
         {
-            var cr = commandFactory.Create<CommandRequest_ReadMediaInfo>(c => c.VideoLocalID = vl.VideoLocalID);
+            var cr = commandFactory.Create<CommandRequest_ReadMediaInfo>(c => c.VideoLocalID = vl.Id);
             cr.Save();
         }
     }
@@ -657,17 +657,17 @@ public class ShokoServer
         {
             try
             {
-                if (share.FolderIsWatched)
+                if (share.IsWatched)
                 {
-                    logger.LogInformation("Watching ImportFolder: {ImportFolderName} || {ImportFolderLocation}", share.ImportFolderName, share.ImportFolderLocation);
+                    logger.LogInformation("Watching ImportFolder: {ImportFolderName} || {ImportFolderLocation}", share.Name, share.Path);
                 }
 
-                if (Directory.Exists(share.ImportFolderLocation) && share.FolderIsWatched)
+                if (Directory.Exists(share.Path) && share.IsWatched)
                 {
                     
-                    logger.LogInformation("Parsed ImportFolderLocation: {ImportFolderLocation}", share.ImportFolderLocation);
+                    logger.LogInformation("Parsed ImportFolderLocation: {ImportFolderLocation}", share.Path);
 
-                    var fsw = new RecoveringFileSystemWatcher(share.ImportFolderLocation,
+                    var fsw = new RecoveringFileSystemWatcher(share.Path,
                         filters: settings.Import.VideoExtensions.Select(a => "." + a.ToLowerInvariant().TrimStart('.')),
                         pathExclusions: settings.Import.Exclude);
                     fsw.Options = new FileSystemWatcherLockOptions
@@ -675,17 +675,17 @@ public class ShokoServer
                         Enabled = settings.Import.FileLockChecking,
                         Aggressive = settings.Import.AggressiveFileLockChecking,
                         WaitTimeMilliseconds = settings.Import.FileLockWaitTimeMS,
-                        FileAccessMode = share.IsDropSource == 1 ? FileAccess.ReadWrite : FileAccess.Read,
+                        FileAccessMode = share.IsDropSource ? FileAccess.ReadWrite : FileAccess.Read,
                         AggressiveWaitTimeSeconds = settings.Import.AggressiveFileLockWaitTimeSeconds
                     };
                     fsw.FileAdded += FileAdded;
                     fsw.Start();
                     _fileWatchers.Add(fsw);
                 }
-                else if (!share.FolderIsWatched)
+                else if (!share.IsWatched)
                 {
-                    logger.LogInformation("ImportFolder found but not watching: {Name} || {Location}", share.ImportFolderName,
-                        share.ImportFolderLocation);
+                    logger.LogInformation("ImportFolder found but not watching: {Name} || {Location}", share.Name,
+                        share.Path);
                 }
             }
             catch (Exception ex)
@@ -702,7 +702,7 @@ public class ShokoServer
         if (!FileHashHelper.IsVideo(path)) return;
 
         logger.LogInformation("Found file {0}", path);
-        var tup = VideoLocal_PlaceRepository.GetFromFullPath(path);
+        var tup = RepoFactory.ImportFolder.GetFromAbsolutePath(path);
         ShokoEventHandler.Instance.OnFileDetected(tup.Item1, new FileInfo(path));
         var cmd = commandFactory.Create<CommandRequest_HashFile>(c => c.FileName = path);
         cmd.Save();
@@ -852,7 +852,7 @@ public class ShokoServer
             Importer.RunImport_ScanTrakt();
 
             // MovieDB association checks
-            Importer.RunImport_ScanMovieDB();
+            Importer.RunImport_ScanTMDB();
 
             // Check for missing images (in a separate thread)
             DownloadAllImages();
@@ -896,9 +896,9 @@ public class ShokoServer
     {
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         var flag = false;
-        foreach (var user in RepoFactory.JMMUser.GetAll())
+        foreach (var user in RepoFactory.Shoko_User.GetAll())
         {
-            if (string.IsNullOrEmpty(user.PlexToken))
+            if (string.IsNullOrEmpty(user.Plex.Token))
             {
                 continue;
             }

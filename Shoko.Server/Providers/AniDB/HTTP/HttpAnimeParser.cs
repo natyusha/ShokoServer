@@ -7,9 +7,10 @@ using System.Web;
 using System.Xml;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Providers.AniDB.HTTP.GetAnime;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.Providers.AniDB.HTTP;
 
@@ -292,7 +293,7 @@ public class HttpAnimeParser
         }
 
         var language = TryGetAttribute(node, "xml:lang");
-        var langEnum = language.GetTitleLanguage();
+        var langEnum = language.ToTextLanguage();
         var title = UnescapeXml(node.InnerText.Trim()).Replace('`', '\'');
         return new ResponseTitle { Title = title, TitleType = type, Language = langEnum };
     }
@@ -356,11 +357,11 @@ public class HttpAnimeParser
             .Where(nodeChild => Equals("title", nodeChild?.Name))
             .Select(nodeChild => new ResponseTitle
             {
-                Language = nodeChild?.Attributes?["xml:lang"]?.Value.GetTitleLanguage() ?? TitleLanguage.Unknown,
+                Language = nodeChild?.Attributes?["xml:lang"]?.Value.ToTextLanguage() ?? TextLanguage.Unknown,
                 Title = UnescapeXml(nodeChild?.InnerText.Trim())?.Replace('`', '\''),
                 TitleType = TitleType.None,
             })
-            .Where(episodeTitle => !string.IsNullOrEmpty(episodeTitle.Title) && episodeTitle.Language != TitleLanguage.Unknown)
+            .Where(episodeTitle => !string.IsNullOrEmpty(episodeTitle.Title) && episodeTitle.Language != TextLanguage.Unknown)
             .ToList();
 
         var dateString = TryGetProperty(node, "airdate");

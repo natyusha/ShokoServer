@@ -50,21 +50,17 @@ public class QueueEmitter : BaseEmitter, IDisposable
 
     private async void OnGeneralQueueStateChangedEvent(QueueStateEventArgs e)
     {
-        await StateChangedAsync("QueueStateChanged", "GeneralQueueState",
-            new QueueStateSignalRModel
-                {State = e.QueueState.queueState, Description = e.QueueState.formatMessage()});
+        await StateChangedAsync("QueueStateChanged", "GeneralQueueState", new QueueStateSignalRModel(e.QueueState.queueState, e.QueueState.formatMessage()));
     }
 
     private async void OnHasherQueueStateChangedEvent(QueueStateEventArgs e)
     {
-        await StateChangedAsync("QueueStateChanged", "HasherQueueState", new QueueStateSignalRModel
-            {State = e.QueueState.queueState, Description = e.QueueState.formatMessage()});
+        await StateChangedAsync("QueueStateChanged", "HasherQueueState", new QueueStateSignalRModel(e.QueueState.queueState, e.QueueState.formatMessage()));
     }
 
     private async void OnImageQueueStateChangedEvent(QueueStateEventArgs e)
     {
-        await StateChangedAsync("QueueStateChanged", "ImageQueueState", new QueueStateSignalRModel
-            {State = e.QueueState.queueState, Description = e.QueueState.formatMessage()});
+        await StateChangedAsync("QueueStateChanged", "ImageQueueState", new QueueStateSignalRModel(e.QueueState.queueState, e.QueueState.formatMessage()));
     }
 
     private async void OnGeneralQueueCountChangedEvent(QueueCountEventArgs ev)
@@ -97,27 +93,16 @@ public class QueueEmitter : BaseEmitter, IDisposable
         {
             {
                 "GeneralQueueState",
-                new QueueStateSignalRModel
-                {
-                    State = ShokoService.CmdProcessorGeneral.QueueState.queueState,
-                    Description = ShokoService.CmdProcessorGeneral.QueueState.formatMessage()
-                }
+                new QueueStateSignalRModel(ShokoService.CmdProcessorGeneral.QueueState.queueState, ShokoService.CmdProcessorGeneral.QueueState.formatMessage())
+                
             },
             {
                 "HasherQueueState",
-                new QueueStateSignalRModel
-                {
-                    State = ShokoService.CmdProcessorHasher.QueueState.queueState,
-                    Description = ShokoService.CmdProcessorHasher.QueueState.formatMessage()
-                }
+                new QueueStateSignalRModel(ShokoService.CmdProcessorHasher.QueueState.queueState, ShokoService.CmdProcessorHasher.QueueState.formatMessage())
             },
             {
                 "ImageQueueState",
-                new QueueStateSignalRModel
-                {
-                    State = ShokoService.CmdProcessorImages.QueueState.queueState,
-                    Description = ShokoService.CmdProcessorImages.QueueState.formatMessage()
-                }
+                new QueueStateSignalRModel(ShokoService.CmdProcessorImages.QueueState.queueState, ShokoService.CmdProcessorImages.QueueState.formatMessage())
             },
             { "GeneralQueueCount", ShokoService.CmdProcessorGeneral.QueueCount },
             { "HasherQueueCount", ShokoService.CmdProcessorHasher.QueueCount },

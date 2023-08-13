@@ -2,6 +2,7 @@ using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Shoko.Models.Server;
+using Shoko.Server.Models.Internal;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Models.Common;
@@ -15,12 +16,12 @@ public class Tag
         Source = "Shoko";
     }
 
-    public Tag(CustomTag tag, bool excludeDescriptions = false)
+    public Tag(Custom_Tag tag, bool excludeDescriptions = false)
     {
-        ID = tag.CustomTagID;
-        Name = tag.TagName;
+        ID = tag.Id;
+        Name = tag.Name;
         if (!excludeDescriptions)
-            Description = tag.TagDescription;
+            Description = tag.Description;
         Source = "User";
         IsSpoiler = false;
     }

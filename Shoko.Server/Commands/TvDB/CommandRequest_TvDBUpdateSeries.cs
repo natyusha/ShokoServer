@@ -22,7 +22,7 @@ public class CommandRequest_TvDBUpdateSeries : CommandRequestImplementation
     public bool ForceRefresh { get; set; }
     public string SeriesTitle { get; set; }
 
-    [XmlIgnore] public TvDB_Series Result { get; set; }
+    [XmlIgnore] public TvDB_Show Result { get; set; }
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority6;
 
@@ -35,7 +35,7 @@ public class CommandRequest_TvDBUpdateSeries : CommandRequestImplementation
 
     public override void PostInit()
     {
-        SeriesTitle = RepoFactory.TvDB_Series.GetByTvDBID(TvDBSeriesID)?.SeriesName ??
+        SeriesTitle = RepoFactory.TvDB_Show.GetByShowId(TvDBSeriesID)?.MainTitle ??
                       string.Intern("Name not Available");
     }
 
@@ -83,7 +83,7 @@ public class CommandRequest_TvDBUpdateSeries : CommandRequestImplementation
                 "SeriesTitle");
         if (string.IsNullOrEmpty(SeriesTitle))
         {
-            SeriesTitle = RepoFactory.TvDB_Series.GetByTvDBID(TvDBSeriesID)?.SeriesName ??
+            SeriesTitle = RepoFactory.TvDB_Show.GetByShowId(TvDBSeriesID)?.MainTitle ??
                           string.Intern("Name not Available");
         }
 

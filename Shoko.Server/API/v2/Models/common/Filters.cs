@@ -24,14 +24,14 @@ public class Filters : BaseDirectory
         filters = new List<Filters>();
     }
 
-    internal static Filters GenerateFromGroupFilter(HttpContext ctx, SVR_GroupFilter gf, int uid, bool nocast,
+    internal static Filters GenerateFromGroupFilter(HttpContext ctx, GroupFilter gf, int uid, bool nocast,
         bool notag, int level,
         bool all, bool allpic, int pic, TagFilter.Filter tagfilter)
     {
         var f = new Filters { id = gf.GroupFilterID, name = gf.GroupFilterName };
 
         var _ = new List<string>();
-        var gfs = RepoFactory.GroupFilter.GetByParentID(f.id).AsParallel()
+        var gfs = RepoFactory.Shoko_Group_Filter.GetByParentID(f.id).AsParallel()
             // Not invisible in clients
             .Where(a => a.InvisibleInClients == 0 &&
                         // and Has groups or is a directory

@@ -5,22 +5,22 @@ using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Commons.Extensions;
-using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.ModelBinders;
 using Shoko.Server.API.v3.Helpers;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.API.v3.Models.Shoko;
-using Shoko.Server.Models;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using EpisodeType = Shoko.Server.API.v3.Models.Shoko.EpisodeType;
-using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
-using Shoko.Models.Server;
+using AniDBEpisodeType = Shoko.Plugin.Abstractions.Enums.EpisodeType;
 using System.Collections.Concurrent;
+using Shoko.Plugin.Abstractions.Enums;
+using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using Shoko.Server.Models.Internal;
 
 namespace Shoko.Server.API.v3.Controllers;
 
@@ -68,16 +68,16 @@ public class EpisodeController : BaseController
         var user = User;
         var hasSearch = !string.IsNullOrWhiteSpace(search);
         var allowedSeriesDict = new ConcurrentDictionary<int, bool>();
-        var episodes = RepoFactory.AnimeEpisode.GetAll()
+        var episodes = RepoFactory.Shoko_Episode.GetAll()
             .AsParallel()
             .Where(episode =>
             {
                 // Only show episodes the user is allowed to view.
-                if (!allowedSeriesDict.TryGetValue(episode.AnimeSeriesID, out var isAllowed))
-                    allowedSeriesDict.TryAdd(episode.AnimeSeriesID, isAllowed = user.AllowedSeries(episode.GetAnimeSeries()));
+                if (!allowedSeriesDict.TryGetValue(episode.SeriesId, out var isAllowed))
+                    allowedSeriesDict.TryAdd(episode.SeriesId, isAllowed = user.AllowedSeries(episode.Series));
                 return isAllowed;
             })
-            .Select(episode => new { Shoko = episode, AniDB = episode?.AniDB_Episode })
+            .Select(episode => new { Shoko = episode, AniDB = episode?.AniDB })
             .Where(both =>
             {
                 // Make sure we have an anidb entry for the episode, otherwise,
@@ -100,7 +100,7 @@ public class EpisodeController : BaseController
                 // Filter by episode type, if specified
                 if (type != null && type.Count > 0)
                 {
-                    var mappedType = Episode.MapAniDBEpisodeType((AniDBEpisodeType)anidb.EpisodeType);
+                    var mappedType = Episode.MapAniDBEpisodeType(anidb.Type);
                     if (!type.Contains(mappedType))
                         return false;
                 }
@@ -111,7 +111,7 @@ public class EpisodeController : BaseController
                     // If we should hide missing episodes and the episode has no files, then hide it.
                     // Or if we should only show missing episodes and the episode has files, the hide it.
                     var shouldHideMissing = includeMissing == IncludeOnlyFilter.False;
-                    var noFiles = shoko.GetVideoLocals().Count == 0;
+                    var noFiles = shoko.GetVideos().Count == 0;
                     if (shouldHideMissing == noFiles)
                         return false;
                 }
@@ -122,7 +122,7 @@ public class EpisodeController : BaseController
                     // If we should hide watched episodes and the episode is watched, then hide it.
                     // Or if we should only show watched episodes and the the episode is not watched, then hide it.
                     var shouldHideWatched = includeWatched == IncludeOnlyFilter.False;
-                    var isWatched = shoko.GetUserRecord(user.JMMUserID)?.WatchedDate != null;
+                    var isWatched = shoko.GetUserRecord(user.Id)?.LastWatchedAt != null;
                     if (shouldHideWatched == isWatched)
                         return false;
                 }
@@ -133,16 +133,16 @@ public class EpisodeController : BaseController
         {
             var languages = SettingsProvider.GetSettings()
                 .LanguagePreference
-                .Select(lang => lang.GetTitleLanguage())
-                .Concat(new TitleLanguage[] { TitleLanguage.English, TitleLanguage.Romaji })
+                .Select(lang => lang.ToTextLanguage())
+                .Concat(new TextLanguage[] { TextLanguage.English, TextLanguage.Romaji })
                 .ToHashSet();
             return episodes
                 .Search(
                     search,
-                    ep => RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.AniDB.EpisodeID)
+                    ep => RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.AniDB.EpisodeId)
                         .Where(title => title != null && languages.Contains(title.Language))
-                        .Select(title => title.Title)
-                        .Append(ep.Shoko.Title)
+                        .Select(title => title.Value)
+                        .Append(ep.Shoko.GetPreferredTitle().Value)
                         .Distinct()
                         .ToList(),
                     fuzzy
@@ -152,9 +152,9 @@ public class EpisodeController : BaseController
 
         return episodes
             // Order the episodes since we're not using the search ordering.
-            .OrderBy(episode => episode.Shoko.AnimeSeriesID)
-            .ThenBy(episode => episode.AniDB.EpisodeType)
-            .ThenBy(episode => episode.AniDB.EpisodeNumber)
+            .OrderBy(episode => episode.Shoko.SeriesId)
+            .ThenBy(episode => episode.AniDB.Type)
+            .ThenBy(episode => episode.AniDB.Number)
             .ToListResult(a => new Episode(HttpContext, a.Shoko, includeDataFrom), page, pageSize);
     }
 
@@ -178,14 +178,14 @@ public class EpisodeController : BaseController
             .Where(episode =>
             {
                 // Only show episodes the user is allowed to view.
-                if (!allowedAnimeDict.TryGetValue(episode.AnimeID, out var isAllowed))
+                if (!allowedAnimeDict.TryGetValue(episode.AnimeId, out var isAllowed))
                 {
                     // If this is an episode not tied to a missing anime, then
                     // just hide it.
-                    var anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
+                    var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(episode.AnimeId);
                     isAllowed = anime == null ? false : user.AllowedAnime(anime);
 
-                    allowedAnimeDict.TryAdd(episode.AnimeID, isAllowed);
+                    allowedAnimeDict.TryAdd(episode.AnimeId, isAllowed);
                 }
                 if (!isAllowed)
                     return false;
@@ -193,7 +193,7 @@ public class EpisodeController : BaseController
                 // Filter by episode type, if specified
                 if (type != null && type.Count > 0)
                 {
-                    var mappedType = Episode.MapAniDBEpisodeType((AniDBEpisodeType)episode.EpisodeType);
+                    var mappedType = Episode.MapAniDBEpisodeType((AniDBEpisodeType)episode.Type);
                     if (!type.Contains(mappedType))
                         return false;
                 }
@@ -201,9 +201,9 @@ public class EpisodeController : BaseController
                 return true;
             })
             // Order the episodes.
-            .OrderBy(episode => episode.AnimeID)
-            .ThenBy(episode => episode.EpisodeType)
-            .ThenBy(episode => episode.EpisodeNumber)
+            .OrderBy(episode => episode.AnimeId)
+            .ThenBy(episode => episode.Type)
+            .ThenBy(episode => episode.Number)
             .ToListResult(episode => new Episode.AniDB(episode), page, pageSize);
     }
 
@@ -221,7 +221,7 @@ public class EpisodeController : BaseController
         [FromQuery] [Range(0, 1000)] int pageSize = 20, [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
         var user = User;
-        var isAdmin = user.IsAdmin == 1;
+        var isAdmin = user.IsAdmin;
         var allowedShowDict = new ConcurrentDictionary<int, bool>();
         return RepoFactory.TvDB_Episode.GetAll()
             .Where(episode =>
@@ -231,7 +231,7 @@ public class EpisodeController : BaseController
                 {
                     // If this is an episode not tied to a missing show, then
                     // just hide it.
-                    var show = RepoFactory.TvDB_Series.GetByTvDBID(episode.SeriesID);
+                    var show = RepoFactory.TvDB_Show.GetByShowId(episode.SeriesID);
                     if (show == null)
                     {
                         isAllowed = false;
@@ -240,7 +240,7 @@ public class EpisodeController : BaseController
 
                     // If there are no cross-references, then hide it if the
                     // user is not an admin.
-                    var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(episode.SeriesID)
+                    var xref = RepoFactory.CR_AniDB_TvDB.GetByTvDBId(episode.SeriesID)
                         .FirstOrDefault();
                     if (xref == null)
                     {
@@ -251,7 +251,7 @@ public class EpisodeController : BaseController
                     // Or if the cross-reference is broken then also hide it if
                     // the user is not an admin, otherwise check if the user can
                     // view the series.
-                    var anime = RepoFactory.AniDB_Anime.GetByAnimeID(xref.AniDBID);
+                    var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(xref.AnidbAnimeId);
                     isAllowed = anime == null ? isAdmin : user.AllowedAnime(anime);
 
                     addValue: allowedShowDict.TryAdd(episode.SeriesID, isAllowed);
@@ -277,7 +277,7 @@ public class EpisodeController : BaseController
     public ActionResult<Episode> GetEpisodeByEpisodeID([FromRoute] int episodeID,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
@@ -296,18 +296,18 @@ public class EpisodeController : BaseController
     [HttpPost("{episodeID}/SetHidden")]
     public ActionResult PostEpisodeSetHidden([FromRoute] int episodeID, [FromQuery] bool value = true, [FromQuery] bool updateStats = true)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
         }
 
         episode.IsHidden = value;
-        RepoFactory.AnimeEpisode.Save(episode);
+        RepoFactory.Shoko_Episode.Save(episode);
 
         if (updateStats)
         {
-            var series = episode.GetAnimeSeries();
+            var series = episode.Series;
             series.UpdateStats(true, true);
             series.TopLevelAnimeGroup.UpdateStatsFromTopLevel(true, true);
         }
@@ -323,13 +323,13 @@ public class EpisodeController : BaseController
     [HttpGet("{episodeID}/AniDB")]
     public ActionResult<Episode.AniDB> GetEpisodeAnidbByEpisodeID([FromRoute] int episodeID)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
         }
 
-        var anidb = episode.AniDB_Episode;
+        var anidb = episode.AniDB;
         if (anidb == null)
         {
             return InternalError(AnidbNotFoundForEpisodeID);
@@ -346,7 +346,7 @@ public class EpisodeController : BaseController
     [HttpGet("AniDB/{anidbEpisodeID}")]
     public ActionResult<Episode.AniDB> GetEpisodeAnidbByAnidbEpisodeID([FromRoute] int anidbEpisodeID)
     {
-        var anidb = RepoFactory.AniDB_Episode.GetByEpisodeID(anidbEpisodeID);
+        var anidb = RepoFactory.AniDB_Episode.GetByAnidbEpisodeId(anidbEpisodeID);
         if (anidb == null)
         {
             return NotFound(AnidbNotFoundForAnidbEpisodeID);
@@ -365,13 +365,13 @@ public class EpisodeController : BaseController
     public ActionResult<Episode> GetEpisode([FromRoute] int anidbEpisodeID,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
-        var anidb = RepoFactory.AniDB_Episode.GetByEpisodeID(anidbEpisodeID);
+        var anidb = RepoFactory.AniDB_Episode.GetByAnidbEpisodeId(anidbEpisodeID);
         if (anidb == null)
         {
             return NotFound(AnidbNotFoundForAnidbEpisodeID);
         }
 
-        var episode = RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(anidb.EpisodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByAnidbEpisodeId(anidb.EpisodeId);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundForAnidbEpisodeID);
@@ -389,7 +389,7 @@ public class EpisodeController : BaseController
     [HttpPost("{episodeID}/Vote")]
     public ActionResult PostEpisodeVote([FromRoute] int episodeID, [FromBody] Vote vote)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
@@ -410,7 +410,7 @@ public class EpisodeController : BaseController
             return BadRequest("Max value must be an integer above 0.");
         }
 
-        Episode.AddEpisodeVote(HttpContext, episode, User.JMMUserID, vote);
+        Episode.AddEpisodeVote(HttpContext, episode, User.Id, vote);
 
         return NoContent();
     }
@@ -423,7 +423,7 @@ public class EpisodeController : BaseController
     [HttpGet("{episodeID}/TvDB")]
     public ActionResult<List<Episode.TvDB>> GetEpisodeTvDBDetails([FromRoute] int episodeID)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
@@ -443,13 +443,13 @@ public class EpisodeController : BaseController
     [HttpPost("{episodeID}/Watched/{watched}")]
     public ActionResult SetWatchedStatusOnEpisode([FromRoute] int episodeID, [FromRoute] bool watched)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeNotFoundWithEpisodeID);
         }
 
-        episode.ToggleWatchedStatus(watched, true, DateTime.Now, true, User.JMMUserID, true);
+        episode.ToggleWatchedStatus(watched, true, DateTime.Now, true, User.Id, true);
 
         return Ok();
     }
@@ -467,14 +467,14 @@ public class EpisodeController : BaseController
         [FromQuery] bool onlyFinishedSeries = false, [FromQuery] [Range(0, 1000)] int pageSize = 100,
         [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
-        IEnumerable<SVR_AnimeEpisode> enumerable =
-            RepoFactory.AnimeEpisode.GetEpisodesWithMultipleFiles(ignoreVariations);
+        IEnumerable<Shoko_Episode> enumerable =
+            RepoFactory.Shoko_Episode.GetEpisodesWithMultipleFiles(ignoreVariations);
         if (onlyFinishedSeries)
         {
-            var dictSeriesFinishedAiring = RepoFactory.AnimeSeries.GetAll()
-                .ToDictionary(a => a.AnimeSeriesID, a => a.GetAnime().GetFinishedAiring());
+            var dictSeriesFinishedAiring = RepoFactory.Shoko_Series.GetAll()
+                .ToDictionary(a => a.Id, a => a.GetAnime().IsFinishedAiring);
             enumerable = enumerable.Where(episode =>
-                dictSeriesFinishedAiring.TryGetValue(episode.AnimeSeriesID, out var finishedAiring) && finishedAiring);
+                dictSeriesFinishedAiring.TryGetValue(episode.SeriesId, out var finishedAiring) && finishedAiring);
         }
 
         return enumerable
@@ -494,13 +494,13 @@ public class EpisodeController : BaseController
         [FromQuery] bool onlyFinishedSeries = false, [FromQuery] [Range(0, 1000)] int pageSize = 100,
         [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
-        IEnumerable<SVR_AnimeEpisode> enumerable = RepoFactory.AnimeEpisode.GetEpisodesWithNoFiles(includeSpecials);
+        IEnumerable<Shoko_Episode> enumerable = RepoFactory.Shoko_Episode.GetEpisodesWithNoFiles(includeSpecials);
         if (onlyFinishedSeries)
         {
-            var dictSeriesFinishedAiring = RepoFactory.AnimeSeries.GetAll()
-                .ToDictionary(a => a.AnimeSeriesID, a => a.GetAnime().GetFinishedAiring());
+            var dictSeriesFinishedAiring = RepoFactory.Shoko_Series.GetAll()
+                .ToDictionary(a => a.Id, a => a.GetAnime().IsFinishedAiring);
             enumerable = enumerable.Where(episode =>
-                dictSeriesFinishedAiring.TryGetValue(episode.AnimeSeriesID, out var finishedAiring) && finishedAiring);
+                dictSeriesFinishedAiring.TryGetValue(episode.SeriesId, out var finishedAiring) && finishedAiring);
         }
 
         return enumerable

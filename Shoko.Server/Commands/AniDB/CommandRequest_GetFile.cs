@@ -11,12 +11,15 @@ using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Databases;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.CrossReferences;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.AniDB.UDP.Generic;
 using Shoko.Server.Providers.AniDB.UDP.Info;
 using Shoko.Server.Repositories;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 
 namespace Shoko.Server.Commands.AniDB;
 
@@ -30,8 +33,9 @@ public class CommandRequest_GetFile : CommandRequestImplementation
     public int VideoLocalID { get; set; }
     public bool ForceAniDB { get; set; }
 
-    private SVR_VideoLocal vlocal;
-    [XmlIgnore] public SVR_AniDB_File Result;
+    private Shoko_Video Video;
+
+    [XmlIgnore] public AniDB_File Result;
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority3;
 
@@ -39,13 +43,13 @@ public class CommandRequest_GetFile : CommandRequestImplementation
     {
         get
         {
-            if (vlocal != null)
+            if (Video != null)
             {
                 return new QueueStateStruct
                 {
                     message = "Getting file info from UDP API: {0}",
                     queueState = QueueStateEnum.GetFileInfo,
-                    extraParams = new[] { vlocal.FileName }
+                    extraParams = new[] { Video.FileName }
                 };
             }
 
@@ -70,15 +74,15 @@ public class CommandRequest_GetFile : CommandRequestImplementation
             };
         }
 
-        vlocal ??= RepoFactory.VideoLocal.GetByID(VideoLocalID);
-        if (vlocal == null)
+        Video ??= RepoFactory.Shoko_Video.GetByID(VideoLocalID);
+        if (Video == null)
         {
             return;
         }
 
-        lock (vlocal)
+        lock (Video)
         {
-            var aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(vlocal.Hash, vlocal.FileSize);
+            var aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(Video.Hash, Video.FileSize);
 
             UDPResponse<ResponseGetFile> response = null;
             if (aniFile == null || ForceAniDB)
@@ -86,8 +90,8 @@ public class CommandRequest_GetFile : CommandRequestImplementation
                 var request = _requestFactory.Create<RequestGetFile>(
                     r =>
                     {
-                        r.Hash = vlocal.Hash;
-                        r.Size = vlocal.FileSize;
+                        r.Hash = Video.Hash;
+                        r.Size = Video.FileSize;
                     }
                 );
                 response = request.Execute();
@@ -96,14 +100,14 @@ public class CommandRequest_GetFile : CommandRequestImplementation
             if (response?.Response == null)
             {
                 Logger.LogInformation("File {VideoLocalID} ({Ed2kHash} | {FileName}) could not be found on AniDB",
-                    vlocal.VideoLocalID, vlocal.ED2KHash, vlocal.GetBestVideoLocalPlace()?.FileName);
+                    Video.Id, Video.ED2K, Video.GetPreferredLocation()?.FileName);
                 return;
             }
 
             // save to the database
             aniFile ??= new SVR_AniDB_File();
-            aniFile.Hash = vlocal.Hash;
-            aniFile.FileSize = vlocal.FileSize;
+            aniFile.Hash = Video.Hash;
+            aniFile.FileSize = Video.FileSize;
 
             aniFile.DateTimeUpdated = DateTime.Now;
             aniFile.File_Description = response.Response.Description;
@@ -120,17 +124,17 @@ public class CommandRequest_GetFile : CommandRequestImplementation
 
             RepoFactory.AniDB_File.Save(aniFile, false);
             CreateLanguages(response.Response);
-            CreateEpisodes(vlocal.FileName, response.Response);
+            CreateEpisodes(Video.FileName, response.Response);
 
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(response.Response.AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(response.Response.AnimeID);
             if (anime != null)
             {
                 RepoFactory.AniDB_Anime.Save(anime, false);
             }
 
-            var series = RepoFactory.AnimeSeries.GetByAnimeID(response.Response.AnimeID);
+            var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(response.Response.AnimeID);
             series?.UpdateStats(true, true);
-            series?.AnimeGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
+            series?.ParentGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
             Result = RepoFactory.AniDB_File.GetByFileID(aniFile.FileID);
         }
     }
@@ -143,29 +147,29 @@ public class CommandRequest_GetFile : CommandRequestImplementation
         if (response?.AudioLanguages is not null)
         {
             // Delete old
-            var toDelete = RepoFactory.CrossRef_Languages_AniDB_File.GetByFileID(response.FileID);
-            RepoFactory.CrossRef_Languages_AniDB_File.DeleteWithOpenTransaction(session, toDelete);
+            var toDelete = RepoFactory.CR_AniDB_File_Languages.GetByFileID(response.FileID);
+            RepoFactory.CR_AniDB_File_Languages.DeleteWithOpenTransaction(session, toDelete);
 
             // Save new
             var toSave = response.AudioLanguages.Select(language => language.Trim().ToLower())
                 .Where(lang => lang.Length > 0)
                 .Select(lang => new CrossRef_Languages_AniDB_File { LanguageName = lang, FileID = response.FileID })
                 .ToList();
-            RepoFactory.CrossRef_Languages_AniDB_File.SaveWithOpenTransaction(session, toSave);
+            RepoFactory.CR_AniDB_File_Languages.SaveWithOpenTransaction(session, toSave);
         }
 
         if (response?.SubtitleLanguages is not null)
         {
             // Delete old
-            var toDelete = RepoFactory.CrossRef_Subtitles_AniDB_File.GetByFileID(response.FileID);
-            RepoFactory.CrossRef_Subtitles_AniDB_File.DeleteWithOpenTransaction(session, toDelete);
+            var toDelete = RepoFactory.CR_AniDB_File_Subtitles.GetByFileID(response.FileID);
+            RepoFactory.CR_AniDB_File_Subtitles.DeleteWithOpenTransaction(session, toDelete);
 
             // Save new
             var toSave = response.SubtitleLanguages.Select(language => language.Trim().ToLower())
                 .Where(lang => lang.Length > 0)
                 .Select(lang => new CrossRef_Subtitles_AniDB_File { LanguageName = lang, FileID = response.FileID })
                 .ToList();
-            RepoFactory.CrossRef_Subtitles_AniDB_File.SaveWithOpenTransaction(session, toSave);
+            RepoFactory.CR_AniDB_File_Subtitles.SaveWithOpenTransaction(session, toSave);
         }
         trans.Commit();
     }
@@ -177,7 +181,7 @@ public class CommandRequest_GetFile : CommandRequestImplementation
             return;
         }
 
-        var fileEps = RepoFactory.CrossRef_File_Episode.GetByHash(vlocal.Hash);
+        var fileEps = RepoFactory.CR_Video_Episode.GetByHash(Video.Hash);
 
         // Use a single session A. for efficiency and B. to prevent regenerating stats
         
@@ -185,22 +189,22 @@ public class CommandRequest_GetFile : CommandRequestImplementation
         {
             using var session = DatabaseFactory.SessionFactory.OpenSession();
             using var trans = session.BeginTransaction();
-            RepoFactory.CrossRef_File_Episode.DeleteWithOpenTransaction(session, fileEps);
+            RepoFactory.CR_Video_Episode.DeleteWithOpenTransaction(session, fileEps);
             trans.Commit();
         }
 
         fileEps = response.EpisodeIDs
             .Select(
-                (ep, x) => new CrossRef_File_Episode
+                (ep, x) => new CR_Video_Episode
                 {
-                    Hash = vlocal.Hash,
+                    Hash = Video.Hash,
                     CrossRefSource = (int)CrossRefSource.AniDB,
                     AnimeID = response.AnimeID,
                     EpisodeID = ep.EpisodeID,
                     Percentage = ep.Percentage,
                     EpisodeOrder = x + 1,
                     FileName = filename,
-                    FileSize = vlocal.FileSize
+                    FileSize = Video.FileSize
                 }
             )
             .ToList();
@@ -211,7 +215,7 @@ public class CommandRequest_GetFile : CommandRequestImplementation
             var epOrder = fileEps.Max(a => a.EpisodeOrder);
             foreach (var episode in response.OtherEpisodes)
             {
-                var epAnimeID = RepoFactory.AniDB_Episode.GetByEpisodeID(episode.EpisodeID)?.AnimeID;
+                var epAnimeID = RepoFactory.AniDB_Episode.GetByAnidbEpisodeId(episode.EpisodeID)?.AnimeId;
                 if (epAnimeID == null)
                 {
                     Logger.LogInformation("Could not get AnimeID for episode {EpisodeID}, downloading more info", episode.EpisodeID);
@@ -230,16 +234,16 @@ public class CommandRequest_GetFile : CommandRequestImplementation
                 if (epAnimeID == null) continue;
 
                 epOrder++;
-                fileEps.Add(new CrossRef_File_Episode
+                fileEps.Add(new CR_Video_Episode
                 {
-                    Hash = vlocal.Hash,
+                    Hash = Video.Hash,
                     CrossRefSource = (int)CrossRefSource.AniDB,
                     AnimeID = epAnimeID.Value,
                     EpisodeID = episode.EpisodeID,
                     Percentage = episode.Percentage,
                     EpisodeOrder = epOrder,
                     FileName = filename,
-                    FileSize = vlocal.FileSize
+                    FileSize = Video.FileSize
                 });
             }
         }
@@ -250,7 +254,7 @@ public class CommandRequest_GetFile : CommandRequestImplementation
         {
             using var session = DatabaseFactory.SessionFactory.OpenSession();
             using var trans = session.BeginTransaction();
-            RepoFactory.CrossRef_File_Episode.SaveWithOpenTransaction(session,
+            RepoFactory.CR_Video_Episode.SaveWithOpenTransaction(session,
                 fileEps.DistinctBy(a => $"{a.Hash}-{a.EpisodeID}").ToList());
             trans.Commit();
         }
@@ -282,7 +286,7 @@ public class CommandRequest_GetFile : CommandRequestImplementation
         // populate the fields
         VideoLocalID = int.Parse(TryGetProperty(docCreator, "CommandRequest_GetFile", nameof(VideoLocalID)));
         ForceAniDB = bool.Parse(TryGetProperty(docCreator, "CommandRequest_GetFile", nameof(ForceAniDB)));
-        vlocal = RepoFactory.VideoLocal.GetByID(VideoLocalID);
+        Video = RepoFactory.Shoko_Video.GetByID(VideoLocalID);
 
         return true;
     }

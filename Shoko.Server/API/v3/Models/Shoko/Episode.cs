@@ -5,18 +5,21 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models.Shoko;
+using Shoko.Plugin.Abstractions.Models.Provider;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.API.Converters;
 using Shoko.Server.API.v3.Models.Common;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
 
-using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
+using AniDBEpisodeType = Shoko.Plugin.Abstractions.Enums.EpisodeType;
+using AbstractDataSource = Shoko.Plugin.Abstractions.Enums.DataSource;
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using ImageEntityType = Shoko.Models.Enums.ImageEntityType;
 
 namespace Shoko.Server.API.v3.Models.Shoko;
 
@@ -74,32 +77,30 @@ public class Episode : BaseModel
     [JsonProperty("TvDB", NullValueHandling = NullValueHandling.Ignore)]
     public IEnumerable<TvDB> _TvDB { get; set; }
 
-    public Episode() { }
-
-    public Episode(HttpContext context, SVR_AnimeEpisode episode, HashSet<DataSource> includeDataFrom = null)
+    public Episode(HttpContext context, IShokoEpisode episode, HashSet<DataSource> includeDataFrom = null)
     {
-        var userID = context.GetUser()?.JMMUserID ?? 0;
-        var episodeUserRecord = episode.GetUserRecord(userID);
-        var anidbEpisode = episode.AniDB_Episode;
-        var tvdbEpisodes = episode.TvDBEpisodes;
-        var files = episode.GetVideoLocals();
+        var userID = context.GetUser()?.Id ?? 0;
+        var episodeUserRecord = (episode as Shoko_Episode).GetUserRecord(userID);
+        var anidbEpisode = episode.AniDBEpisode;
+        var tvdbEpisodes = episode.AllEpisodes.Where(ep => ep.DataSource == AbstractDataSource.TvDB).ToList();
+        var files = episode.AllVideos;
         var (file, fileUserRecord) = files
-            .Select(file => (file, userRecord: file.GetUserRecord(userID)))
-            .OrderByDescending(tuple => tuple.userRecord?.LastUpdated)
+            .Select(file => (file, userRecord: (file as Shoko_Video).GetUserRecord(userID)))
+            .OrderByDescending(tuple => tuple.userRecord?.LastUpdatedAt)
             .FirstOrDefault();
         IDs = new EpisodeIDs
         {
-            ID = episode.AnimeEpisodeID,
-            ParentSeries = episode.AnimeSeriesID,
-            AniDB = episode.AniDB_EpisodeID,
-            TvDB = tvdbEpisodes.Select(a => a.Id).ToList()
+            ID = episode.Id,
+            ParentSeries = episode.SeriesId,
+            AniDB = episode.AnidbEpisodeId,
+            TvDB = tvdbEpisodes.Select(a => int.Parse(a.Id)).ToList()
         };
-        Duration = file?.DurationTimeSpan ?? new TimeSpan(0, 0, anidbEpisode.LengthSeconds);
-        ResumePosition = fileUserRecord?.ResumePositionTimeSpan;
-        Watched = fileUserRecord?.WatchedDate;
+        Duration = file?.Duration ?? anidbEpisode.Duration;
+        ResumePosition = fileUserRecord?.ResumePosition;
+        Watched = fileUserRecord?.LastWatchedAt;
         WatchCount = episodeUserRecord?.WatchedCount ?? 0;
         IsHidden = episode.IsHidden;
-        Name = GetEpisodeTitle(episode.AniDB_EpisodeID);
+        Name = episode.PreferredTitle.Value;
         Size = files.Count;
 
         if (includeDataFrom?.Contains(DataSource.AniDB) ?? false)
@@ -114,7 +115,7 @@ public class Episode : BaseModel
         foreach (var language in Languages.PreferredEpisodeNamingLanguages)
         {
             var title = RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(anidbEpisodeID, language.Language)
-                .FirstOrDefault()?.Title;
+                .FirstOrDefault()?.Value;
             if (!string.IsNullOrEmpty(title))
             {
                 return title;
@@ -122,38 +123,39 @@ public class Episode : BaseModel
         }
 
         // Fallback to English if available.
-        return RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(anidbEpisodeID, TitleLanguage.English)
+        return RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(anidbEpisodeID, TextLanguage.English)
             .FirstOrDefault()
-            ?.Title;
+            ?.Value;
     }
 
     internal static EpisodeType MapAniDBEpisodeType(AniDBEpisodeType episodeType)
     {
         switch (episodeType)
         {
-            case AniDBEpisodeType.Episode:
+            case AniDBEpisodeType.Normal:
                 return EpisodeType.Normal;
             case AniDBEpisodeType.Special:
                 return EpisodeType.Special;
             case AniDBEpisodeType.Parody:
                 return EpisodeType.Parody;
-            case AniDBEpisodeType.Credits:
+            case AniDBEpisodeType.ThemeSong:
                 return EpisodeType.ThemeSong;
             case AniDBEpisodeType.Trailer:
                 return EpisodeType.Trailer;
-            default:
             case AniDBEpisodeType.Other:
+                return EpisodeType.Other;
+            default:
                 return EpisodeType.Unknown;
         }
     }
 
-    public static void AddEpisodeVote(HttpContext context, SVR_AnimeEpisode ep, int userID, Vote vote)
+    public static void AddEpisodeVote(HttpContext context, IShokoEpisode ep, int userID, Vote vote)
     {
-        var dbVote = RepoFactory.AniDB_Vote.GetByEntityAndType(ep.AnimeEpisodeID, AniDBVoteType.Episode);
+        var dbVote = RepoFactory.AniDB_Vote.GetByEntityAndType(ep.Id, AniDBVoteType.Episode);
 
         if (dbVote == null)
         {
-            dbVote = new AniDB_Vote { EntityID = ep.AnimeEpisodeID, VoteType = (int)AniDBVoteType.Episode };
+            dbVote = new AniDB_Vote { EntityID = ep.Id, VoteType = AniDBVoteType.Episode };
         }
 
         dbVote.VoteValue = (int)Math.Floor(vote.GetRating(1000));
@@ -169,31 +171,19 @@ public class Episode : BaseModel
     /// </summary>
     public class AniDB
     {
-        public AniDB(AniDB_Episode ep)
+        public AniDB(IEpisodeMetadata ep)
         {
-            if (!decimal.TryParse(ep.Rating, out var rating))
-            {
-                rating = 0;
-            }
+            var titles = ep.Titles;
+            var rating = ep.Rating;
+            var preferredTitle = ep.PreferredTitle;
 
-            if (!int.TryParse(ep.Votes, out var votes))
-            {
-                votes = 0;
-            }
-
-            var titles = RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.EpisodeID);
-
-            ID = ep.EpisodeID;
-            Type = MapAniDBEpisodeType(ep.GetEpisodeTypeEnum());
-            EpisodeNumber = ep.EpisodeNumber;
-            AirDate = ep.GetAirDateAsDate();
-            Description = ep.Description;
-            Rating = new Rating { MaxValue = 10, Value = rating, Votes = votes, Source = "AniDB" };
-            Titles = titles.Select(a => new Title
-                {
-                    Name = a.Title, Language = a.LanguageCode, Default = false, Source = "AniDB"
-                }
-            ).ToList();
+            ID = int.Parse(ep.Id);
+            Type = MapAniDBEpisodeType(ep.Type);
+            EpisodeNumber = ep.Number;
+            AirDate = ep.AirDate;
+            Description = ep.PreferredOverview.Value;
+            Rating = rating != null ? new Rating(rating) : null;
+            Titles = titles.Select(a => new Title(a)).ToList();
         }
 
         /// <summary>
@@ -236,23 +226,21 @@ public class Episode : BaseModel
 
     public class TvDB
     {
-        public TvDB(TvDB_Episode tvDBEpisode)
+        public TvDB(IEpisodeMetadata tvDBEpisode)
         {
-            var rating = tvDBEpisode.Rating == null
-                ? null
-                : new Rating { MaxValue = 10, Value = tvDBEpisode.Rating.Value, Source = "TvDB" };
-            ID = tvDBEpisode.Id;
-            Season = tvDBEpisode.SeasonNumber;
-            Number = tvDBEpisode.EpisodeNumber;
+            var rating = tvDBEpisode.Rating;
+            ID = int.Parse(tvDBEpisode.Id);
+            Season = tvDBEpisode?.SeasonNumber ?? 0;
+            Number = tvDBEpisode.Number;
             AbsoluteNumber = tvDBEpisode.AbsoluteNumber;
-            Title = tvDBEpisode.EpisodeName;
-            Description = tvDBEpisode.Overview;
+            Title = tvDBEpisode.PreferredTitle.Value;
+            Description = tvDBEpisode.PreferredOverview.Value;
             AirDate = tvDBEpisode.AirDate;
-            Rating = rating;
+            Rating = rating != null ? new Rating(rating) : null;
             AirsAfterSeason = tvDBEpisode.AirsAfterSeason;
             AirsBeforeSeason = tvDBEpisode.AirsBeforeSeason;
             AirsBeforeEpisode = tvDBEpisode.AirsBeforeEpisode;
-            Thumbnail = new Image(tvDBEpisode.Id, ImageEntityType.TvDB_Episode, true);
+            Thumbnail = new Image(int.Parse(tvDBEpisode.Id), ImageEntityType.TvDB_Episode, true);
         }
 
         /// <summary>
@@ -316,36 +304,46 @@ public class Episode : BaseModel
         /// </summary>
         public Image Thumbnail { get; set; }
     }
+}
 
-    public class EpisodeIDs : IDs
+public class EpisodeIDs : IDs
+{
+    #region Series
+
+    /// <summary>
+    /// The id of the parent <see cref="Series"/>.
+    /// </summary>
+    public int ParentSeries { get; set; }
+
+    #endregion
+
+    #region XRefs
+
+    // These are useful for many things, but for clients, it is mostly auxiliary
+
+    /// <summary>
+    /// The AniDB ID
+    /// </summary>
+    [Required]
+    public int AniDB { get; set; }
+
+    /// <summary>
+    /// The TvDB IDs
+    /// </summary>
+    public List<int> TvDB { get; set; } = new();
+
+    // TODO Support for TvDB string IDs (like in the new URLs) one day maybe
+
+    #endregion
+    
+    public EpisodeIDs(IShokoEpisode episode)
     {
-        #region Series
-
-        /// <summary>
-        /// The id of the parent <see cref="Series"/>.
-        /// </summary>
-        public int ParentSeries { get; set; }
-
-        #endregion
-
-        #region XRefs
-
-        // These are useful for many things, but for clients, it is mostly auxiliary
-
-        /// <summary>
-        /// The AniDB ID
-        /// </summary>
-        [Required]
-        public int AniDB { get; set; }
-
-        /// <summary>
-        /// The TvDB IDs
-        /// </summary>
-        public List<int> TvDB { get; set; } = new();
-
-        // TODO Support for TvDB string IDs (like in the new URLs) one day maybe
-
-        #endregion
+        
+    }
+    
+    public EpisodeIDs(IShokoVideoCrossReference xref)
+    {
+        
     }
 }
 

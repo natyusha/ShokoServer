@@ -160,7 +160,7 @@ public class Image : BaseController
         {
             // 1
             case ImageEntityType.AniDB_Cover:
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(id);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(id);
                 if (anime == null)
                 {
                     return null;
@@ -202,7 +202,7 @@ public class Image : BaseController
 
             // 3
             case ImageEntityType.AniDB_Creator:
-                var creator = RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(id);
+                var creator = RepoFactory.AniDB_Creator.GetBySeiyuuID(id);
                 if (creator == null)
                 {
                     return null;
@@ -223,7 +223,7 @@ public class Image : BaseController
 
             // 4
             case ImageEntityType.TvDB_Banner:
-                var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(id);
+                var wideBanner = RepoFactory.TvDB_Banner.GetByID(id);
                 if (wideBanner == null)
                 {
                     return null;
@@ -244,7 +244,7 @@ public class Image : BaseController
 
             // 5
             case ImageEntityType.TvDB_Cover:
-                var poster = RepoFactory.TvDB_ImagePoster.GetByID(id);
+                var poster = RepoFactory.TvDB_Poster.GetByID(id);
                 if (poster == null)
                 {
                     return null;
@@ -286,7 +286,7 @@ public class Image : BaseController
 
             // 7
             case ImageEntityType.TvDB_FanArt:
-                var fanart = RepoFactory.TvDB_ImageFanart.GetByID(id);
+                var fanart = RepoFactory.TvDB_Fanart.GetByID(id);
                 if (fanart == null)
                 {
                     return null;
@@ -304,13 +304,13 @@ public class Image : BaseController
 
             // 8
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetByID(id);
+                var mFanart = RepoFactory.TMDB_Fanart.GetByID(id);
                 if (mFanart == null)
                 {
                     return null;
                 }
 
-                mFanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(mFanart.URL);
+                mFanart = RepoFactory.TMDB_Fanart.GetByOnlineID(mFanart.URL);
                 if (mFanart == null)
                 {
                     return null;
@@ -331,13 +331,13 @@ public class Image : BaseController
 
             // 9
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetByID(id);
+                var mPoster = RepoFactory.TMDB_Movie_Poster.GetByID(id);
                 if (mPoster == null)
                 {
                     return null;
                 }
 
-                mPoster = RepoFactory.MovieDB_Poster.GetByOnlineID(mPoster.URL);
+                mPoster = RepoFactory.TMDB_Movie_Poster.GetByOnlineID(mPoster.URL);
                 if (mPoster == null)
                 {
                     return null;
@@ -357,7 +357,7 @@ public class Image : BaseController
                 break;
 
             case ImageEntityType.Character:
-                var character = RepoFactory.AnimeCharacter.GetByID(id);
+                var character = RepoFactory.Shoko_Character.GetByID(id);
                 if (character == null)
                 {
                     return null;
@@ -379,7 +379,7 @@ public class Image : BaseController
                 break;
 
             case ImageEntityType.Staff:
-                var staff = RepoFactory.AnimeStaff.GetByID(id);
+                var staff = RepoFactory.Shoko_Staff.GetByID(id);
                 if (staff == null)
                 {
                     return null;
@@ -485,8 +485,8 @@ public class Image : BaseController
                 var creator = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                     .SelectMany(a => a.GetAnimeCharacters())
-                    .SelectMany(a => RepoFactory.AniDB_Character_Seiyuu.GetByCharID(a.CharID))
-                    .Select(a => RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(a.SeiyuuID)).Where(a => a != null)
+                    .SelectMany(a => RepoFactory.AniDB_Character_Creator.GetByCharID(a.CharID))
+                    .Select(a => RepoFactory.AniDB_Creator.GetBySeiyuuID(a.SeiyuuID)).Where(a => a != null)
                     .GetRandomElement();
                 if (creator == null)
                 {
@@ -509,7 +509,7 @@ public class Image : BaseController
             // 4
             case ImageEntityType.TvDB_Banner:
                 // TvDB doesn't allow H content, so we get to skip the check!
-                var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetAll().GetRandomElement();
+                var wideBanner = RepoFactory.TvDB_Banner.GetAll().GetRandomElement();
                 if (wideBanner == null)
                 {
                     return null;
@@ -531,7 +531,7 @@ public class Image : BaseController
             // 5
             case ImageEntityType.TvDB_Cover:
                 // TvDB doesn't allow H content, so we get to skip the check!
-                var poster = RepoFactory.TvDB_ImagePoster.GetAll().GetRandomElement();
+                var poster = RepoFactory.TvDB_Poster.GetAll().GetRandomElement();
                 if (poster == null)
                 {
                     return null;
@@ -575,7 +575,7 @@ public class Image : BaseController
             // 7
             case ImageEntityType.TvDB_FanArt:
                 // TvDB doesn't allow H content, so we get to skip the check!
-                var fanart = RepoFactory.TvDB_ImageFanart.GetAll().GetRandomElement();
+                var fanart = RepoFactory.TvDB_Fanart.GetAll().GetRandomElement();
                 if (fanart == null)
                 {
                     return null;
@@ -593,7 +593,7 @@ public class Image : BaseController
 
             // 8
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetAll().GetRandomElement();
+                var mFanart = RepoFactory.TMDB_Fanart.GetAll().GetRandomElement();
                 if (mFanart == null)
                 {
                     return null;
@@ -614,7 +614,7 @@ public class Image : BaseController
 
             // 9
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetAll().GetRandomElement();
+                var mPoster = RepoFactory.TMDB_Movie_Poster.GetAll().GetRandomElement();
                 if (mPoster == null)
                 {
                     return null;
@@ -636,9 +636,9 @@ public class Image : BaseController
             case ImageEntityType.Character:
                 var character = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
-                    .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))
+                    .SelectMany(a => RepoFactory.CR_ShokoSeries_ShokoStaff.GetByAnimeID(a.AnimeID))
                     .Where(a => a.RoleType == (int)StaffRoleType.Seiyuu && a.RoleID.HasValue)
-                    .Select(a => RepoFactory.AnimeCharacter.GetByID(a.RoleID.Value)).GetRandomElement();
+                    .Select(a => RepoFactory.Shoko_Character.GetByID(a.RoleID.Value)).GetRandomElement();
                 if (character == null)
                 {
                     return null;
@@ -662,8 +662,8 @@ public class Image : BaseController
             case ImageEntityType.Staff:
                 var staff = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
-                    .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))
-                    .Select(a => RepoFactory.AnimeStaff.GetByID(a.StaffID)).GetRandomElement();
+                    .SelectMany(a => RepoFactory.CR_ShokoSeries_ShokoStaff.GetByAnimeID(a.AnimeID))
+                    .Select(a => RepoFactory.Shoko_Staff.GetByID(a.StaffID)).GetRandomElement();
                 if (staff == null)
                 {
                     return null;

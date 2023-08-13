@@ -9,10 +9,10 @@ using Microsoft.Extensions.Logging;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
-using Shoko.Models.TvDB;
 using Shoko.Server.Commands;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.TvDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
@@ -23,7 +23,7 @@ using SentrySdk = Sentry.SentrySdk;
 
 namespace Shoko.Server.Providers.TvDB;
 
-public class TvDBApiHelper
+public class TvDBApiHelper : IShowMetadataProvider<TvDB_Show, TVDB_Series_Search_Response, int>
 {
     private readonly ITvDbClient _client;
     private readonly ILogger<TvDBApiHelper> _logger;
@@ -71,16 +71,16 @@ public class TvDBApiHelper
         }
     }
 
-    public TvDB_Series GetSeriesInfoOnline(int seriesID, bool forceRefresh)
+    public TvDB_Show GetSeriesInfoOnline(int seriesID, bool forceRefresh)
     {
         return GetSeriesInfoOnlineAsync(seriesID, forceRefresh).Result;
     }
 
-    private async Task<TvDB_Series> GetSeriesInfoOnlineAsync(int seriesID, bool forceRefresh)
+    private async Task<TvDB_Show> GetSeriesInfoOnlineAsync(int seriesID, bool forceRefresh)
     {
         try
         {
-            var tvSeries = RepoFactory.TvDB_Series.GetByTvDBID(seriesID);
+            var tvSeries = RepoFactory.TvDB_Show.GetByShowId(seriesID);
             if (tvSeries != null && !forceRefresh)
             {
                 return tvSeries;
@@ -92,10 +92,10 @@ public class TvDBApiHelper
             var response = await _client.Series.GetAsync(seriesID);
             var series = response.Data;
 
-            tvSeries ??= new TvDB_Series();
+            tvSeries ??= new TvDB_Show();
 
             tvSeries.PopulateFromSeriesInfo(series);
-            RepoFactory.TvDB_Series.Save(tvSeries);
+            RepoFactory.TvDB_Show.Save(tvSeries);
 
             return tvSeries;
         }
@@ -194,93 +194,56 @@ public class TvDBApiHelper
         return results;
     }
 
-    public void LinkAniDBTvDB(int animeID, int tvDBID, bool additiveLink, bool isAutomatic = false)
+    public void AddShowLink(int anidbAnimeID, int tvdbShowID, bool replaceExisting = false, bool isAutomatic = false)
     {
-        if (!additiveLink)
+        // Disable auto-matching when we remove an existing match for the series.
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTvDBAutoMatchingDisabled)
         {
-            // remove all current links
-            _logger.LogInformation("Removing All TvDB Links for: {AnimeID}", animeID);
-            RemoveAllAniDBTvDBLinks(animeID, false);
+            series.IsTvDBAutoMatchingDisabled = true;
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
         }
 
         // check if we have this information locally
         // if not download it now
-        var tvSeries = RepoFactory.TvDB_Series.GetByTvDBID(tvDBID);
+        var tvSeries = RepoFactory.TvDB_Show.GetByShowId(tvdbShowID);
 
         if (tvSeries != null)
         {
             // download and update series info, episode info and episode images
             // will also download fanart, posters and wide banners
-            var cmdSeriesEps = _commandFactory.Create<CommandRequest_TvDBUpdateSeries>(c => c.TvDBSeriesID = tvDBID);
+            var cmdSeriesEps = _commandFactory.Create<CommandRequest_TvDBUpdateSeries>(c => c.TvDBSeriesID = tvdbShowID);
             cmdSeriesEps.Save();
         }
         else
         {
-            var unused = GetSeriesInfoOnlineAsync(tvDBID, true).Result;
+            GetSeriesInfoOnlineAsync(tvdbShowID, true).ConfigureAwait(false).GetAwaiter().GetResult();
         }
+        
+        var xref = RepoFactory.CR_AniDB_TvDB.GetByAnidbAndTvdbIds(anidbAnimeID, tvdbShowID);
+        if (xref == null)
+        {
+            _logger.LogInformation("Adding TvDB Link: AniDB(ID:{AnimeID}) -> TvDB(ID:{TvDbid})", anidbAnimeID, tvdbShowID);
 
-        var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByAniDBAndTvDBID(animeID, tvDBID) ??
-                   new CrossRef_AniDB_TvDB();
-
-        xref.AniDBID = animeID;
-
-        xref.TvDBID = tvDBID;
-
-        xref.CrossRefSource = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
-
-        RepoFactory.CrossRef_AniDB_TvDB.Save(xref);
-
-        _logger.LogInformation(
-            "Adding TvDB Link: AniDB(ID:{AnimeID}) -> TvDB(ID:{TvDbid})", animeID, tvDBID
-        );
+            xref = new()
+            {
+                AniDBID = anidbAnimeID,
+                TvDBID = tvdbShowID,
+                CrossRefSource = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User,
+            };
+            RepoFactory.CR_AniDB_TvDB.Save(xref);
+        }
 
         var settings = _settingsProvider.GetSettings();
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
-        if (settings.TraktTv.Enabled &&
-            !string.IsNullOrEmpty(settings.TraktTv.AuthToken) &&
-            !series.IsTraktAutoMatchingDisabled)
+        if (settings.TraktTv.Enabled && !string.IsNullOrEmpty(settings.TraktTv.AuthToken) && !series.IsTraktAutoMatchingDisabled)
         {
             // check for Trakt associations
-            var trakt = RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeID(animeID);
-            if (trakt.Count != 0)
-            {
-                foreach (var a in trakt)
-                {
-                    RepoFactory.CrossRef_AniDB_TraktV2.Delete(a);
-                }
-            }
-
-            var cmd2 = _commandFactory.Create<CommandRequest_TraktSearchAnime>(c => c.AnimeID = animeID);
-            cmd2.Save();
-        }
-    }
-
-    private void RemoveAllAniDBTvDBLinks(int animeID, bool updateStats = true)
-    {
-        // check for Trakt associations
-        var trakt = RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeID(animeID);
-        if (trakt.Count != 0)
-        {
+            var trakt = RepoFactory.CR_AniDB_Trakt.GetByAnimeID(anidbAnimeID);
             foreach (var a in trakt)
-            {
-                RepoFactory.CrossRef_AniDB_TraktV2.Delete(a);
-            }
-        }
+                RepoFactory.CR_AniDB_Trakt.Delete(a);
 
-        var xrefs = RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(animeID);
-        if (xrefs == null || xrefs.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var xref in xrefs)
-        {
-            RepoFactory.CrossRef_AniDB_TvDB.Delete(xref);
-        }
-
-        if (updateStats)
-        {
-            SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
+            var cmd2 = _commandFactory.Create<CommandRequest_TraktSearchAnime>(c => c.AnimeID = anidbAnimeID);
+            cmd2.Save();
         }
     }
 
@@ -467,22 +430,22 @@ public class TvDBApiHelper
                     break;
                 }
 
-                var img = RepoFactory.TvDB_ImageFanart.GetByTvDBID(id) ?? new TvDB_ImageFanart { Enabled = 1 };
+                var img = RepoFactory.TvDB_Fanart.GetByTvDBID(id) ?? new TvDB_ImageFanart { Enabled = 1 };
 
                 img.Populate(seriesID, image);
                 img.Language = _client.AcceptedLanguage;
-                RepoFactory.TvDB_ImageFanart.Save(img);
+                RepoFactory.TvDB_Fanart.Save(img);
                 tvImages.Add(img);
                 validIDs.Add(id);
                 count++;
             }
 
             // delete any images from the database which are no longer valid
-            foreach (var img in RepoFactory.TvDB_ImageFanart.GetBySeriesID(seriesID))
+            foreach (var img in RepoFactory.TvDB_Fanart.GetBySeriesID(seriesID))
             {
                 if (!validIDs.Contains(img.Id))
                 {
-                    RepoFactory.TvDB_ImageFanart.Delete(img);
+                    RepoFactory.TvDB_Fanart.Delete(img);
                 }
             }
         }
@@ -549,22 +512,22 @@ public class TvDBApiHelper
                     break;
                 }
 
-                var img = RepoFactory.TvDB_ImagePoster.GetByTvDBID(id) ?? new TvDB_ImagePoster { Enabled = 1 };
+                var img = RepoFactory.TvDB_Poster.GetByTvDBID(id) ?? new TvDB_ImagePoster { Enabled = 1 };
 
                 img.Populate(seriesID, image);
                 img.Language = _client.AcceptedLanguage;
-                RepoFactory.TvDB_ImagePoster.Save(img);
+                RepoFactory.TvDB_Poster.Save(img);
                 validIDs.Add(id);
                 tvImages.Add(img);
                 count++;
             }
 
             // delete any images from the database which are no longer valid
-            foreach (var img in RepoFactory.TvDB_ImagePoster.GetBySeriesID(seriesID))
+            foreach (var img in RepoFactory.TvDB_Poster.GetBySeriesID(seriesID))
             {
                 if (!validIDs.Contains(img.Id))
                 {
-                    RepoFactory.TvDB_ImagePoster.Delete(img.TvDB_ImagePosterID);
+                    RepoFactory.TvDB_Poster.Delete(img.TvDB_ImagePosterID);
                 }
             }
         }
@@ -631,22 +594,22 @@ public class TvDBApiHelper
                     break;
                 }
 
-                var img = RepoFactory.TvDB_ImageWideBanner.GetByTvDBID(id) ?? new TvDB_ImageWideBanner { Enabled = 1 };
+                var img = RepoFactory.TvDB_Banner.GetByTvDBID(id) ?? new TvDB_ImageWideBanner { Enabled = 1 };
 
                 img.Populate(seriesID, image);
                 img.Language = _client.AcceptedLanguage;
-                RepoFactory.TvDB_ImageWideBanner.Save(img);
+                RepoFactory.TvDB_Banner.Save(img);
                 validIDs.Add(id);
                 tvImages.Add(img);
                 count++;
             }
 
             // delete any images from the database which are no longer valid
-            foreach (var img in RepoFactory.TvDB_ImageWideBanner.GetBySeriesID(seriesID))
+            foreach (var img in RepoFactory.TvDB_Banner.GetBySeriesID(seriesID))
             {
                 if (!validIDs.Contains(img.Id))
                 {
-                    RepoFactory.TvDB_ImageWideBanner.Delete(img.TvDB_ImageWideBannerID);
+                    RepoFactory.TvDB_Banner.Delete(img.TvDB_ImageWideBannerID);
                 }
             }
         }
@@ -686,7 +649,7 @@ public class TvDBApiHelper
         var settings = _settingsProvider.GetSettings();
         if (!settings.TvDB.AutoFanart) return;
         // find out how many images we already have locally
-        var imageCount = RepoFactory.TvDB_ImageFanart.GetBySeriesID(seriesID).Count(fanart =>
+        var imageCount = RepoFactory.TvDB_Fanart.GetBySeriesID(seriesID).Count(fanart =>
             !string.IsNullOrEmpty(fanart.GetFullImagePath()) && File.Exists(fanart.GetFullImagePath()));
 
         foreach (var img in images)
@@ -714,7 +677,7 @@ public class TvDBApiHelper
                 // first we check if file was downloaded
                 if (string.IsNullOrEmpty(img.GetFullImagePath()) || !File.Exists(img.GetFullImagePath()))
                 {
-                    RepoFactory.TvDB_ImageFanart.Delete(img.TvDB_ImageFanartID);
+                    RepoFactory.TvDB_Fanart.Delete(img.TvDB_ImageFanartID);
                 }
             }
         }
@@ -725,7 +688,7 @@ public class TvDBApiHelper
         var settings = _settingsProvider.GetSettings();
         if (!settings.TvDB.AutoPosters) return;
         // find out how many images we already have locally
-        var imageCount = RepoFactory.TvDB_ImagePoster.GetBySeriesID(seriesID).Count(fanart =>
+        var imageCount = RepoFactory.TvDB_Poster.GetBySeriesID(seriesID).Count(fanart =>
             !string.IsNullOrEmpty(fanart.GetFullImagePath()) && File.Exists(fanart.GetFullImagePath()));
 
         foreach (var img in images)
@@ -753,7 +716,7 @@ public class TvDBApiHelper
                 // first we check if file was downloaded
                 if (string.IsNullOrEmpty(img.GetFullImagePath()) || !File.Exists(img.GetFullImagePath()))
                 {
-                    RepoFactory.TvDB_ImagePoster.Delete(img);
+                    RepoFactory.TvDB_Poster.Delete(img);
                 }
             }
         }
@@ -764,7 +727,7 @@ public class TvDBApiHelper
         var settings = _settingsProvider.GetSettings();
         // find out how many images we already have locally
         if (!settings.TvDB.AutoWideBanners) return;
-        var imageCount = RepoFactory.TvDB_ImageWideBanner.GetBySeriesID(seriesID).Count(banner =>
+        var imageCount = RepoFactory.TvDB_Banner.GetBySeriesID(seriesID).Count(banner =>
             !string.IsNullOrEmpty(banner.GetFullImagePath()) && File.Exists(banner.GetFullImagePath()));
 
         foreach (var img in images)
@@ -790,7 +753,7 @@ public class TvDBApiHelper
                 // we should clean those image that we didn't download because those dont exists in local repo
                 // first we check if file was downloaded
                 if (string.IsNullOrEmpty(img.GetFullImagePath()) || !File.Exists(img.GetFullImagePath()))
-                    RepoFactory.TvDB_ImageWideBanner.Delete(img);
+                    RepoFactory.TvDB_Banner.Delete(img);
             }
         }
     }
@@ -862,7 +825,7 @@ public class TvDBApiHelper
         return apiEpisodes;
     }
 
-    public TvDB_Series UpdateSeriesInfoAndImages(int seriesID, bool forceRefresh, bool downloadImages)
+    public TvDB_Show UpdateSeriesInfoAndImages(int seriesID, bool forceRefresh, bool downloadImages)
     {
         try
         {
@@ -931,8 +894,8 @@ public class TvDBApiHelper
             }
 
             // Updating stats as it will not happen with the episodes
-            RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(seriesID).Select(a => a.AniDBID).Distinct()
-                .ForEach(SVR_AniDB_Anime.UpdateStatsByAnimeID);
+            RepoFactory.CR_AniDB_TvDB.GetByTvDBId(seriesID).Select(a => a.AniDBID).Distinct()
+                .ForEach(AniDB_Anime.UpdateStatsByAnimeID);
 
             return tvSeries;
         }
@@ -947,45 +910,105 @@ public class TvDBApiHelper
     public void LinkAniDBTvDBEpisode(int aniDBID, int tvDBID)
     {
         var xref =
-            RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(aniDBID, tvDBID) ??
+            RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(aniDBID, tvDBID) ??
             new CrossRef_AniDB_TvDB_Episode_Override();
 
         xref.AniDBEpisodeID = aniDBID;
         xref.TvDBEpisodeID = tvDBID;
-        RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.Save(xref);
+        RepoFactory.CR_AniDB_TvDB_Episode_Override.Save(xref);
 
-        var ep = RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(aniDBID);
+        var ep = RepoFactory.Shoko_Episode.GetByAnidbEpisodeId(aniDBID);
 
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(ep.AniDB_Episode.AnimeID);
-        RepoFactory.AnimeEpisode.Save(ep);
+        AniDB_Anime.UpdateStatsByAnimeID(ep.AniDB.AnimeID);
+        RepoFactory.Shoko_Episode.Save(ep);
 
         _logger.LogTrace("Changed tvdb episode association: {AniDbid}", aniDBID);
     }
 
-    // Removes all TVDB information from a series, bringing it back to a blank state.
-    public void RemoveLinkAniDBTvDB(int animeID, int tvDBID)
+    public void RemoveShowLink(int anidbAnimeID, int tvdbShowID)
+        => RemoveShowLinks(anidbAnimeID, new int[] { tvdbShowID });
+
+    public void RemoveShowLinks(int anidbAnimeID, IReadOnlyList<int> tvdbShowIDs = null)
     {
-        var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByAniDBAndTvDBID(animeID, tvDBID);
-        if (xref == null)
-        {
-            return;
-        }
-
-        RepoFactory.CrossRef_AniDB_TvDB.Delete(xref);
-        RepoFactory.CrossRef_AniDB_TvDB_Episode.Delete(
-            RepoFactory.CrossRef_AniDB_TvDB_Episode.GetByAnimeID(animeID));
-        RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.Delete(
-            RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAnimeID(animeID));
-
+        
         // Disable auto-matching when we remove an existing match for the series.
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
-        if (series != null)
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTvDBAutoMatchingDisabled)
         {
             series.IsTvDBAutoMatchingDisabled = true;
-            RepoFactory.AnimeSeries.Save(series, false, true, true);
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
         }
 
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
+        // Fetch every cross-reference related to the anidb entry.
+        var tvdbShowIDSet = tvdbShowIDs?.ToHashSet() ?? new();
+        var xrefs = RepoFactory.CR_AniDB_TvDB.GetByAnimeID(anidbAnimeID);
+        var episodeXRefs = RepoFactory.CR_AniDB_TvDB_Episode.GetByAnimeID(anidbAnimeID)
+            .Select(xref => new { XRef = xref, TvDB = RepoFactory.TvDB_Episode.GetByTvDBID(xref.TvdbEpisodeId) })
+            .ToList();
+        var episodeXRefOverrides = RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAnimeID(anidbAnimeID)
+            .Select(xref => new { XRef = xref, TvDB = RepoFactory.TvDB_Episode.GetByTvDBID(xref.TvDBEpisodeID) })
+            .ToList();
+
+        // Filter the entries based on the input.
+        if (tvdbShowIDs != null && tvdbShowIDs.Count > 0)
+        {
+            xrefs = xrefs
+                .Where(xref => tvdbShowIDSet.Contains(xref.TvDBID))
+                .ToList();
+            episodeXRefs = episodeXRefs
+                .Where(xref => tvdbShowIDSet.Contains(xref.TvDB.SeriesID))
+                .ToList();
+            episodeXRefOverrides = episodeXRefOverrides
+                .Where(xref => tvdbShowIDSet.Contains(xref.TvDB.SeriesID))
+                .ToList();
+        }
+        else
+        {
+            tvdbShowIDSet = xrefs.Select(xref => xref.TvDBID).ToHashSet();
+        }
+
+        _logger.LogInformation("Removing TvDB Links for: {AnimeID}", anidbAnimeID);
+
+        // Remove the default image override if it was linked to one of the tvdb shows.
+        var images = RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeID(anidbAnimeID);
+        foreach (var defaultImage in images)
+        {
+            switch ((ImageEntityType)defaultImage.ImageParentType)
+            {
+                case ImageEntityType.TvDB_FanArt:
+                {
+                    var fanart = RepoFactory.TvDB_Fanart.GetByID(defaultImage.ImageParentID);
+                    if (fanart == null || tvdbShowIDSet.Contains(fanart.SeriesID))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+                case ImageEntityType.TvDB_Cover:
+                {
+                    var poster = RepoFactory.TvDB_Poster.GetByID(defaultImage.ImageParentID);
+                    if (poster == null || tvdbShowIDSet.Contains(poster.SeriesID))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+                case ImageEntityType.TvDB_Banner:
+                {
+                    var banner = RepoFactory.TvDB_Banner.GetByID(defaultImage.ImageParentID);
+                    if (banner == null || tvdbShowIDSet.Contains(banner.SeriesID))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+            }
+        }
+
+        // Remove the cross-references.
+        foreach (var xref in xrefs)
+            RepoFactory.CR_AniDB_TvDB.Delete(xref);
+        foreach (var xref in episodeXRefs)
+            RepoFactory.CR_AniDB_TvDB_Episode.Delete(xref.XRef);
+        foreach (var xref in episodeXRefOverrides)
+            RepoFactory.CR_AniDB_TvDB_Episode_Override.Delete(xref.XRef);
+
+        // Update the series stats.
+        AniDB_Anime.UpdateStatsByAnimeID(anidbAnimeID);
     }
 
     public void ScanForMatches()
@@ -996,17 +1019,11 @@ public class TvDBApiHelper
             return;
         }
 
-        IReadOnlyList<SVR_AnimeSeries> allSeries = RepoFactory.CrossRef_AniDB_TvDB.GetSeriesWithoutLinks();
+        IReadOnlyList<ShokoSeries> allSeries = RepoFactory.CR_AniDB_TvDB.GetSeriesWithoutLinks();
 
         foreach (var ser in allSeries)
         {
-            if (ser.IsTvDBAutoMatchingDisabled)
-                continue;
-
             var anime = ser.GetAnime();
-            if (anime == null)
-                continue;
-
             _logger.LogTrace("Found anime without TvDB association: {MaintTitle}", anime.MainTitle);
 
             var cmd = _commandFactory.Create<CommandRequest_TvDBSearchAnime>(c => c.AnimeID = ser.AniDB_ID);
@@ -1016,7 +1033,7 @@ public class TvDBApiHelper
 
     public void UpdateAllInfo(bool force)
     {
-        var allCrossRefs = RepoFactory.CrossRef_AniDB_TvDB.GetAll();
+        var allCrossRefs = RepoFactory.CR_AniDB_TvDB.GetAll();
         foreach (var xref in allCrossRefs)
         {
             var cmd = _commandFactory.Create<CommandRequest_TvDBUpdateSeries>(
@@ -1140,9 +1157,9 @@ public class TvDBApiHelper
                 return currentTvDBServerTime;
             }
 
-            foreach (var ser in RepoFactory.AnimeSeries.GetAll())
+            foreach (var ser in RepoFactory.Shoko_Series.GetAll())
             {
-                var xrefs = ser.GetCrossRefTvDB();
+                var xrefs = ser.GetTvdbCrossReferences();
                 if (xrefs == null)
                 {
                     continue;

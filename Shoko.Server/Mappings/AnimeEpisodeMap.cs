@@ -3,7 +3,7 @@ using Shoko.Server.Models;
 
 namespace Shoko.Server.Mappings;
 
-public class AnimeEpisodeMap : ClassMap<SVR_AnimeEpisode>
+public class AnimeEpisodeMap : ClassMap<ShokoEpisode>
 {
     public AnimeEpisodeMap()
     {

@@ -29,6 +29,6 @@ public class AniDB_GroupStatusRepository : BaseDirectRepository<AniDB_GroupStatu
     {
         using var session = DatabaseFactory.SessionFactory.OpenSession();
         session.Query<AniDB_GroupStatus>().Where(a => a.AnimeID == animeid).Delete();
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeid);
+        AniDB_Anime.UpdateStatsByAnimeID(animeid);
     }
 }

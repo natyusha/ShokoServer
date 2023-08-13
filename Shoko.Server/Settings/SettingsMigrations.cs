@@ -7,7 +7,7 @@ namespace Shoko.Server.Settings;
 
 public static class SettingsMigrations
 {
-    public const int Version = 2;
+    public const int Version = 4;
 
     /// <summary>
     /// Perform migrations on the settings json, pre-init
@@ -36,6 +36,8 @@ public static class SettingsMigrations
     {
         { 1, MigrateTvDBLanguageEnum },
         { 2, MigrateEpisodeLanguagePreference },
+        { 3, MigrateAutoGroupRelations },
+        { 4, MigrateMovieDBToTMDB },
     };
 
     private static string MigrateTvDBLanguageEnum(string settings)
@@ -46,13 +48,31 @@ public static class SettingsMigrations
 
     private static string MigrateEpisodeLanguagePreference(string settings)
     {
-        var regex = new Regex(@"""(?<name>EpisodeLanguagePreference)"":(?<spacing>\s*)""(?<value>[^""]*)""", RegexOptions.Compiled);
+        var regex = new Regex(@"""(?<name>EpisodeLanguagePreference)""\s*:(?<spacing>\s*)""(?<value>[^""]*)""", RegexOptions.Compiled);
         return regex.Replace(settings, match =>
         {
             var name = match.Groups["name"].Value;
             var spacing = match.Groups["spacing"].Value;
             var value = match.Groups["value"].Value;
-            return $"\"{name}\":{spacing}[\"{string.Join($"\",{spacing}\"", value.Split(','))}\"]";
+            return $"\"{name}\":{spacing}[\"{string.Join($"\", \"", value.Split(','))}\"]";
         });
+    }
+
+    private static string MigrateAutoGroupRelations(string settings)
+    {
+        var regex = new Regex(@"""(?<name>AutoGroupSeriesRelationExclusions=""\s*:(?<spacing>\s*)""(?<value>[^""]+)""", RegexOptions.Compiled);
+        return regex.Replace(settings, match =>
+        {
+            var name = match.Groups["name"].Value;
+            var spacing = match.Groups["spacing"].Value;
+            var value = match.Groups["value"].Value;
+            return $"\"{name}\":{spacing}[\"{string.Join($"\", \"", value.Split('|'))}\"]";
+        });
+    }
+
+    private static string MigrateMovieDBToTMDB(string settings)
+    {
+        var regex = new Regex(@"""MovieDB""\s*:", RegexOptions.Compiled);
+        return regex.Replace(settings, @"""TMDB"":");
     }
 }

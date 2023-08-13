@@ -113,6 +113,6 @@ public class Role
         /// <summary>
         /// Responsible for the creation of the source work this show is detrived from.
         /// </summary>
-        SourceWork
+        SourceWork,
     }
 }

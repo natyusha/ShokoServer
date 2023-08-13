@@ -52,7 +52,7 @@ public class GroupController : BaseController
     {
         startsWith = startsWith.ToLowerInvariant();
         var user = User;
-        return RepoFactory.AnimeGroup.GetAll()
+        return RepoFactory.Shoko_Group.GetAll()
             .Where(group =>
             {
                 if (topLevelOnly && group.AnimeGroupParentID.HasValue)
@@ -90,7 +90,7 @@ public class GroupController : BaseController
     public ActionResult<Dictionary<char, int>> GetGroupNameLetters([FromQuery] bool includeEmpty = false, [FromQuery] bool topLevelOnly = true)
     {
         var user = User;
-        return RepoFactory.AnimeGroup.GetAll()
+        return RepoFactory.Shoko_Group.GetAll()
             .Where(group =>
             {
                 if (topLevelOnly && group.AnimeGroupParentID.HasValue)
@@ -125,7 +125,7 @@ public class GroupController : BaseController
     [HttpPost]
     public ActionResult<Group> CreateGroup([FromBody] Group.Input.CreateOrUpdateGroupBody body)
     {
-        var animeGroup = new SVR_AnimeGroup()
+        var animeGroup = new ShokoGroup()
         {
             GroupName = string.Empty,
             SortName = string.Empty,
@@ -158,7 +158,7 @@ public class GroupController : BaseController
     [HttpGet("{groupID}")]
     public ActionResult<Group> GetGroup([FromRoute] int groupID)
     {
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupNotFound);
@@ -185,7 +185,7 @@ public class GroupController : BaseController
     [HttpPut("{groupID}")]
     public ActionResult<Group> PutGroup([FromRoute] int groupID, [FromBody] Group.Input.CreateOrUpdateGroupBody body)
     {
-        var animeGroup = RepoFactory.AnimeGroup.GetByID(groupID);
+        var animeGroup = RepoFactory.Shoko_Group.GetByID(groupID);
         if (animeGroup == null)
         {
             return NotFound(GroupNotFound);
@@ -220,7 +220,7 @@ public class GroupController : BaseController
     [HttpPatch("{groupID}")]
     public ActionResult<Group> PatchGroup([FromRoute] int groupID, [FromBody] JsonPatchDocument<Group.Input.CreateOrUpdateGroupBody> patchDocument)
     {
-        var animeGroup = RepoFactory.AnimeGroup.GetByID(groupID);
+        var animeGroup = RepoFactory.Shoko_Group.GetByID(groupID);
         if (animeGroup == null)
         {
             return NotFound(GroupNotFound);
@@ -262,7 +262,7 @@ public class GroupController : BaseController
     public ActionResult<List<SeriesRelation>> GetShokoRelationsBySeriesID([FromRoute] int groupID,
         [FromQuery] bool recursive = false)
     {
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupNotFound);
@@ -274,7 +274,7 @@ public class GroupController : BaseController
             return Forbid(GroupForbiddenForUser);
         }
 
-        var seriesDict = (recursive ? group.GetAllSeries() : group.GetSeries())
+        var seriesDict = (recursive ? group.GetAllSeries() : group.Series)
             .ToDictionary(series => series.AniDB_ID);
         var animeIds = seriesDict.Values
             .Select(series => series.AniDB_ID)
@@ -283,7 +283,7 @@ public class GroupController : BaseController
         // TODO: Replace with a more generic implementation capable of suplying relations from more than just AniDB.
         return RepoFactory.AniDB_Anime_Relation.GetByAnimeID(animeIds)
             .Select(relation =>
-                (relation, relatedSeries: RepoFactory.AnimeSeries.GetByAnimeID(relation.RelatedAnimeID)))
+                (relation, relatedSeries: RepoFactory.Shoko_Series.GetByAnidbAnimeId(relation.RelatedAnidbAnimeId)))
             .Where(tuple => tuple.relatedSeries != null && animeIds.Contains(tuple.relatedSeries.AniDB_ID))
             .Select(tuple => new SeriesRelation(HttpContext, tuple.relation, seriesDict[tuple.relation.AnimeID],
                 tuple.relatedSeries))
@@ -307,7 +307,7 @@ public class GroupController : BaseController
     [HttpDelete("{groupID}")]
     public ActionResult DeleteGroup(int groupID, bool deleteSeries = false, bool deleteFiles = false)
     {
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupNotFound);
@@ -342,7 +342,7 @@ public class GroupController : BaseController
     [HttpPost("{groupID}/Recalculate")]
     public ActionResult RecalculateStats(int groupID)
     {
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupNotFound);

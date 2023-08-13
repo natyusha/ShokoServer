@@ -4,6 +4,8 @@ namespace Shoko.Server.Settings;
 
 public class TraktSettings
 {
+    public bool AutoLink { get; set; } = false;
+
     public bool Enabled { get; set; } = false;
 
     public string PIN { get; set; } = string.Empty;

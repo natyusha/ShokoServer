@@ -6,6 +6,7 @@ using Shoko.Models.Queue;
 using Shoko.Models.Server;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
+using Shoko.Server.Models.AniDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.AniDB.UDP.Info;
 using Shoko.Server.Repositories;
@@ -58,8 +59,8 @@ public class CommandRequest_GetReleaseGroup : CommandRequestImplementation
             relGroup.Votes = response.Response.Votes;
             relGroup.AnimeCount = response.Response.AnimeCount;
             relGroup.FileCount = response.Response.FileCount;
-            relGroup.GroupName = response.Response.Name;
-            relGroup.GroupNameShort = response.Response.ShortName;
+            relGroup.Name = response.Response.Name;
+            relGroup.ShortName = response.Response.ShortName;
             relGroup.IRCChannel = response.Response.IrcChannel;
             relGroup.IRCServer = response.Response.IrcServer;
             relGroup.URL = response.Response.URL;

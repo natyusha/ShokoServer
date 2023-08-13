@@ -37,7 +37,7 @@ public class ReverseTreeController : BaseController
     [HttpGet("Filter/{filterID}/Parent")]
     public ActionResult<Filter> GetFilterFromFilter([FromRoute] int filterID, [FromQuery] bool topLevel = false)
     {
-        var filter = RepoFactory.GroupFilter.GetByID(filterID);
+        var filter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (filter == null)
         {
             return NotFound(FilterController.FilterNotFound);
@@ -73,7 +73,7 @@ public class ReverseTreeController : BaseController
     [HttpGet("Group/{groupID}/Parent")]
     public ActionResult<Group> GetGroupFromGroup([FromRoute] int groupID, [FromQuery] bool topLevel = false)
     {
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
@@ -112,7 +112,7 @@ public class ReverseTreeController : BaseController
     [HttpGet("Series/{seriesID}/Group")]
     public ActionResult<Group> GetGroupFromSeries([FromRoute] int seriesID, [FromQuery] bool topLevel = false)
     {
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);
@@ -123,7 +123,7 @@ public class ReverseTreeController : BaseController
             return Forbid(SeriesController.SeriesForbiddenForUser);
         }
 
-        var group = topLevel ? series.TopLevelAnimeGroup : series.AnimeGroup;
+        var group = topLevel ? series.TopLevelAnimeGroup : series.ParentGroup;
         if (group == null)
         {
             return InternalError("No Group entry for the Series");
@@ -143,13 +143,13 @@ public class ReverseTreeController : BaseController
     public ActionResult<Series> GetSeriesFromEpisode([FromRoute] int episodeID, [FromQuery] bool randomImages = false,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeController.EpisodeNotFoundWithEpisodeID);
         }
 
-        var series = episode.GetAnimeSeries();
+        var series = episode.Series;
         if (series == null)
         {
             return InternalError("No Series entry for the Episode");
@@ -173,14 +173,14 @@ public class ReverseTreeController : BaseController
     public ActionResult<List<Episode>> GetEpisodeFromFile([FromRoute] int fileID,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
         {
             return NotFound(FileController.FileNotFoundWithFileID);
         }
 
-        var episodes = file.GetAnimeEpisodes();
-        if (!episodes.All(episode => User.AllowedSeries(episode.GetAnimeSeries())))
+        var episodes = file.GetEpisodes();
+        if (!episodes.All(episode => User.AllowedSeries(episode.Series)))
         {
             return Forbid(FileController.FileForbiddenForUser);
         }

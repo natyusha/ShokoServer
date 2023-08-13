@@ -14,6 +14,7 @@ using Shoko.Models.Server;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.AniDB.HTTP;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Repositories;
@@ -81,8 +82,8 @@ public class CommandRequest_SyncMyList : CommandRequestImplementation
 
             var missingFiles = AddMissingFiles(localFiles, onlineFiles);
 
-            var aniDBUsers = RepoFactory.JMMUser.GetAniDBUsers();
-            var modifiedSeries = new LinkedHashSet<SVR_AnimeSeries>();
+            var aniDBUsers = RepoFactory.Shoko_User.GetAniDBUsers();
+            var modifiedSeries = new LinkedHashSet<ShokoSeries>();
 
             // Remove Missing Files and update watched states (single loop)
             var filesToRemove = new HashSet<int>();
@@ -98,7 +99,7 @@ public class CommandRequest_SyncMyList : CommandRequestImplementation
                     var aniFile = RepoFactory.AniDB_File.GetByFileID(myItem!.FileID!.Value);
 
                     // the AniDB_File should never have a null hash, but just in case
-                    var vl = aniFile?.Hash == null ? null : RepoFactory.VideoLocal.GetByHash(aniFile.Hash);
+                    var vl = aniFile?.Hash == null ? null : RepoFactory.Shoko_Video.GetByHash(aniFile.Hash);
 
                     if (vl != null)
                     {
@@ -146,8 +147,8 @@ public class CommandRequest_SyncMyList : CommandRequestImplementation
         }
     }
 
-    private int ProcessStates(List<SVR_JMMUser> aniDBUsers, SVR_VideoLocal vl, ResponseMyList myitem,
-        int modifiedItems, ISet<SVR_AnimeSeries> modifiedSeries)
+    private int ProcessStates(List<Shoko_User> aniDBUsers, Shoko_Video vl, ResponseMyList myitem,
+        int modifiedItems, ISet<ShokoSeries> modifiedSeries)
     {
         // check watched states, read the states if needed, and update differences
         // aggregate and assume if one AniDB User has watched it, it should be marked
@@ -248,7 +249,7 @@ public class CommandRequest_SyncMyList : CommandRequestImplementation
     {
         if (!_settings.AniDb.MyList_AddFiles) return 0;
         var missingFiles = 0;
-        foreach (var vid in RepoFactory.VideoLocal.GetAll()
+        foreach (var vid in RepoFactory.Shoko_Video.GetAll()
                      .Where(a => !string.IsNullOrEmpty(a.Hash)).ToList())
         {
             // Does it have a linked AniFile

@@ -149,7 +149,7 @@ public class ActionController : BaseController
     [HttpGet("UpdateAllMovieDBInfo")]
     public ActionResult UpdateAllMovieDBInfo()
     {
-        Task.Factory.StartNew(() => _movieDBHelper.UpdateAllMovieInfo(true));
+        Task.Factory.StartNew(() => _movieDBHelper.UpdateAllMovieInfo());
         return Ok();
     }
 
@@ -194,16 +194,16 @@ public class ActionController : BaseController
     [HttpGet("AVDumpMismatchedFiles")]
     public ActionResult AVDumpMismatchedFiles()
     {
-        var allvids = RepoFactory.VideoLocal.GetAll().Where(vid => !vid.IsEmpty() && vid.Media != null)
-            .ToDictionary(a => a, a => a.GetAniDBFile());
-        Task.Factory.StartNew(() =>
+        var allvids = RepoFactory.Shoko_Video.GetAll().Where(vid => !vid.IsEmpty() && vid.Media != null)
+            .ToDictionary(a => a, a => a.AniDB);
+        Task.Factory.StartNew((Action)(() =>
         {
-            var list = allvids.Keys.Select(vid => new { vid, anidb = allvids[vid] })
+            var list = Enumerable.Where<string>(Enumerable.Select(allvids.Keys.Select(vid => new { vid, anidb = allvids[vid] })
                 .Where(_tuple => _tuple.anidb != null)
                 .Where(_tuple => !_tuple.anidb.IsDeprecated)
                 .Where(_tuple => _tuple.vid.Media?.MenuStreams.Any() != _tuple.anidb.IsChaptered)
-                .Select(_tuple => _tuple.vid.GetBestVideoLocalPlace(true)?.FullServerPath)
-                .Where(path => !string.IsNullOrEmpty(path)).ToList();
+, _tuple => (string)(_tuple.vid.GetPreferredLocation(true)?.AbsolutePath))
+, (Func<string, bool>)(path => !string.IsNullOrEmpty(path))).ToList();
             var index = 0;
             foreach (var path in list)
             {
@@ -213,7 +213,7 @@ public class ActionController : BaseController
                 index++;
                 _logger.LogInformation($"AVDump Progress: {list.Count - index} remaining");
             }
-        });
+        }));
 
         return Ok();
     }
@@ -233,7 +233,7 @@ public class ActionController : BaseController
         int index = 0;
         var queuedCount = 0;
         var allAnime = RepoFactory.AniDB_Anime.GetAll()
-            .Select(a => a.AnimeID)
+            .Select(a => a.AnimeId)
             .OrderBy(a => a)
             .ToHashSet();
         _logger.LogInformation("Starting the check for {AllAnimeCount} anime XML files", allAnime.Count);
@@ -258,8 +258,8 @@ public class ActionController : BaseController
 
         // Queue missing anime needed by existing files.
         index = 0;
-        var missingAnime = RepoFactory.VideoLocal.GetVideosWithMissingCrossReferenceData()
-            .SelectMany(file => file.EpisodeCrossRefs.Select(xRef => xRef.AnimeID))
+        var missingAnime = RepoFactory.Shoko_Video.GetVideosWithMissingCrossReferenceData()
+            .SelectMany(file => file.GetCrossReferences(false).Select(xRef => xRef.AnidbAnimeId))
             .Distinct()
             .Where(id => !allAnime.Contains(id))
             .ToHashSet();
@@ -289,8 +289,8 @@ public class ActionController : BaseController
     {
         try
         {
-            RepoFactory.CrossRef_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
-            RepoFactory.AnimeSeries.GetAll().ToList().AsParallel().ForAll(animeseries =>
+            RepoFactory.CR_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
+            RepoFactory.Shoko_Series.GetAll().ToList().AsParallel().ForAll(animeseries =>
                 TvDBLinkingHelper.GenerateTvDBEpisodeMatches(animeseries.AniDB_ID, true));
         }
         catch (Exception e)
@@ -406,7 +406,7 @@ public class ActionController : BaseController
     [HttpGet("RenameAllGroups")]
     public ActionResult RenameAllGroups()
     {
-        Task.Factory.StartNew(() => SVR_AnimeGroup.RenameAllGroups()).ConfigureAwait(false);
+        Task.Factory.StartNew(() => ShokoGroup.RenameAllGroups()).ConfigureAwait(false);
         return Ok();
     }
 
@@ -430,7 +430,7 @@ public class ActionController : BaseController
     [HttpGet("AddAllManualLinksToMyList")]
     public ActionResult AddAllManualLinksToMyList()
     {
-        var cmds = RepoFactory.VideoLocal.GetManuallyLinkedVideos().Select(a => _commandFactory.Create<CommandRequest_AddFileToMyList>(c => c.Hash = a.Hash)).ToList();
+        var cmds = RepoFactory.Shoko_Video.GetManuallyLinkedVideos().Select(a => _commandFactory.Create<CommandRequest_AddFileToMyList>(c => c.Hash = a.Hash)).ToList();
         cmds.ForEach(a => a.Save());
         return Ok($"Saved {cmds.Count} AddToMyList Commands");
     }

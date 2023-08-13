@@ -78,8 +78,8 @@ public class TagController : BaseController
     public ActionResult<ListResult<Tag>> GetAllUserTags([FromQuery] [Range(0, 100)] int pageSize = 50,
         [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] bool excludeDescriptions = false)
     {
-        return RepoFactory.CustomTag.GetAll()
-            .OrderBy(tag => tag.TagName)
+        return RepoFactory.Custom_Tag.GetAll()
+            .OrderBy(tag => tag.Name)
             .ToListResult(tag => new Tag(tag, excludeDescriptions), page, pageSize);
     }
 
@@ -92,7 +92,7 @@ public class TagController : BaseController
     [HttpGet("User/{tagID}")]
     public ActionResult<Tag> GetUserTag([FromRoute] int tagID, [FromQuery] bool excludeDescription = false)
     {
-        var tag = RepoFactory.CustomTag.GetByID(tagID);
+        var tag = RepoFactory.Custom_Tag.GetByID(tagID);
         if (tag == null)
             return NotFound("No User Tag entry for the given tagID");
 

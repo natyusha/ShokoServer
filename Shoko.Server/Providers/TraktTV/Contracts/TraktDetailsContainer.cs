@@ -172,7 +172,7 @@ public class TraktDetailsContainer
                 return;
             }
 
-            traktEpisodes = RepoFactory.Trakt_Episode.GetByShowID(Show.Trakt_ShowID)
+            traktEpisodes = RepoFactory.Trakt_Episode.GetByShowID(Show.Id)
                 .OrderBy(a => a.Season)
                 .ThenBy(a => a.EpisodeNumber)
                 .ToList();

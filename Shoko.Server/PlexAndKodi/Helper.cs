@@ -10,10 +10,11 @@ using Shoko.Commons.Utils;
 using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.PlexAndKodi;
-using Shoko.Models.Server;
 using Shoko.Server.Extensions;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
@@ -27,13 +28,13 @@ public static class Helper
         bool autowatch)
     {
         return prov.ServerUrl(Utils.SettingsProvider.GetSettings().ServerPort,
-            "Stream/" + vid + "/" + userid + "/" + autowatch + "/" + name, prov.IsExternalRequest());
+            "Stream/" + vid + "/" + userid + "/" + autowatch + "/" + name);
     }
 
     public static string ConstructFileStream(this IProvider prov, int userid, string file, bool autowatch)
     {
         return prov.ServerUrl(Utils.SettingsProvider.GetSettings().ServerPort,
-            "Stream/Filename/" + Base64EncodeUrl(file) + "/" + userid + "/" + autowatch, prov.IsExternalRequest());
+            "Stream/Filename/" + Base64EncodeUrl(file) + "/" + userid + "/" + autowatch);
     }
 
     public static string ConstructImageLink(this IProvider prov, int type, int id)
@@ -133,27 +134,26 @@ public static class Helper
         return Encoding.UTF8.GetString(data);
     }
 
-    public static SVR_JMMUser GetUser(string userid)
+    public static Shoko_User GetUser(string userid)
     {
-        var allusers = RepoFactory.JMMUser.GetAll();
+        var allusers = RepoFactory.Shoko_User.GetAll();
         foreach (var n in allusers)
         {
-            if (userid.FindIn(n.GetPlexUsers()))
+            if (n.Plex.LocalUsers.Contains(userid))
             {
                 return n;
             }
         }
 
-        return allusers.FirstOrDefault(a => a.IsAdmin == 1) ??
+        return allusers.FirstOrDefault(a => a.IsAdmin) ??
                allusers.FirstOrDefault(a => a.Username == "Default") ?? allusers.First();
     }
 
-    public static SVR_JMMUser GetJMMUser(string userid)
+    public static Shoko_User GetJMMUser(int userid)
     {
-        var allusers = RepoFactory.JMMUser.GetAll();
-        int.TryParse(userid, out var id);
-        return allusers.FirstOrDefault(a => a.JMMUserID == id) ??
-               allusers.FirstOrDefault(a => a.IsAdmin == 1) ??
+        var allusers = RepoFactory.Shoko_User.GetAll();
+        return allusers.FirstOrDefault(a => a.Id == userid) ??
+               allusers.FirstOrDefault(a => a.IsAdmin) ??
                allusers.FirstOrDefault(a => a.Username == "Default") ?? allusers.First();
     }
 
@@ -198,46 +198,46 @@ public static class Helper
         }
     }
 
-    public static Video VideoFromVideoLocal(IProvider prov, SVR_VideoLocal v, int userid)
+    public static Video VideoFromVideoLocal(IProvider prov, Shoko_Video video, int userid)
     {
-        var l = new Video
+        var result = new Video
         {
             AnimeType = AnimeTypes.AnimeFile.ToString(),
-            Id = v.VideoLocalID,
+            Id = video.Id,
             Type = "episode",
-            Summary = "Episode Overview Not Available", //TODO Internationalization
-            Title = Path.GetFileNameWithoutExtension(v.FileName),
-            AddedAt = v.DateTimeCreated.ToUnixTime(),
-            UpdatedAt = v.DateTimeUpdated.ToUnixTime(),
-            OriginallyAvailableAt = v.DateTimeCreated.ToPlexDate(),
-            Year = v.DateTimeCreated.Year,
+            Summary = "Episode Overview Not Available",
+            Title = Path.GetFileNameWithoutExtension(video.FileName),
+            AddedAt = video.CreatedAt.ToUnixTime(),
+            UpdatedAt = video.LastUpdatedAt.ToUnixTime(),
+            OriginallyAvailableAt = video.CreatedAt.ToPlexDate(),
+            Year = video.CreatedAt.Year,
             Medias = new List<Media>()
         };
-        var vlr = v.GetUserRecord(userid);
-        if (vlr?.WatchedDate != null)
+        var userRecord = video.GetUserRecord(userid);
+        if (userRecord?.LastWatchedAt != null)
         {
-            l.LastViewedAt = vlr.WatchedDate.Value.ToUnixTime();
+            result.LastViewedAt = userRecord.LastWatchedAt.Value.ToUnixTime();
         }
 
-        if (vlr?.ResumePosition > 0)
+        if (userRecord?.RawResumePosition > 0)
         {
-            l.ViewOffset = vlr.ResumePosition;
+            result.ViewOffset = userRecord.RawResumePosition;
         }
 
-        if (v.Media != null)
+        if (video.Media != null)
         {
-            var m = new Media(v.VideoLocalID, v.Media);
-            l.Medias.Add(m);
-            l.Duration = m.Duration;
+            var m = new Media(video.Id, video.Media);
+            result.Medias.Add(m);
+            result.Duration = m.Duration;
         }
 
-        AddLinksToAnimeEpisodeVideo(prov, l, userid);
-        return l;
+        AddLinksToAnimeEpisodeVideo(prov, result, userid);
+        return result;
     }
 
 
-    public static Video VideoFromAnimeEpisode(IProvider prov, List<CrossRef_AniDB_TvDBV2> cross,
-        KeyValuePair<SVR_AnimeEpisode, CL_AnimeEpisode_User> e, int userid)
+    public static Video VideoFromAnimeEpisode(IProvider prov, List<CL_CrossRef_AniDB_TvDB> cross,
+        KeyValuePair<Shoko_Episode, CL_AnimeEpisode_User> e, int userid)
     {
         var v = GenerateVideoFromAnimeEpisode(e.Key, e.Value.JMMUserID);
         if (v?.Thumb != null)
@@ -302,7 +302,7 @@ public static class Helper
 
     private static readonly Regex UrlSafe2 = new("[^0-9a-zA-Z_\\.\\s]", RegexOptions.Compiled);
 
-    public static Video GenerateVideoFromAnimeEpisode(SVR_AnimeEpisode ep, int userID)
+    public static Video GenerateVideoFromAnimeEpisode(Shoko_Episode ep, int userID)
     {
         var l = new Video();
         var vids = ep.GetVideoLocals();
@@ -327,7 +327,7 @@ public static class Helper
                 }
 
                 var legacy = new Media(v.VideoLocalID, v.Media);
-                var place = v.GetBestVideoLocalPlace();
+                var place = v.GetPreferredLocation();
                 legacy.Parts.ForEach(p =>
                 {
                     if (string.IsNullOrEmpty(p.LocalKey))
@@ -377,8 +377,8 @@ public static class Helper
             }
 
             var romaji = RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(ep.AniDB_EpisodeID,
-                    Shoko.Plugin.Abstractions.DataModels.TitleLanguage.Romaji)
-                .FirstOrDefault()?.Title;
+                    Shoko.Plugin.Abstractions.Models.TextLanguage.Romaji)
+                .FirstOrDefault()?.Value;
             if (!string.IsNullOrEmpty(romaji))
             {
                 l.OriginalTitle = romaji;
@@ -428,9 +428,9 @@ public static class Helper
         return l;
     }
 
-    private static void GetValidVideoRecursive(IProvider prov, SVR_GroupFilter f, int userid, Directory pp)
+    private static void GetValidVideoRecursive(IProvider prov, ShokoGroup_Filter f, int userid, Directory pp)
     {
-        var gfs = RepoFactory.GroupFilter.GetByParentID(f.GroupFilterID)
+        var gfs = RepoFactory.Shoko_Group_Filter.GetByParentID(f.GroupFilterID)
             .Where(a => a.GroupsIds.ContainsKey(userid) && a.GroupsIds[userid].Count > 0)
             .ToList();
 
@@ -443,7 +443,7 @@ public static class Helper
                 {
                     foreach (var grp in groups.Randomize(f.GroupFilterID))
                     {
-                        var ag = RepoFactory.AnimeGroup.GetByID(grp);
+                        var ag = RepoFactory.Shoko_Group.GetByID(grp);
                         var v = ag.GetPlexContract(userid);
                         if (v?.Art == null || v.Thumb == null)
                         {
@@ -483,7 +483,7 @@ public static class Helper
         pp.ViewedLeafCount = 0;
     }
 
-    public static Directory DirectoryFromFilter(IProvider prov, SVR_GroupFilter gg,
+    public static Directory DirectoryFromFilter(IProvider prov, ShokoGroup_Filter gg,
         int userid)
     {
         var pp = new Directory { Type = "show" };
@@ -507,7 +507,7 @@ public static class Helper
             pp.ViewedLeafCount = 0;
             foreach (var grp in groups.Randomize())
             {
-                var ag = RepoFactory.AnimeGroup.GetByID(grp);
+                var ag = RepoFactory.Shoko_Group.GetByID(grp);
                 var v = ag.GetPlexContract(userid);
                 if (v?.Art == null || v.Thumb == null)
                 {
@@ -643,7 +643,7 @@ public static class Helper
         return details.GenArt(prov);
     }
 
-    public static Video GenerateFromAnimeGroup(SVR_AnimeGroup grp, int userid, List<SVR_AnimeSeries> allSeries)
+    public static Video GenerateFromAnimeGroup(ShokoGroup grp, int userid, List<ShokoSeries> allSeries)
     {
         var cgrp = grp.GetUserContract(userid);
         var subgrpcnt = grp.GetAllChildGroups().Count;
@@ -703,7 +703,7 @@ public static class Helper
                 .GetTitles()
                 .Select(title => new AnimeTitle
                 {
-                    Title = title.Title, Language = title.LanguageCode, Type = title.TitleType.ToString().ToLower()
+                    Title = title.Value, Language = title.LanguageCode, Type = title.TitleType.ToString().ToLower()
                 })
                 .ToList();
             v.Titles = newTitles;
@@ -785,7 +785,7 @@ public static class Helper
         return ks;
     }
 
-    public static Video MayReplaceVideo(Video v1, SVR_AnimeSeries ser, CL_AnimeSeries_User cserie, int userid,
+    public static Video MayReplaceVideo(Video v1, ShokoSeries ser, CL_AnimeSeries_User cserie, int userid,
         bool all = true, Video serie = null)
     {
         var epcount = all
@@ -850,7 +850,7 @@ public static class Helper
         return p;
     }
 
-    public static Video GenerateFromSeries(CL_AnimeSeries_User cserie, SVR_AnimeSeries ser, SVR_AniDB_Anime anidb,
+    public static Video GenerateFromSeries(CL_AnimeSeries_User cserie, ShokoSeries ser, AniDB_Anime anidb,
         int userid)
     {
         Video v = new Directory();
@@ -889,9 +889,9 @@ public static class Helper
     }
 
 
-    private static void FillSerie(Video p, SVR_AnimeSeries aser,
-        Dictionary<SVR_AnimeEpisode, CL_AnimeEpisode_User> eps,
-        SVR_AniDB_Anime anidb, CL_AnimeSeries_User ser)
+    private static void FillSerie(Video p, ShokoSeries aser,
+        Dictionary<Shoko_Episode, CL_AnimeEpisode_User> eps,
+        AniDB_Anime anidb, CL_AnimeSeries_User ser)
     {
         var anime = ser.AniDBAnime.AniDBAnime;
         p.Id = ser.AnimeSeriesID;
@@ -1013,7 +1013,7 @@ public static class Helper
                 new AnimeTitle
                 {
                     Language = title.LanguageCode,
-                    Title = title.Title,
+                    Title = title.Value,
                     Type = title.TitleType.ToString().ToLower()
                 });
         }

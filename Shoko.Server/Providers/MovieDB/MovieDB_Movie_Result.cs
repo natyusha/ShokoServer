@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using NLog;
 using Shoko.Models.Client;
+using Shoko.Models.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 
@@ -29,34 +30,29 @@ public class MovieDB_Movie_Result
         try
         {
             Images = new List<MovieDB_Image_Result>();
-
             MovieID = movie.Id;
             MovieName = movie.Title;
             OriginalName = movie.Title;
             Overview = movie.Overview;
             Rating = movie.VoteAverage;
 
-            if (imgs != null && imgs.Backdrops != null)
+            if (imgs?.Backdrops != null)
             {
                 foreach (var img in imgs.Backdrops)
                 {
                     var imageResult = new MovieDB_Image_Result();
-                    if (imageResult.Populate(img, "backdrop"))
-                    {
-                        Images.Add(imageResult);
-                    }
+                    imageResult.Populate(img, "backdrop");
+                    Images.Add(imageResult);
                 }
             }
 
-            if (imgs != null && imgs.Posters != null)
+            if (imgs?.Posters != null)
             {
                 foreach (var img in imgs.Posters)
                 {
                     var imageResult = new MovieDB_Image_Result();
-                    if (imageResult.Populate(img, "poster"))
-                    {
-                        Images.Add(imageResult);
-                    }
+                    imageResult.Populate(img, "poster");
+                    Images.Add(imageResult);
                 }
             }
         }
@@ -73,7 +69,7 @@ public class MovieDB_Movie_Result
     {
         var cl = new CL_MovieDBMovieSearch_Response
         {
-            MovieID = MovieID, MovieName = MovieName, OriginalName = OriginalName, Overview = Overview
+            MovieID = MovieId, MovieName = MovieName, OriginalName = OriginalName, Overview = Overview
         };
         return cl;
     }

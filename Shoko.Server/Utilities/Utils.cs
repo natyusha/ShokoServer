@@ -60,7 +60,7 @@ public static class Utils
     public static string AnimeXmlDirectory { get; set; } = Path.Combine(ApplicationPath, "Anime_HTTP");
     public static string MyListDirectory { get; set; } = Path.Combine(ApplicationPath, "MyList");
 
-    private static string? GetInstanceFromCommandLineArguments()
+    private static string GetInstanceFromCommandLineArguments()
     {
         const int notFound = -1;
         var       args     = Environment.GetCommandLineArgs();
@@ -140,16 +140,6 @@ public static class Utils
     private static extern IntPtr GetProcAddress(IntPtr hModule, string methodName);
 
     private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
-    public static string CalculateSHA1(string text, Encoding enc)
-    {
-        var buffer = enc.GetBytes(text);
-        var cryptoTransformSHA1 =
-            new SHA1CryptoServiceProvider();
-        var hash = BitConverter.ToString(cryptoTransformSHA1.ComputeHash(buffer)).Replace("-", string.Empty);
-
-        return hash;
-    }
 
     public static readonly List<string> Paths = new()
     {
@@ -1046,16 +1036,6 @@ public static class Utils
                 Path.GetFileNameWithoutExtension(fileName) + ".rar")
         };
         return subtileFiles;
-    }
-
-    /// <summary>
-    /// This method attempts to take a video resolution, and return something that is closer to a standard
-    /// </summary>
-    /// <param name="res"></param>
-    /// <returns></returns>
-    public static string GetStandardisedVideoResolution(string res)
-    {
-        return FileQualityFilter.GetResolution(res) ?? res;
     }
 
     public static int GetVideoWidth(string videoResolution)

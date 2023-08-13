@@ -3,8 +3,8 @@ using System.IO;
 using System.Reflection;
 using Newtonsoft.Json;
 using NLog;
-using Shoko.Models;
 using Shoko.Models.Enums;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Utilities;
 
 // ReSharper disable InconsistentNaming
@@ -21,23 +21,7 @@ public class ServerSettings_Legacy
     private static string DefaultInstance { get; } =
         Assembly.GetEntryAssembly().GetName().Name;
 
-    private static string ApplicationPath
-    {
-        get
-        {
-            if (Utils.IsLinux)
-            {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".shoko",
-                    DefaultInstance);
-            }
-
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), DefaultInstance);
-        }
-    }
-
-    private static string DefaultImagePath => Path.Combine(ApplicationPath, "images");
+    private static string DefaultImagePath => Path.Combine(Utils.ApplicationPath, "images");
 
     /// <summary>
     /// Load setting from custom file - ex. read setting from backup
@@ -49,9 +33,9 @@ public class ServerSettings_Legacy
             var path = string.Empty;
             ServerSettings_Legacy settings = null;
 
-            if (!string.IsNullOrEmpty(ApplicationPath))
+            if (!string.IsNullOrEmpty(Utils.ApplicationPath))
             {
-                path = Path.Combine(ApplicationPath, "settings.json");
+                path = Path.Combine(Utils.ApplicationPath, "settings.json");
             }
 
             if (!string.IsNullOrEmpty(path) && File.Exists(path))
@@ -84,7 +68,6 @@ public class ServerSettings_Legacy
     }
 
     public string AnimeXmlDirectory { get; set; }
-
 
     public string MyListDirectory { get; set; }
 
@@ -269,11 +252,11 @@ public class ServerSettings_Legacy
 
     public int CloudWatcherTime { get; set; }
 
-    public DataSourceType EpisodeTitleSource { get; set; }
+    public DataSource EpisodeTitleSource { get; set; }
 
-    public DataSourceType SeriesDescriptionSource { get; set; }
+    public DataSource SeriesDescriptionSource { get; set; }
 
-    public DataSourceType SeriesNameSource { get; set; }
+    public DataSource SeriesNameSource { get; set; }
 
     public string ImagesPath { get; set; }
 

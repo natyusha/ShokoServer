@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Plugin.Abstractions.Extensions;
 
 namespace Shoko.Server.Providers.AniDB.Titles;
@@ -15,28 +16,39 @@ public class ResponseAniDBTitles
     {
         [XmlIgnore]
         public virtual string MainTitle =>
-            (Titles?.FirstOrDefault(t => t.Language == TitleLanguage.Romaji && t.TitleType == TitleType.Main) ??
-             Titles?.FirstOrDefault())?.Title ?? "";
+            (Titles?.FirstOrDefault(t => t.IsPreferred) ?? Titles?.FirstOrDefault())?.Value ?? "";
 
         [XmlAttribute(DataType = "int", AttributeName = "aid")]
-        public int AnimeID { get; set; }
+        public int AnimeId { get; set; }
 
-        [XmlElement("title")] public List<AnimeTitle> Titles { get; set; }
+        [XmlElement("title")]
+        public List<AnimeTitle> Titles { get; set; }
 
-        public class AnimeTitle
+        public class AnimeTitle : ITitle
         {
-            [XmlText] public string Title { get; set; }
+            [XmlText]
+            public string Value { get; set; }
 
-            [XmlAttribute("type")] public TitleType TitleType { get; set; }
+            [XmlAttribute("type")]
+            public TitleType Type { get; set; }
 
-            [XmlIgnore] public TitleLanguage Language { get; set; }
+            [XmlIgnore]
+            public TextLanguage Language { get; set; }
+
+            [XmlIgnore]
+            public bool IsPreferred =>
+                Type == TitleType.Main;
 
             [XmlAttribute(DataType = "string", AttributeName = "xml:lang")]
             public string LanguageCode
             {
-                get => Language.GetString();
-                set => Language = value.GetTitleLanguage();
+                get => Language.ToLanguageCode();
+                set => Language = value.ToTextLanguage();
             }
+
+            [XmlIgnore]
+            DataSource IMetadata.DataSource =>
+                DataSource.AniDB;
         }
     }
 }

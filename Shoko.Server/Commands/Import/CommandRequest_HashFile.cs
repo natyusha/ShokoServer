@@ -12,6 +12,7 @@ using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.FileHelper;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.Cached;
 using Shoko.Server.Server;
@@ -108,15 +109,13 @@ public class CommandRequest_HashFile : CommandRequestImplementation
         // hash and read media info for file
         int nshareID;
 
-        var tup = VideoLocal_PlaceRepository.GetFromFullPath(FileName);
-        if (tup == null)
+        var (folder, filePath) = RepoFactory.ImportFolder.GetFromAbsolutePath(FileName);
+        if (folder == null || string.IsNullOrEmpty(filePath))
         {
             Logger.LogError("Unable to locate Import Folder for {FileName}", FileName);
             return;
         }
 
-        var folder = tup.Item1;
-        var filePath = tup.Item2;
         long filesize = 0;
         Exception e = null;
 
@@ -164,17 +163,17 @@ public class CommandRequest_HashFile : CommandRequestImplementation
             return;
         }
 
-        nshareID = folder.ImportFolderID;
+        nshareID = folder.Id;
 
 
         // check if we have already processed this file
-        var vlocalplace = RepoFactory.VideoLocalPlace.GetByFilePathAndImportFolderID(filePath, nshareID);
-        SVR_VideoLocal vlocal = null;
+        var vlocalplace = RepoFactory.Shoko_Video_Location.GetByFilePathAndImportFolderID(filePath, nshareID);
+        Shoko_Video vlocal = null;
         var filename = Path.GetFileName(filePath);
 
         if (vlocalplace != null)
         {
-            vlocal = vlocalplace.VideoLocal;
+            vlocal = vlocalplace.Video;
             if (vlocal != null)
             {
                 Logger.LogTrace("VideoLocal record found in database: {Filename}", FileName);
@@ -184,11 +183,11 @@ public class CommandRequest_HashFile : CommandRequestImplementation
                 {
                     if (vlocal.Places.Count == 1)
                     {
-                        RepoFactory.VideoLocal.Delete(vlocal);
+                        RepoFactory.Shoko_Video.Delete(vlocal);
                         vlocal = null;
                     }
 
-                    RepoFactory.VideoLocalPlace.Delete(vlocalplace);
+                    RepoFactory.Shoko_Video_Location.Delete(vlocalplace);
                     vlocalplace = null;
                 }
 
@@ -202,32 +201,24 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
         if (vlocal == null)
         {
-            // TODO support reading MD5 and SHA1 from files via the standard way
             Logger.LogTrace("No existing VideoLocal, creating temporary record");
-            vlocal = new SVR_VideoLocal
+            vlocal = new Shoko_Video
             {
-                DateTimeUpdated = DateTime.Now,
-                DateTimeCreated = DateTimeUpdated,
-                FileName = filename,
-                FileSize = filesize,
-                Hash = string.Empty,
-                CRC32 = string.Empty,
-                MD5 = string.Empty,
-                SHA1 = string.Empty,
-                IsIgnored = 0,
-                IsVariation = 0
+                LastUpdatedAt = DateTime.Now,
+                CreatedAt = DateTimeUpdated,
             };
         }
 
         if (vlocalplace == null)
         {
             Logger.LogTrace("No existing VideoLocal_Place, creating a new record");
-            vlocalplace = new SVR_VideoLocal_Place
+            vlocalplace = new Shoko_Video_Location
             {
-                FilePath = filePath, ImportFolderID = nshareID, ImportFolderType = folder.ImportFolderType
+                RelativePath = filePath,
+                ImportFolderId = nshareID,
             };
             // Make sure we have an ID
-            RepoFactory.VideoLocalPlace.Save(vlocalplace);
+            RepoFactory.Shoko_Video_Location.Save(vlocalplace);
         }
 
         // check if we need to get a hash this file
@@ -248,7 +239,7 @@ public class CommandRequest_HashFile : CommandRequestImplementation
             // We should have a hash by now
             // before we save it, lets make sure there is not any other record with this hash (possible duplicate file)
 
-            var tlocal = RepoFactory.VideoLocal.GetByHash(vlocal.Hash);
+            var tlocal = RepoFactory.Shoko_Video.GetByED2K(vlocal.Hash);
             var duplicate = false;
             var changed = false;
 
@@ -270,13 +261,13 @@ public class CommandRequest_HashFile : CommandRequestImplementation
                     // clean up, if there is a 'duplicate file' that is invalid, remove it.
                     if (prep.FullServerPath == null)
                     {
-                        RepoFactory.VideoLocalPlace.Delete(prep);
+                        RepoFactory.Shoko_Video_Location.Delete(prep);
                     }
                     else
                     {
                         if (!File.Exists(prep.FullServerPath))
                         {
-                            RepoFactory.VideoLocalPlace.Delete(prep);
+                            RepoFactory.Shoko_Video_Location.Delete(prep);
                         }
                     }
                 }
@@ -329,11 +320,11 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
             if (!duplicate || changed)
             {
-                RepoFactory.VideoLocal.Save(vlocal, true);
+                RepoFactory.Shoko_Video.Save(vlocal, true);
             }
 
             vlocalplace.VideoLocalID = vlocal.VideoLocalID;
-            RepoFactory.VideoLocalPlace.Save(vlocalplace);
+            RepoFactory.Shoko_Video_Location.Save(vlocalplace);
 
             if (duplicate)
             {
@@ -350,12 +341,12 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
             // also save the filename to hash record
             // replace the existing records just in case it was corrupt
-            var fnhashes2 = RepoFactory.FileNameHash.GetByFileNameAndSize(filename, vlocal.FileSize);
+            var fnhashes2 = RepoFactory.CR_FileName_ED2K.GetByFileNameAndSize(filename, vlocal.FileSize);
             if (fnhashes2 is { Count: > 1 })
             {
                 // if we have more than one record it probably means there is some sort of corruption
                 // lets delete the local records
-                RepoFactory.FileNameHash.Delete(fnhashes2);
+                RepoFactory.CR_FileName_ED2K.Delete(fnhashes2);
             }
 
             var fnhash = fnhashes2 is { Count: 1 } ? fnhashes2[0] : new FileNameHash();
@@ -364,7 +355,7 @@ public class CommandRequest_HashFile : CommandRequestImplementation
             fnhash.FileSize = vlocal.FileSize;
             fnhash.Hash = vlocal.Hash;
             fnhash.DateTimeUpdated = DateTime.Now;
-            RepoFactory.FileNameHash.Save(fnhash);
+            RepoFactory.CR_FileName_ED2K.Save(fnhash);
         }
         else
         {
@@ -372,11 +363,11 @@ public class CommandRequest_HashFile : CommandRequestImplementation
         }
 
 
-        if ((vlocal.Media?.GeneralStream?.Duration ?? 0) == 0 || vlocal.MediaVersion < SVR_VideoLocal.MEDIA_VERSION)
+        if ((vlocal.Media?.GeneralStream?.Duration ?? 0) == 0 || vlocal.MediaVersion < Shoko_Video.MEDIA_VERSION)
         {
             if (vlocalplace.RefreshMediaInfo())
             {
-                RepoFactory.VideoLocal.Save(vlocalplace.VideoLocal, true);
+                RepoFactory.Shoko_Video.Save(vlocalplace.VideoLocal, true);
             }
         }
 
@@ -392,44 +383,42 @@ public class CommandRequest_HashFile : CommandRequestImplementation
         crProcFile.Save();
     }
 
-    private bool TrySetHashFromXrefs(string filename, SVR_VideoLocal vlocal)
+    private bool TrySetHashFromXrefs(string filename, Shoko_Video vlocal)
     {
         var crossRefs =
-            RepoFactory.CrossRef_File_Episode.GetByFileNameAndSize(filename, vlocal.FileSize);
+            RepoFactory.CR_Video_Episode.GetByFileNameAndSize(filename, vlocal.Size);
         if (!crossRefs.Any()) return false;
 
-        vlocal.Hash = crossRefs[0].Hash;
-        vlocal.HashSource = (int)HashSource.DirectHash;
-        Logger.LogTrace("Got hash from xrefs: {Filename} ({Hash})", FileName, crossRefs[0].Hash);
+        vlocal.ED2K = crossRefs[0].ED2K;
+        Logger.LogTrace("Got hash from xrefs: {Filename} ({ED2K})", FileName, crossRefs[0].ED2K);
         return true;
     }
 
-    private bool TrySetHashFromFileNameHash(string filename, SVR_VideoLocal vlocal)
+    private bool TrySetHashFromFileNameHash(string filename, Shoko_Video vlocal)
     {
-        var fnhashes = RepoFactory.FileNameHash.GetByFileNameAndSize(filename, vlocal.FileSize);
+        var fnhashes = RepoFactory.CR_FileName_ED2K.GetByFileNameAndSize(filename, vlocal.Size);
         if (fnhashes is { Count: > 1 })
         {
             // if we have more than one record it probably means there is some sort of corruption
             // lets delete the local records
             foreach (var fnh in fnhashes)
             {
-                RepoFactory.FileNameHash.Delete(fnh.FileNameHashID);
+                RepoFactory.CR_FileName_ED2K.Delete(fnh.FileNameHashID);
             }
         }
 
         // reinit this to check if we erased them
-        fnhashes = RepoFactory.FileNameHash.GetByFileNameAndSize(filename, vlocal.FileSize);
+        fnhashes = RepoFactory.CR_FileName_ED2K.GetByFileNameAndSize(filename, vlocal.Size);
 
         if (fnhashes is not { Count: 1 }) return false;
 
-        Logger.LogTrace("Got hash from LOCAL cache: {Filename} ({Hash})", FileName, fnhashes[0].Hash);
-        vlocal.Hash = fnhashes[0].Hash;
-        vlocal.HashSource = (int)HashSource.WebCacheFileName;
+        Logger.LogTrace("Got hash from LOCAL cache: {Filename} ({ED2K})", FileName, fnhashes[0].Hash);
+        vlocal.ED2K = fnhashes[0].Hash;
         return true;
 
     }
 
-    private void FillMissingHashes(SVR_VideoLocal vlocal, bool force)
+    private void FillMissingHashes(Shoko_Video vlocal, bool force)
     {
         var hasherSettings = _settingsProvider.GetSettings().Import.Hasher;
         var needEd2k = string.IsNullOrEmpty(vlocal.Hash);
@@ -465,11 +454,11 @@ public class CommandRequest_HashFile : CommandRequestImplementation
         if (needCRC32) vlocal.CRC32 = hashes.CRC32?.ToUpperInvariant();
     }
 
-    private static void FillHashesAgainstVideoLocalRepo(SVR_VideoLocal v)
+    private static void FillHashesAgainstVideoLocalRepo(Shoko_Video v)
     {
         if (!string.IsNullOrEmpty(v.ED2KHash))
         {
-            var n = RepoFactory.VideoLocal.GetByHash(v.ED2KHash);
+            var n = RepoFactory.Shoko_Video.GetByHash(v.ED2KHash);
             if (n != null)
             {
                 if (!string.IsNullOrEmpty(n.CRC32))
@@ -493,7 +482,7 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
         if (!string.IsNullOrEmpty(v.SHA1))
         {
-            var n = RepoFactory.VideoLocal.GetBySHA1(v.SHA1);
+            var n = RepoFactory.Shoko_Video.GetBySHA1(v.SHA1);
             if (n != null)
             {
                 if (!string.IsNullOrEmpty(n.CRC32))
@@ -508,7 +497,7 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
                 if (!string.IsNullOrEmpty(v.ED2KHash))
                 {
-                    v.ED2KHash = n.ED2KHash.ToUpperInvariant();
+                    v.ED2KHash = n.ED2K.ToUpperInvariant();
                 }
 
                 return;
@@ -517,7 +506,7 @@ public class CommandRequest_HashFile : CommandRequestImplementation
 
         if (!string.IsNullOrEmpty(v.MD5))
         {
-            var n = RepoFactory.VideoLocal.GetByMD5(v.MD5);
+            var n = RepoFactory.Shoko_Video.GetByMD5(v.MD5);
             if (n != null)
             {
                 if (!string.IsNullOrEmpty(n.CRC32))
@@ -530,9 +519,9 @@ public class CommandRequest_HashFile : CommandRequestImplementation
                     v.SHA1 = n.SHA1.ToUpperInvariant();
                 }
 
-                if (!string.IsNullOrEmpty(v.ED2KHash))
+                if (!string.IsNullOrEmpty(v.ED2K))
                 {
-                    v.ED2KHash = n.ED2KHash.ToUpperInvariant();
+                    v.ED2K = n.ED2K.ToUpperInvariant();
                 }
             }
         }

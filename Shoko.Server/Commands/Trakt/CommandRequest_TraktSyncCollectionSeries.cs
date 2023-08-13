@@ -44,7 +44,7 @@ public class CommandRequest_TraktSyncCollectionSeries : CommandRequestImplementa
                 return;
             }
 
-            var series = RepoFactory.AnimeSeries.GetByID(AnimeSeriesID);
+            var series = RepoFactory.Shoko_Series.GetByID(AnimeSeriesID);
             if (series == null)
             {
                 Logger.LogError("Could not find anime series: {AnimeSeriesID}", AnimeSeriesID);

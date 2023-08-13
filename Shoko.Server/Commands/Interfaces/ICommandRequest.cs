@@ -1,6 +1,6 @@
 using Shoko.Commons.Queue;
 using Shoko.Models.Server;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 
 namespace Shoko.Server.Commands.Interfaces;
 

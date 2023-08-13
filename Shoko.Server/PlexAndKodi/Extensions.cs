@@ -52,22 +52,6 @@ public static class Extensions
         var r = Helper.Base64EncodeUrl(thumburl + "|" + arturl);
         return prov.ServerUrl(prov.ServicePort,
             prov.ServiceAddress + "/Metadata/" + userid + "/" + (int)JMMType.FakeIosThumb + "/" + r);
-/*
-
-            try
-            {
-
-                if (API.Module.apiv1.Legacy.request.Url.ToString().Contains("/api/"))
-                {
-                    return Helper.ServerUrl(prov.ServicePort, "/api/Metadata/" + (int)JMMType.FakeIosThumb + "/" + r + "/0");
-                }
-                else
-                {
-                    return Helper.ServerUrl(prov.ServicePort, prov.ServiceAddress + "/Metadata/" + userid + "/" + (int)JMMType.FakeIosThumb + "/" + r + "/0");
-                }
-            }
-            catch { return Helper.ServerUrl(prov.ServicePort, prov.ServiceAddress + "/Metadata/" + userid + "/" + (int)JMMType.FakeIosThumb + "/" + r + "/0"); }
-            */
     }
 
     public static string ConstructFiltersUrl(this IProvider prov, int userid)
@@ -216,31 +200,31 @@ public static class Extensions
             case AnimeTypes.AnimeEpisode:
                 if (v.Medias != null)
                 {
-                    var vl = v.Medias.Select(a => RepoFactory.VideoLocal.GetByID(a.Id))
+                    var vl = v.Medias.Select(a => RepoFactory.Shoko_Video.GetByID(a.Id))
                         .Where(a => a != null)
                         .Select(a => a.GetUserRecord(userid))
                         .Where(a => a != null)
-                        .OrderByDescending(a => a.ResumePosition)
+                        .OrderByDescending(a => a.RawResumePosition)
                         .FirstOrDefault();
-                    if (vl != null && vl.ResumePosition > 0)
+                    if (vl != null && vl.RawResumePosition > 0)
                     {
-                        v.ViewOffset = vl.ResumePosition;
-                        if (vl.WatchedDate.HasValue)
+                        v.ViewOffset = vl.RawResumePosition;
+                        if (vl.LastWatchedAt.HasValue)
                         {
-                            v.LastViewedAt = vl.WatchedDate.Value.ToUnixTime();
+                            v.LastViewedAt = vl.LastWatchedAt.Value.ToUnixTime();
                         }
                     }
                 }
 
                 break;
             case AnimeTypes.AnimeFile:
-                var vl2 = RepoFactory.VideoLocal.GetByID(v.Id)?.GetUserRecord(userid);
-                if (vl2 != null && vl2.ResumePosition > 0)
+                var vl2 = RepoFactory.Shoko_Video.GetByID(v.Id)?.GetUserRecord(userid);
+                if (vl2 != null && vl2.RawResumePosition > 0)
                 {
-                    v.ViewOffset = vl2.ResumePosition;
-                    if (vl2.WatchedDate.HasValue)
+                    v.ViewOffset = vl2.RawResumePosition;
+                    if (vl2.LastWatchedAt.HasValue)
                     {
-                        v.LastViewedAt = vl2.WatchedDate.Value.ToUnixTime();
+                        v.LastViewedAt = vl2.LastWatchedAt.Value.ToUnixTime();
                     }
                 }
 

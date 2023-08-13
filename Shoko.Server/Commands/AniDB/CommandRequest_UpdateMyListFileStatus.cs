@@ -8,12 +8,11 @@ using Shoko.Models.Queue;
 using Shoko.Models.Server;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
-using Shoko.Server.Extensions;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.AniDB.UDP.User;
 using Shoko.Server.Repositories;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.Commands.AniDB;
@@ -44,25 +43,25 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
 
     public override void PostInit()
     {
-        FullFileName = RepoFactory.FileNameHash.GetByHash(Hash).FirstOrDefault()?.FileName;
+        FullFileName = RepoFactory.CR_FileName_ED2K.GetByHash(Hash).FirstOrDefault()?.FileName;
     }
 
     protected override void Process()
     {
         Logger.LogInformation("Processing CommandRequest_UpdateMyListFileStatus: {Hash}", Hash);
-        FullFileName = RepoFactory.FileNameHash.GetByHash(Hash).FirstOrDefault()?.FileName;
+        FullFileName = RepoFactory.CR_FileName_ED2K.GetByHash(Hash).FirstOrDefault()?.FileName;
 
         try
         {
             var settings = _settingsProvider.GetSettings();
             // NOTE - we might return more than one VideoLocal record here, if there are duplicates by hash
-            var vid = RepoFactory.VideoLocal.GetByHash(Hash);
+            var vid = RepoFactory.Shoko_Video.GetByED2K(Hash);
             if (vid == null)
             {
                 return;
             }
 
-            if (vid.GetAniDBFile() != null)
+            if (vid.AniDB != null)
             {
                 if (Watched && WatchedDateAsSecs > 0)
                 {
@@ -71,8 +70,8 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
                         r =>
                         {
                             r.State = settings.AniDb.MyList_StorageState.GetMyList_State();
-                            r.Hash = vid.Hash;
-                            r.Size = vid.FileSize;
+                            r.Hash = vid.ED2K;
+                            r.Size = vid.Size;
                             r.IsWatched = true;
                             r.WatchedDate = watchedDate;
                         }
@@ -85,8 +84,8 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
                         r =>
                         {
                             r.State = settings.AniDb.MyList_StorageState.GetMyList_State();
-                            r.Hash = vid.Hash;
-                            r.Size = vid.FileSize;
+                            r.Hash = vid.ED2K;
+                            r.Size = vid.Size;
                             r.IsWatched = false;
                         }
                     );
@@ -96,8 +95,8 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
             else
             {
                 // we have a manual link, so get the xrefs and add the episodes instead as generic files
-                var xrefs = vid.EpisodeCrossRefs;
-                foreach (var episode in xrefs.Select(xref => xref.GetEpisode()).Where(episode => episode != null))
+                var xrefs = vid.GetCrossReferences(true);
+                foreach (var episode in xrefs.Select(xref => xref.AnidbEpisode).Where(episode => episode != null))
                 {
                     if (Watched && WatchedDateAsSecs > 0)
                     {
@@ -106,8 +105,8 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
                             r =>
                             {
                                 r.State = settings.AniDb.MyList_StorageState.GetMyList_State();
-                                r.EpisodeNumber = episode.EpisodeNumber;
-                                r.AnimeID = episode.AnimeID;
+                                r.EpisodeNumber = episode.Number;
+                                r.AnimeID = episode.AnimeId;
                                 r.IsWatched = true;
                                 r.WatchedDate = watchedDate;
                             }
@@ -120,8 +119,8 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
                             r =>
                             {
                                 r.State = settings.AniDb.MyList_StorageState.GetMyList_State();
-                                r.EpisodeNumber = episode.EpisodeNumber;
-                                r.AnimeID = episode.AnimeID;
+                                r.EpisodeNumber = episode.Number;
+                                r.AnimeID = episode.AnimeId;
                                 r.IsWatched = false;
                             }
                         );
@@ -130,7 +129,7 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
                 }
             }
 
-            Logger.LogInformation("Updating file list status: {Hash} - {Watched}", vid.Hash, Watched);
+            Logger.LogInformation("Updating file list status: {Hash} - {Watched}", vid.ED2K, Watched);
 
             if (!UpdateSeriesStats)
             {
@@ -138,10 +137,10 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
             }
 
             // update watched stats
-            var eps = RepoFactory.AnimeEpisode.GetByHash(vid.ED2KHash);
+            var eps = RepoFactory.Shoko_Episode.GetByHash(vid.ED2K);
             if (eps.Count > 0)
             {
-                eps.DistinctBy(a => a.AnimeSeriesID).ForEach(a => a.GetAnimeSeries().QueueUpdateStats());
+                eps.DistinctBy(a => a.SeriesId).ForEach(a => a.Series.QueueUpdateStats());
             }
         }
         catch (Exception ex)
@@ -193,7 +192,7 @@ public class CommandRequest_UpdateMyListFileStatus : CommandRequestImplementatio
             WatchedDateAsSecs = dateSecs;
         }
 
-        FullFileName = RepoFactory.FileNameHash.GetByHash(Hash).FirstOrDefault()?.FileName;
+        FullFileName = RepoFactory.CR_FileName_ED2K.GetByHash(Hash).FirstOrDefault()?.FileName;
 
         return Hash.Trim().Length > 0;
     }

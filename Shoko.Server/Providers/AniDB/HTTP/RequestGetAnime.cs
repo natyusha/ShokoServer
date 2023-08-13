@@ -51,7 +51,7 @@ public class RequestGetAnime : HttpRequest<ResponseGetAnime>
     private static void UpdateAccessTime(int animeId)
     {
         // Putting this here for no chance of error. It is ALWAYS created or updated when AniDB is called!
-        var anime = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(animeId);
+        var anime = RepoFactory.AniDB_Anime_Update.GetByAnimeID(animeId);
         if (anime == null)
         {
             anime = new AniDB_AnimeUpdate { AnimeID = animeId, UpdatedAt = DateTime.Now };
@@ -61,6 +61,6 @@ public class RequestGetAnime : HttpRequest<ResponseGetAnime>
             anime.UpdatedAt = DateTime.Now;
         }
 
-        RepoFactory.AniDB_AnimeUpdate.Save(anime);
+        RepoFactory.AniDB_Anime_Update.Save(anime);
     }
 }

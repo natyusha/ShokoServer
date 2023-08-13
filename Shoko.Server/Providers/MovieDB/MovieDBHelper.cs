@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Web;
 using Microsoft.Extensions.Logging;
 using Shoko.Commons.Extensions;
@@ -14,33 +15,72 @@ using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
 using TMDbLib.Client;
 
+#nullable enable
 namespace Shoko.Server.Providers.MovieDB;
 
-public class MovieDBHelper
+public class MovieDBHelper : IMovieMetadataProvider<MovieDB_Movie, MovieDB_Movie_Result, int>, IShowMetadataProvider<object, object, int>
 {
     private readonly ILogger<MovieDBHelper> _logger;
     private readonly ICommandRequestFactory _commandFactory;
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
+
+    private TMDbClient _tmdbClient = new TMDbClient(APIKey);
 
     public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory)
     {
         _logger = logger;
         _commandFactory = commandFactory;
     }
+    
+    #region Movies
 
-    private void SaveMovieToDatabase(MovieDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
+    public MovieDB_Movie? GetMovieMetadata(int tmdbMovieID)
+    {
+        return RepoFactory.TMDB_Movie.GetByMovieId(tmdbMovieID);
+    }
+
+    public IReadOnlyList<MovieDB_Movie> GetMovieMetadataForAnime(int anidbAnimeID)
+    {
+        return RepoFactory.CR_AniDB_Other.GetByAnimeIDAndType(anidbAnimeID, CrossRefType.MovieDB)
+            .Select(xref => RepoFactory.TMDB_Movie.GetByMovieId(int.Parse(xref.CrossRefID)))
+            .Where(tmdbMovie => tmdbMovie != null)
+            .ToList();
+    }
+
+    public IReadOnlyList<MovieDB_Movie_Result> SearchMovieMetadata(string criteria)
+    {
+        var results = new List<MovieDB_Movie_Result>();
+
+        try
+        {
+            var resultsTemp = _tmdbClient.SearchMovie(HttpUtility.UrlDecode(criteria));
+
+            _logger.LogInformation("Got {Count} of {Results} results", resultsTemp.Results.Count,
+                resultsTemp.TotalResults);
+            foreach (var result in resultsTemp.Results)
+            {
+                var searchResult = new MovieDB_Movie_Result();
+                var movie = _tmdbClient.GetMovie(result.Id);
+                var imgs = _tmdbClient.GetMovieImages(result.Id);
+                searchResult.Populate(movie, imgs);
+                results.Add(searchResult);
+                SaveMovieToDatabase(searchResult, false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in MovieDB Search");
+        }
+
+        return results;
+    }
+    private void SaveMovieToDatabase(MovieDB_Movie_Result searchResult, bool saveImages)
     {
         // save to the DB
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(searchResult.MovieID) ?? new MovieDB_Movie();
+        var movie = RepoFactory.TMDB_Movie.GetByOnlineID(searchResult.MovieId) ?? new MovieDB_Movie();
         movie.Populate(searchResult);
 
-        // Only save movie info if source is not trakt, this presents adding tv shows as movies
-        // Needs better fix later on
-
-        if (!isTrakt)
-        {
-            RepoFactory.MovieDb_Movie.Save(movie);
-        }
+        RepoFactory.TMDB_Movie.Save(movie);
 
         if (!saveImages)
         {
@@ -55,9 +95,9 @@ public class MovieDBHelper
         {
             if (img.ImageType.Equals("poster", StringComparison.InvariantCultureIgnoreCase))
             {
-                var poster = RepoFactory.MovieDB_Poster.GetByOnlineID(img.URL) ?? new MovieDB_Poster();
+                var poster = RepoFactory.TMDB_Movie_Poster.GetByOnlineID(img.URL) ?? new MovieDB_Poster();
                 poster.Populate(img, movie.MovieId);
-                RepoFactory.MovieDB_Poster.Save(poster);
+                RepoFactory.TMDB_Movie_Poster.Save(poster);
 
                 if (!string.IsNullOrEmpty(poster.GetFullImagePath()) && File.Exists(poster.GetFullImagePath()))
                 {
@@ -67,9 +107,9 @@ public class MovieDBHelper
             else
             {
                 // fanart (backdrop)
-                var fanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(img.URL) ?? new MovieDB_Fanart();
+                var fanart = RepoFactory.TMDB_Fanart.GetByOnlineID(img.URL) ?? new MovieDB_Fanart();
                 fanart.Populate(img, movie.MovieId);
-                RepoFactory.MovieDB_Fanart.Save(fanart);
+                RepoFactory.TMDB_Fanart.Save(fanart);
 
                 if (!string.IsNullOrEmpty(fanart.GetFullImagePath()) && File.Exists(fanart.GetFullImagePath()))
                 {
@@ -80,11 +120,11 @@ public class MovieDBHelper
 
         // download the posters
         var settings = Utils.SettingsProvider.GetSettings();
-        if (settings.MovieDb.AutoPosters || isTrakt)
+        if (settings.TMDB.AutoPosters)
         {
-            foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID( movie.MovieId))
+            foreach (var poster in RepoFactory.TMDB_Movie_Poster.GetByMovieID( movie.MovieId))
             {
-                if (numPostersDownloaded < settings.MovieDb.AutoPostersAmount)
+                if (numPostersDownloaded < settings.TMDB.AutoPostersAmount)
                 {
                     // download the image
                     if (string.IsNullOrEmpty(poster.GetFullImagePath()) || File.Exists(poster.GetFullImagePath()))
@@ -109,18 +149,18 @@ public class MovieDBHelper
                     // first we check if file was downloaded
                     if (!File.Exists(poster.GetFullImagePath()))
                     {
-                        RepoFactory.MovieDB_Poster.Delete(poster.MovieDB_PosterID);
+                        RepoFactory.TMDB_Movie_Poster.Delete(poster.MovieDB_PosterID);
                     }
                 }
             }
         }
 
         // download the fanart
-        if (settings.MovieDb.AutoFanart || isTrakt)
+        if (settings.TMDB.AutoFanart)
         {
-            foreach (var fanart in RepoFactory.MovieDB_Fanart.GetByMovieID(movie.MovieId))
+            foreach (var fanart in RepoFactory.TMDB_Fanart.GetByMovieID(movie.MovieId))
             {
-                if (numFanartDownloaded < settings.MovieDb.AutoFanartAmount)
+                if (numFanartDownloaded < settings.TMDB.AutoFanartAmount)
                 {
                     // download the image
                     if (string.IsNullOrEmpty(fanart.GetFullImagePath()) || File.Exists(fanart.GetFullImagePath()))
@@ -145,46 +185,17 @@ public class MovieDBHelper
                     // first we check if file was downloaded
                     if (!File.Exists(fanart.GetFullImagePath()))
                     {
-                        RepoFactory.MovieDB_Fanart.Delete(fanart.MovieDB_FanartID);
+                        RepoFactory.TMDB_Fanart.Delete(fanart.MovieDB_FanartID);
                     }
                 }
             }
         }
     }
 
-    public List<MovieDB_Movie_Result> Search(string criteria)
-    {
-        var results = new List<MovieDB_Movie_Result>();
-
-        try
-        {
-            var client = new TMDbClient(APIKey);
-            var resultsTemp = client.SearchMovie(HttpUtility.UrlDecode(criteria));
-
-            _logger.LogInformation("Got {Count} of {Results} results", resultsTemp.Results.Count,
-                resultsTemp.TotalResults);
-            foreach (var result in resultsTemp.Results)
-            {
-                var searchResult = new MovieDB_Movie_Result();
-                var movie = client.GetMovie(result.Id);
-                var imgs = client.GetMovieImages(result.Id);
-                searchResult.Populate(movie, imgs);
-                results.Add(searchResult);
-                SaveMovieToDatabase(searchResult, false, false);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in MovieDB Search");
-        }
-
-        return results;
-    }
-
-    public void UpdateAllMovieInfo(bool saveImages)
+    public void UpdateAllMovieInfo()
     {
         using var session = DatabaseFactory.SessionFactory.OpenSession();
-        var all = RepoFactory.MovieDb_Movie.GetAll();
+        var all = RepoFactory.TMDB_Movie.GetAll();
         var max = all.Count;
         var i = 0;
         foreach (var movie in all)
@@ -193,7 +204,7 @@ public class MovieDBHelper
             {
                 i++;
                 _logger.LogInformation("Updating MovieDB Movie {I}/{Max}", i, max);
-                UpdateMovieInfo(movie.MovieId, saveImages);
+                RefreshMovieMetadata(movie.MovieId);
             }
             catch (Exception e)
             {
@@ -201,8 +212,11 @@ public class MovieDBHelper
             }
         }
     }
+    
+    public void RefreshMovieMetadata(int tmdbMovieID)
+        => UpdateMovieInfo(tmdbMovieID, true);
 
-    public void UpdateMovieInfo(int movieID, bool saveImages)
+    private void UpdateMovieInfo(int movieID, bool saveImages)
     {
         try
         {
@@ -214,7 +228,7 @@ public class MovieDBHelper
             searchResult.Populate(movie, imgs);
 
             // save to the DB
-            SaveMovieToDatabase(searchResult, saveImages, false);
+            SaveMovieToDatabase(searchResult, saveImages);
         }
         catch (Exception ex)
         {
@@ -222,70 +236,138 @@ public class MovieDBHelper
         }
     }
 
-    public void LinkAniDBMovieDB(int animeID, int movieDBID, bool fromWebCache)
+    public bool AddMovieLink(int anidbAnimeID, int providerMovieID, bool replaceExisting = false)
+        => AddMovieLinks(anidbAnimeID, new int[] { providerMovieID }, replaceExisting) == 1;
+
+    public int AddMovieLinks(int anidbAnimeID, IReadOnlyList<int> tmdbMovieIDs, bool replaceExisting = false)
     {
-        // check if we have this information locally
-        // if not download it now
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieDBID);
-        if (movie == null)
+        // Remove the existing cross-references now if we're replacing them.
+        if (replaceExisting)
+            RemoveMovieLinks(anidbAnimeID);
+
+        // Disable auto-matching when we adding a match for the series.
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
         {
-            // we download the series info here just so that we have the basic info in the
-            // database before the queued task runs later
-            UpdateMovieInfo(movieDBID, false);
-            movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieDBID);
+            series.IsTMDBAutoMatchingDisabled = true;
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
+        }
+
+        // Add the movies.
+        var moviesAdded = 0;
+        foreach (var tmdbMovieID in tmdbMovieIDs)
+        {
+            // Check if we have this information locally, and if not download it
+            // now.
+            var movie = RepoFactory.TMDB_Movie.GetByMovieId(tmdbMovieID);
             if (movie == null)
             {
-                return;
+                // We download the series info here just so that we have the basic
+                // info in the database before the queued task runs later.
+                UpdateMovieInfo(tmdbMovieID, false);
+                movie = RepoFactory.TMDB_Movie.GetByMovieId(tmdbMovieID);
+                // Abort now if we for some reason weren't able to create the movie.
+                if (movie == null)
+                {
+                    _logger.LogWarning($"Unable to aquire TMDB movie with id {tmdbMovieID}. Aborting cross-reference linking.");
+                    continue;
+                }
+            }
+
+            // Download and update series info (again), but this time also with
+            // images.
+            UpdateMovieInfo(tmdbMovieID, true);
+
+            // Return early if we already have an assosiation between the anidb and
+            // tmdb movie set.
+            var allXRefs = RepoFactory.CR_AniDB_Other.GetByAnimeIDAndType(anidbAnimeID, CrossRefType.MovieDB);
+
+            var currentXRef = allXRefs.FirstOrDefault(xref => string.Equals(xref.CrossRefID, tmdbMovieID.ToString()));
+            if (currentXRef != null)
+                continue;
+
+            _logger.LogTrace("Adding tmdb movie association: {AnimeID} → {TMDBMovieID}", anidbAnimeID, tmdbMovieID);
+            // Create a new reference, save it, and update the series stats.
+            currentXRef = new()
+            {
+                AnimeID = anidbAnimeID,
+                CrossRefSource = (int)CrossRefSource.User,
+                CrossRefType = (int)CrossRefType.MovieDB,
+                CrossRefID = tmdbMovieID.ToString(),
+            };
+            RepoFactory.CR_AniDB_Other.Save(currentXRef);
+            moviesAdded++;
+        }
+
+        AniDB_Anime.UpdateStatsByAnimeID(anidbAnimeID);
+
+        return moviesAdded;
+    }
+
+    public bool RemoveMovieLink(int anidbAnimeID, int tmdbMovieID)
+        => RemoveMovieLinks(anidbAnimeID, new int[] { tmdbMovieID }) == 1;
+
+    public int RemoveMovieLinks(int anidbAnimeID, IReadOnlyList<int>? tmdbMovieIDs = null)
+    {
+        // Disable auto-matching when we remove an existing match for the series.
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
+        {
+            series.IsTMDBAutoMatchingDisabled = true;
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
+        }
+
+        // Fetch every cross-reference related to the anidb entry.
+        var tmdbMovieIDSet = tmdbMovieIDs?.ToHashSet() ?? new();
+        var xrefs = RepoFactory.CR_AniDB_Other.GetByAnimeIDAndType(anidbAnimeID, CrossRefType.MovieDB);
+
+        // Filter the entries based on the input.
+        if (tmdbMovieIDs != null && tmdbMovieIDs.Count > 0)
+        {
+            xrefs = xrefs
+                .Where(xref => int.TryParse(xref.CrossRefID, out var intID) ? tmdbMovieIDSet.Contains(intID) : false)
+                .ToList();
+        }
+
+        // Readjust the id set.
+        tmdbMovieIDSet = xrefs.Select(xref => int.Parse(xref.CrossRefID)).ToHashSet();
+
+        // Remove the default image override if it was linked to one of the tmdb movies.
+        var images = RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeID(anidbAnimeID);
+        foreach (var defaultImage in images)
+        {
+            switch ((ImageEntityType)defaultImage.ImageParentType)
+            {
+                case ImageEntityType.MovieDB_FanArt:
+                {
+                    var fanart = RepoFactory.TMDB_Fanart.GetByID(defaultImage.ImageParentID);
+                    if (fanart == null || tmdbMovieIDSet.Contains(fanart.MovieId))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+                case ImageEntityType.MovieDB_Poster:
+                {
+                    var poster = RepoFactory.TMDB_Movie_Poster.GetByID(defaultImage.ImageParentID);
+                    if (poster == null || tmdbMovieIDSet.Contains(poster.MovieId))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
             }
         }
 
-        // download and update series info and images
-        UpdateMovieInfo(movieDBID, true);
+        // Remove the cross-references.
+        foreach (var xref in xrefs)
+            RepoFactory.CR_AniDB_Other.Delete(xref);
 
-        var xref = RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(animeID, CrossRefType.MovieDB) ??
-                   new CrossRef_AniDB_Other();
+        // Update the series stats.
+        AniDB_Anime.UpdateStatsByAnimeID(anidbAnimeID);
 
-        xref.AnimeID = animeID;
-        if (fromWebCache)
-        {
-            xref.CrossRefSource = (int)CrossRefSource.WebCache;
-        }
-        else
-        {
-            xref.CrossRefSource = (int)CrossRefSource.User;
-        }
-
-        xref.CrossRefType = (int)CrossRefType.MovieDB;
-        xref.CrossRefID = movieDBID.ToString();
-        RepoFactory.CrossRef_AniDB_Other.Save(xref);
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
-
-        _logger.LogTrace("Changed moviedb association: {AnimeID}", animeID);
+        return tmdbMovieIDSet.Count;
     }
 
-    public void RemoveLinkAniDBMovieDB(int animeID)
+    public void ScanForMovieMatches()
     {
-        var xref =
-            RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(animeID, CrossRefType.MovieDB);
-        if (xref == null)
-        {
-            return;
-        }
-
-        // Disable auto-matching when we remove an existing match for the series.
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
-        if (series != null)
-        {
-            series.IsTMDBAutoMatchingDisabled = true;
-            RepoFactory.AnimeSeries.Save(series, false, true, true);
-        }
-
-        RepoFactory.CrossRef_AniDB_Other.Delete(xref.CrossRef_AniDB_OtherID);
-    }
-
-    public void ScanForMatches()
-    {
-        var allSeries = RepoFactory.AnimeSeries.GetAll();
+        var allSeries = RepoFactory.Shoko_Series.GetAll();
 
         foreach (var ser in allSeries)
         {
@@ -301,7 +383,7 @@ public class MovieDBHelper
                 continue;
 
             // don't scan if it is associated on the MovieDB
-            if (anime.GetCrossRefMovieDB() != null)
+            if (anime.GetCrossRefMovieDB().Count > 0)
                 continue;
 
             // don't scan if it is not a movie
@@ -314,4 +396,99 @@ public class MovieDBHelper
             cmd.Save();
         }
     }
+
+    #endregion
+    
+    #region Shows
+
+    public bool AddShowLink(int anidbAnimeID, int tmdbShowID, bool replaceExisting = false)
+        => AddShowLinks(anidbAnimeID, new int[] { tmdbShowID }, replaceExisting) == 1;
+
+    public int AddShowLinks(int anidbAnimeID, IReadOnlyList<int> tmdbShowIDs, bool replaceExisting = false)
+    {
+        // Remove the existing cross-references now if we're replacing them.
+        if (replaceExisting)
+            RemoveShowLinks(anidbAnimeID);
+        
+        // Disable auto-matching when we adding a match for the series.
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
+        {
+            series.IsTMDBAutoMatchingDisabled = true;
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
+        }
+
+        // Add the shows.
+        var showsAdded = 0;
+        foreach (var tmdbMovieID in tmdbShowIDs)
+        {
+            // TODO: ADD THIS LATER!
+        }
+
+        AniDB_Anime.UpdateStatsByAnimeID(anidbAnimeID);
+        
+        return showsAdded;
+    }
+
+    public bool RemoveShowLink(int anidbAnimeID, int tmdbShowID)
+        => RemoveShowLinks(anidbAnimeID, new int[] { tmdbShowID }) == 1;
+
+    public int RemoveShowLinks(int anidbAnimeID, IReadOnlyList<int>? tmdbShowIDs = null)
+    {
+        // Disable auto-matching when we remove an existing match for the series.
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anidbAnimeID);
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
+        {
+            series.IsTMDBAutoMatchingDisabled = true;
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
+        }
+
+        // Fetch every cross-reference related to the anidb entry.
+        var tmdbShowIDSet = tmdbShowIDs?.ToHashSet() ?? new();
+        var xrefs = new List<object>(); // TODO: FIX THIS LINE.
+
+        // Filter the entries based on the input.
+        if (tmdbShowIDs != null && tmdbShowIDs.Count > 0)
+        {
+            xrefs = xrefs
+                .Where(xref => false) // TODO: FIX THIS LINE.
+                .ToList();
+        }
+
+        // Readjust the id set.
+        tmdbShowIDSet = xrefs.Select(xref => 1).ToHashSet(); // TODO: FIX THIS LINE.
+
+        // Remove the default image override if it was linked to one of the tmdb movies.
+        var images = RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeID(anidbAnimeID);
+        foreach (var defaultImage in images)
+        {
+            switch ((ImageEntityType)defaultImage.ImageParentType)
+            {
+                case ImageEntityType.MovieDB_FanArt:
+                {
+                    var fanart = RepoFactory.TMDB_Fanart.GetByID(defaultImage.ImageParentID);
+                    if (fanart == null || tmdbShowIDSet.Contains(fanart.MovieId))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+                case ImageEntityType.MovieDB_Poster:
+                {
+                    var poster = RepoFactory.TMDB_Movie_Poster.GetByID(defaultImage.ImageParentID);
+                    if (poster == null || tmdbShowIDSet.Contains(poster.MovieId))
+                        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+                    break;
+                }
+            }
+        }
+
+        // Remove the cross-references.
+        foreach (var xref in xrefs)
+            ; // TODO: FIX THIS LINE.
+
+        // Update the series stats.
+        AniDB_Anime.UpdateStatsByAnimeID(anidbAnimeID);
+
+        return tmdbShowIDSet.Count;
+    }
+    #endregion
 }

@@ -32,8 +32,8 @@ public class CommandRequest_ReadMediaInfo : CommandRequestImplementation
 
         try
         {
-            var vlocal = RepoFactory.VideoLocal.GetByID(VideoLocalID);
-            var place = vlocal?.GetBestVideoLocalPlace(true);
+            var vlocal = RepoFactory.Shoko_Video.GetByID(VideoLocalID);
+            var place = vlocal?.GetPreferredLocation(true);
             if (place == null)
             {
                 Logger.LogError("Could not find Video: {VideoLocalID}", VideoLocalID);
@@ -42,7 +42,7 @@ public class CommandRequest_ReadMediaInfo : CommandRequestImplementation
 
             if (place.RefreshMediaInfo())
             {
-                RepoFactory.VideoLocal.Save(place.VideoLocal, true);
+                RepoFactory.Shoko_Video.Save(place.VideoLocal, true);
             }
         }
         catch (Exception ex)

@@ -243,7 +243,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
         switch (it)
         {
             case ImageEntityType.AniDB_Cover:
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(imageId);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(imageId);
                 if (anime == null)
                 {
                     return null;
@@ -277,7 +277,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 }
 
             case ImageEntityType.AniDB_Creator:
-                var creator = RepoFactory.AniDB_Seiyuu.GetByID(imageId);
+                var creator = RepoFactory.AniDB_Creator.GetByID(imageId);
                 if (creator == null)
                 {
                     return string.Empty;
@@ -294,7 +294,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 }
 
             case ImageEntityType.TvDB_Cover:
-                var poster = RepoFactory.TvDB_ImagePoster.GetByID(imageId);
+                var poster = RepoFactory.TvDB_Poster.GetByID(imageId);
                 if (poster == null)
                 {
                     return null;
@@ -311,7 +311,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 }
 
             case ImageEntityType.TvDB_Banner:
-                var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageId);
+                var wideBanner = RepoFactory.TvDB_Banner.GetByID(imageId);
                 if (wideBanner == null)
                 {
                     return null;
@@ -345,7 +345,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 }
 
             case ImageEntityType.TvDB_FanArt:
-                var fanart = RepoFactory.TvDB_ImageFanart.GetByID(imageId);
+                var fanart = RepoFactory.TvDB_Fanart.GetByID(imageId);
                 if (fanart == null)
                 {
                     return null;
@@ -360,14 +360,14 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 return string.Empty;
 
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetByID(imageId);
+                var mPoster = RepoFactory.TMDB_Movie_Poster.GetByID(imageId);
                 if (mPoster == null)
                 {
                     return null;
                 }
 
                 // now find only the original size
-                mPoster = RepoFactory.MovieDB_Poster.GetByOnlineID(mPoster.URL);
+                mPoster = RepoFactory.TMDB_Movie_Poster.GetByOnlineID(mPoster.URL);
                 if (mPoster == null)
                 {
                     return null;
@@ -384,13 +384,13 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 }
 
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetByID(imageId);
+                var mFanart = RepoFactory.TMDB_Fanart.GetByID(imageId);
                 if (mFanart == null)
                 {
                     return null;
                 }
 
-                mFanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(mFanart.URL);
+                mFanart = RepoFactory.TMDB_Fanart.GetByOnlineID(mFanart.URL);
                 if (mFanart == null)
                 {
                     return null;

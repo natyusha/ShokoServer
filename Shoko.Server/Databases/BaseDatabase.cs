@@ -10,6 +10,7 @@ using Shoko.Models;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
@@ -129,9 +130,10 @@ public abstract class BaseDatabase<T>
         }
     }
 
-    protected void ExecuteWithException(T connection, IEnumerable<DatabaseCommand> cmds)
+    protected void ExecuteWithException(T connection, IEnumerable<DatabaseCommand> commands)
     {
-        cmds.ForEach(a => ExecuteWithException(connection, a));
+        foreach (var command in commands)
+            ExecuteWithException(connection, command);
     }
 
     public int GetDatabaseVersion()
@@ -287,7 +289,7 @@ public abstract class BaseDatabase<T>
 
     public void CreateOrVerifyLockedFilters()
     {
-        RepoFactory.GroupFilter.CreateOrVerifyLockedFilters();
+        RepoFactory.Shoko_Group_Filter.CreateOrVerifyLockedFilters();
     }
 
     private void CreateInitialGroupFilters()
@@ -296,13 +298,13 @@ public abstract class BaseDatabase<T>
         // Do to DatabaseFixes, some filters may be made, namely directory filters
         // All, Continue Watching, Years, Seasons, Tags... 6 seems to be enough to tell for now
         // We can't just check the existence of anything specific, as the user can delete most of these
-        if (RepoFactory.GroupFilter.GetTopLevel().Count() > 6)
+        if (RepoFactory.Shoko_Group_Filter.GetTopLevel().Count() > 6)
         {
             return;
         }
 
         // Favorites
-        var gf = new SVR_GroupFilter
+        var gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_Favorites,
             ApplyToSeries = 0,
@@ -310,18 +312,17 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        var gfc = new GroupFilterCondition
+        var gfc = new ShokoGroup_FilterCondition
         {
-            ConditionType = (int)GroupFilterConditionType.Favourite,
-            ConditionOperator = (int)GroupFilterOperator.Include,
-            ConditionParameter = string.Empty
+            ConditionType = GroupFilterConditionType.Favourite,
+            ConditionOperator = GroupFilterOperator.Include,
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
         // Missing Episodes
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_MissingEpisodes,
             ApplyToSeries = 0,
@@ -329,19 +330,19 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
-            ConditionType = (int)GroupFilterConditionType.MissingEpisodesCollecting,
-            ConditionOperator = (int)GroupFilterOperator.Include,
+            ConditionType = GroupFilterConditionType.MissingEpisodesCollecting,
+            ConditionOperator = GroupFilterOperator.Include,
             ConditionParameter = string.Empty
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
 
         // Newly Added Series
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_Added,
             ApplyToSeries = 0,
@@ -349,7 +350,7 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.SeriesCreatedDate,
             ConditionOperator = (int)GroupFilterOperator.LastXDays,
@@ -357,10 +358,10 @@ public abstract class BaseDatabase<T>
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
         // Newly Airing Series
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_Airing,
             ApplyToSeries = 0,
@@ -368,7 +369,7 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.AirDate,
             ConditionOperator = (int)GroupFilterOperator.LastXDays,
@@ -376,10 +377,10 @@ public abstract class BaseDatabase<T>
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
         // Votes Needed
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_Votes,
             ApplyToSeries = 1,
@@ -387,21 +388,21 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.CompletedSeries,
             ConditionOperator = (int)GroupFilterOperator.Include,
             ConditionParameter = string.Empty
         };
         gf.Conditions.Add(gfc);
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.HasUnwatchedEpisodes,
             ConditionOperator = (int)GroupFilterOperator.Exclude,
             ConditionParameter = string.Empty
         };
         gf.Conditions.Add(gfc);
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.UserVotedAny,
             ConditionOperator = (int)GroupFilterOperator.Exclude,
@@ -409,10 +410,10 @@ public abstract class BaseDatabase<T>
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
         // Recently Watched
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_RecentlyWatched,
             ApplyToSeries = 0,
@@ -420,7 +421,7 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.EpisodeWatchedDate,
             ConditionOperator = (int)GroupFilterOperator.LastXDays,
@@ -428,10 +429,10 @@ public abstract class BaseDatabase<T>
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
 
         // TvDB/MovieDB Link Missing
-        gf = new SVR_GroupFilter
+        gf = new ShokoGroup_Filter
         {
             GroupFilterName = Resources.Filter_LinkMissing,
             ApplyToSeries = 1, // This makes far more sense as applied to series
@@ -439,7 +440,7 @@ public abstract class BaseDatabase<T>
             Locked = 0,
             FilterType = (int)GroupFilterType.UserDefined
         };
-        gfc = new GroupFilterCondition
+        gfc = new ShokoGroup_FilterCondition
         {
             ConditionType = (int)GroupFilterConditionType.AssignedTvDBOrMovieDBInfo,
             ConditionOperator = (int)GroupFilterOperator.Exclude,
@@ -447,12 +448,12 @@ public abstract class BaseDatabase<T>
         };
         gf.Conditions.Add(gfc);
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
     }
 
     private void CreateInitialUsers()
     {
-        if (RepoFactory.JMMUser.GetAll().Any())
+        if (RepoFactory.Shoko_User.GetAll().Any())
         {
             return;
         }
@@ -462,29 +463,16 @@ public abstract class BaseDatabase<T>
         var defaultPassword = settings.Database.DefaultUserPassword == ""
             ? ""
             : Digest.Hash(settings.Database.DefaultUserPassword);
-        var defaultUser = new SVR_JMMUser
+        var defaultUser = new Shoko_User
         {
-            CanEditServerSettings = 1,
-            HideCategories = string.Empty,
-            IsAdmin = 1,
-            IsAniDBUser = 1,
-            IsTraktUser = 1,
+            RestrictedTags = new() { },
+            IsAdmin = true,
+            IsAniDBUser = true,
+            IsTraktUser = true,
             Password = defaultPassword,
             Username = settings.Database.DefaultUserUsername
         };
-        RepoFactory.JMMUser.Save(defaultUser, true);
-
-        var familyUser = new SVR_JMMUser
-        {
-            CanEditServerSettings = 1,
-            HideCategories = "ecchi,nudity,sex,sexual abuse,horror,erotic game,incest,18 restricted",
-            IsAdmin = 1,
-            IsAniDBUser = 1,
-            IsTraktUser = 1,
-            Password = string.Empty,
-            Username = "Family Friendly"
-        };
-        RepoFactory.JMMUser.Save(familyUser, true);
+        RepoFactory.Shoko_User.Save(defaultUser, true);
     }
 
     private void CreateInitialRenameScript()
@@ -549,48 +537,28 @@ public abstract class BaseDatabase<T>
         try
         {
             // group filters
-
-            if (RepoFactory.CustomTag.GetAll().Any())
-            {
+            if (RepoFactory.Custom_Tag.GetAll().Any())
                 return;
-            }
 
             // Dropped
-            var tag = new CustomTag
-            {
-                TagName = Resources.CustomTag_Dropped, TagDescription = Resources.CustomTag_DroppedInfo
-            };
-            RepoFactory.CustomTag.Save(tag);
+            var tag = new Custom_Tag(Resources.CustomTag_Dropped, Resources.CustomTag_DroppedInfo);
+            RepoFactory.Custom_Tag.Save(tag);
 
             // Pinned
-            tag = new CustomTag
-            {
-                TagName = Resources.CustomTag_Pinned, TagDescription = Resources.CustomTag_PinnedInfo
-            };
-            RepoFactory.CustomTag.Save(tag);
+            tag = new Custom_Tag(Resources.CustomTag_Pinned, Resources.CustomTag_PinnedInfo);
+            RepoFactory.Custom_Tag.Save(tag);
 
             // Ongoing
-            tag = new CustomTag
-            {
-                TagName = Resources.CustomTag_Ongoing, TagDescription = Resources.CustomTag_OngoingInfo
-            };
-            RepoFactory.CustomTag.Save(tag);
+            tag = new Custom_Tag(Resources.CustomTag_Ongoing, Resources.CustomTag_OngoingInfo);
+            RepoFactory.Custom_Tag.Save(tag);
 
             // Waiting for Series Completion
-            tag = new CustomTag
-            {
-                TagName = Resources.CustomTag_SeriesComplete,
-                TagDescription = Resources.CustomTag_SeriesCompleteInfo
-            };
-            RepoFactory.CustomTag.Save(tag);
+            tag = new Custom_Tag(Resources.CustomTag_SeriesComplete, Resources.CustomTag_SeriesCompleteInfo);
+            RepoFactory.Custom_Tag.Save(tag);
 
             // Waiting for Bluray Completion
-            tag = new CustomTag
-            {
-                TagName = Resources.CustomTag_BlurayComplete,
-                TagDescription = Resources.CustomTag_BlurayCompleteInfo
-            };
-            RepoFactory.CustomTag.Save(tag);
+            tag = new Custom_Tag(Resources.CustomTag_BlurayComplete, Resources.CustomTag_BlurayCompleteInfo);
+            RepoFactory.Custom_Tag.Save(tag);
         }
         catch (Exception ex)
         {

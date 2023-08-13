@@ -7,21 +7,26 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using Shoko.Models.Enums;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.ModelBinders;
 using Shoko.Server.API.v3.Helpers;
 using Shoko.Server.API.v3.Models.Common;
-using Shoko.Server.Models;
-using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Commands;
+using Shoko.Server.Models.Internal;
+using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
+using Shoko.Server.Utilities;
 
-using CommandRequestPriority = Shoko.Server.Server.CommandRequestPriority;
+using CommandRequestPriority = Shoko.Server.Server.Enums.CommandRequestPriority;
 using File = Shoko.Server.API.v3.Models.Shoko.File;
+using FileSortCriteria = Shoko.Server.API.v3.Models.Shoko.File.FileSortCriteria;
 using Path = System.IO.Path;
 using MediaInfo = Shoko.Server.API.v3.Models.Shoko.MediaInfo;
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using AbstractDataSource = Shoko.Plugin.Abstractions.Enums.DataSource;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Server.API.v3.Controllers;
 
@@ -37,6 +42,8 @@ public class FileController : BaseController
 
     internal const string FileNotFoundWithFileID = "No File entry for the given fileID";
 
+    internal const string FileForbiddenForUser = "Accessing File is not allowed for the current user";
+
     private readonly TraktTVHelper _traktHelper;
 
     private readonly ICommandRequestFactory _commandFactory;
@@ -47,7 +54,160 @@ public class FileController : BaseController
         _commandFactory = commandFactory;
     }
 
-    internal const string FileForbiddenForUser = "Accessing File is not allowed for the current user";
+    /// <summary>
+    /// Get or search through the files accessible to the current user.
+    /// </summary>
+    /// <param name="pageSize">Limits the number of results per page. Set to 0 to disable the limit.</param>
+    /// <param name="page">Page number.</param>
+    /// <param name="includeMissing">Include missing files among the results.</param>
+    /// <param name="includeIgnored">Include ignored files among the results.</param>
+    /// <param name="includeVariations">Include files marked as a variation among the results.</param>
+    /// <param name="includeDuplicates">Include files with multiple locations (and thus have duplicates) among the results.</param>
+    /// <param name="includeUnrecognized">Include unrecognized files among the results.</param>
+    /// <param name="includeLinked">Include manually linked files among the results.</param>
+    /// <param name="includeViewed">Include previously viewed files among the results.</param>
+    /// <param name="includeWatched">Include previously watched files among the results</param>
+    /// <param name="sortOrder">Sort ordering. Attach '-' at the start to reverse the order of the criteria.</param>
+    /// <param name="includeXRefs">Include series and episode cross-references.</param>
+    /// <param name="includeDataFrom">Include data from selected <see cref="DataSource"/>s.</param>
+    /// <param name="includeMediaInfo">Include media info data.</param>
+    /// <param name="search">An optional search query to filter files based on their absolute paths.</param>
+    /// <param name="fuzzy">Indicates that fuzzy-matching should be used for the search query.</param>
+    /// <returns>A sliced part of the results for the current query.</returns>
+    [HttpGet]
+    public ActionResult<ListResult<File>> GetFiles(
+        [FromQuery, Range(0, 1000)] int pageSize = 100,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery] IncludeOnlyFilter includeMissing = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeIgnored = IncludeOnlyFilter.False,
+        [FromQuery] IncludeOnlyFilter includeVariations = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeDuplicates = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeUnrecognized = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeLinked = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeViewed = IncludeOnlyFilter.True,
+        [FromQuery] IncludeOnlyFilter includeWatched = IncludeOnlyFilter.True,
+        [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] List<string> sortOrder = null,
+        [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
+        [FromQuery] bool includeMediaInfo = false,
+        [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.False,
+        [FromQuery] string search = null,
+        [FromQuery] bool fuzzy = true)
+    {
+        // Filtering.
+        var user = User;
+        var includeLocations = includeDuplicates != IncludeOnlyFilter.True ||
+            !string.IsNullOrEmpty(search) ||
+            (sortOrder?.Any(criteria => criteria.Contains(FileSortCriteria.DuplicateCount.ToString())) ?? false);
+        var includeUserRecord = includeViewed != IncludeOnlyFilter.True ||
+            includeWatched != IncludeOnlyFilter.True ||
+            (sortOrder?.Any(criteria => criteria.Contains(FileSortCriteria.ViewedAt.ToString()) || criteria.Contains(FileSortCriteria.WatchedAt.ToString())) ?? false);
+        var enumerable = RepoFactory.Shoko_Video.GetAll()
+            .Select(video => (
+                Video: video as IShokoVideo,
+                BestLocation: video.GetPreferredLocation(includeMissing != IncludeOnlyFilter.True) as IShokoVideoLocation,
+                Locations: includeLocations ? video.Locations as IReadOnlyList<IShokoVideoLocation> : null,
+                UserRecord: includeUserRecord ? video.GetUserRecord(user.Id) : null
+            ))
+            .Where(tuple =>
+            {
+                var (video, bestLocation, locations, userRecord) = tuple;
+                var xrefs = video.AllCrossReferences;
+                var isAnimeAllowed = xrefs
+                    .Select(xref => xref.AnidbAnimeId)
+                    .Distinct()
+                    .Select(anidbID => RepoFactory.AniDB_Anime.GetByAnidbAnimeId(anidbID))
+                    .Where(anime => anime != null)
+                    .All(user.AllowedAnime);
+                if (!isAnimeAllowed)
+                    return false;
+
+                if (includeMissing != IncludeOnlyFilter.True)
+                {
+                    var shouldHideMissing = includeMissing == IncludeOnlyFilter.False;
+                    var fileIsMissing = bestLocation == null;
+                    if (shouldHideMissing == fileIsMissing)
+                        return false;
+                }
+
+                if (includeIgnored != IncludeOnlyFilter.True)
+                {
+                    var shouldHideIgnored = includeIgnored == IncludeOnlyFilter.False;
+                    if (shouldHideIgnored == video.IsIgnored)
+                        return false;
+                }
+
+                if (includeVariations != IncludeOnlyFilter.True)
+                {
+                    var shouldHideVariation = includeVariations == IncludeOnlyFilter.False;
+                    if (shouldHideVariation == video.IsVariation)
+                        return false;
+                }
+
+                if (includeDuplicates != IncludeOnlyFilter.True)
+                {
+                    var shouldHideDuplicate = includeDuplicates == IncludeOnlyFilter.False;
+                    var hasDuplicates = locations.Count > 1;
+                    if (shouldHideDuplicate == hasDuplicates)
+                        return false;
+                }
+
+                if (includeUnrecognized != IncludeOnlyFilter.True)
+                {
+                    var shouldHideUnrecognized = includeUnrecognized == IncludeOnlyFilter.False;
+                    var fileIsUnrecognized = xrefs.Count == 0;
+                    if (shouldHideUnrecognized == fileIsUnrecognized)
+                        return false;
+                }
+
+                if (includeLinked != IncludeOnlyFilter.True)
+                {
+                    var shouldHideLinked = includeLinked == IncludeOnlyFilter.False;
+                    var fileIsLinked = xrefs.Count > 0 && xrefs.Any(xref => xref.DataSource != AbstractDataSource.AniDB);
+                    if (shouldHideLinked == fileIsLinked)
+                        return false;
+                }
+
+                if (includeViewed != IncludeOnlyFilter.True)
+                {
+                    var shouldHideViewed = includeViewed == IncludeOnlyFilter.False;
+                    var fileIsViewed = userRecord != null;
+                    if (shouldHideViewed == fileIsViewed)
+                        return false;
+                }
+
+                if (includeWatched != IncludeOnlyFilter.True)
+                {
+                    var shouldHideWatched = includeWatched == IncludeOnlyFilter.False;
+                    var fileIsWatched = userRecord?.LastWatchedAt != null;
+                    if (shouldHideWatched == fileIsWatched)
+                        return false;
+                }
+
+                return true;
+            });
+
+        // Search.
+        if (!string.IsNullOrEmpty(search))
+            enumerable = enumerable
+                .Search(search, tuple => tuple.Locations.Select(location => location.AbsolutePath).Where(path => path != null), fuzzy)
+                .Select(result => result.Result);
+
+        // Sorting.
+        if (sortOrder != null && sortOrder.Count > 0)
+            enumerable = Models.Shoko.File.OrderBy(enumerable, sortOrder);
+        else if (string.IsNullOrEmpty(search))
+            enumerable = Models.Shoko.File.OrderBy(enumerable, new()
+            {
+                // First sort by import folder from A-Z.
+                FileSortCriteria.ImportFolderName.ToString(),
+                // Then by the relative path inside the import folder, from A-Z.
+                FileSortCriteria.RelativePath.ToString(),
+            });
+
+        // Skip and limit.
+        return enumerable
+            .ToListResult(tuple => new File(tuple.UserRecord, tuple.Video, includeXRefs, includeDataFrom, includeMediaInfo), page, pageSize);
+    }
 
     /// <summary>
     /// Get File Details
@@ -58,11 +218,11 @@ public class FileController : BaseController
     /// <param name="includeMediaInfo">Include media info data.</param>
     /// <returns></returns>
     [HttpGet("{fileID}")]
-    public ActionResult<File> GetFile([FromRoute] int fileID, [FromQuery] bool includeXRefs = false,
+    public ActionResult<File> GetFile([FromRoute] int fileID, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.False,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
         [FromQuery] bool includeMediaInfo = false)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
@@ -82,15 +242,15 @@ public class FileController : BaseController
     [HttpDelete("{fileID}")]
     public ActionResult DeleteFile([FromRoute] int fileID, [FromQuery] bool removeFiles = true, [FromQuery] bool removeFolder = true)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        foreach (var place in file.Places)
+        foreach (var location in file.Locations)
             if (removeFiles)
-                place.RemoveRecordAndDeletePhysicalFile(removeFolder);
+                location.RemoveRecordAndDeletePhysicalFile(removeFolder);
             else
-                place.RemoveRecord();
+                location.RemoveRecord();
         return Ok();
     }
 
@@ -105,11 +265,11 @@ public class FileController : BaseController
     [HttpGet("{fileID}/AniDB")]
     public ActionResult<File.AniDB> GetFileAnidbByFileID([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var anidb = file.GetAniDBFile();
+        var anidb = file.AniDB;
         if (anidb == null)
             return NotFound(AnidbNotFoundForFileID);
 
@@ -146,7 +306,7 @@ public class FileController : BaseController
     /// <param name="includeMediaInfo">Include media info data.</param>
     /// <returns></returns>
     [HttpGet("AniDB/{anidbFileID}/File")]
-    public ActionResult<File> GetFileByAnidbFileID([FromRoute] int anidbFileID, [FromQuery] bool includeXRefs = false,
+    public ActionResult<File> GetFileByAnidbFileID([FromRoute] int anidbFileID, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.False,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
         [FromQuery] bool includeMediaInfo = false)
     {
@@ -154,7 +314,7 @@ public class FileController : BaseController
         if (anidb == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var file = RepoFactory.VideoLocal.GetByHash(anidb.Hash);
+        var file = RepoFactory.Shoko_Video.GetByED2K(anidb.ED2K);
         if (file == null)
             return NotFound(AnidbNotFoundForFileID);
 
@@ -169,13 +329,13 @@ public class FileController : BaseController
     [HttpGet("{fileID}/Stream")]
     public ActionResult GetFileStream([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID) as IShokoVideo;
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var bestLocation = file.GetBestVideoLocalPlace();
+        var bestLocation = file.PreferredLocation;
 
-        var fileInfo = bestLocation.GetFile();
+        var fileInfo = bestLocation.GetFileInfo();
         if (fileInfo == null)
             return InternalError("Unable to find physical file for reading the stream data.");
 
@@ -194,7 +354,7 @@ public class FileController : BaseController
     [HttpGet("{fileID}/MediaInfo")]
     public ActionResult<MediaInfo> GetFileMediaInfo([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
@@ -202,7 +362,7 @@ public class FileController : BaseController
         if (mediaContainer == null)
             return InternalError("Unable to find media container for File");
 
-        return new MediaInfo(file, mediaContainer);
+        return new MediaInfo(mediaContainer);
     }
 
     /// <summary>
@@ -213,12 +373,12 @@ public class FileController : BaseController
     [HttpGet("{fileID}/UserStats")]
     public ActionResult<File.FileUserStats> GetFileUserStats([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
         var user = HttpContext.GetUser(); 
-        var userStats = file.GetUserRecord(user.JMMUserID);
+        var userStats = file.GetUserRecord(user.Id);
 
         if (userStats == null)
             return NotFound(FileUserStatsNotFoundWithFileID);
@@ -236,13 +396,13 @@ public class FileController : BaseController
     public ActionResult<File.FileUserStats> PutFileUserStats([FromRoute] int fileID, [FromBody] File.FileUserStats fileUserStats)
     {
         // Make sure the file exists.
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
         // Get the user data.
         var user = HttpContext.GetUser(); 
-        var userStats = file.GetOrCreateUserRecord(user.JMMUserID);
+        var userStats = file.GetOrCreateUserRecord(user.Id);
 
         // Merge with the existing entry and return an updated version of the stats.
         return fileUserStats.MergeWithExisting(userStats, file);
@@ -257,11 +417,11 @@ public class FileController : BaseController
     [HttpPost("{fileID}/Watched/{watched?}")]
     public ActionResult SetWatchedStatusOnFile([FromRoute] int fileID, [FromRoute] bool watched = true)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        file.ToggleWatchedStatus(watched, User.JMMUserID);
+        file.ToggleWatchedStatus(watched, User.Id);
 
         return Ok();
     }
@@ -279,7 +439,7 @@ public class FileController : BaseController
     public ActionResult ScrobbleFileAndEpisode([FromRoute] int fileID, [FromQuery(Name = "event")] string eventName = null, [FromQuery] int? episodeID = null, [FromQuery] bool? watched = null, [FromQuery] long? resumePosition = null)
     {
 
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
@@ -289,12 +449,12 @@ public class FileController : BaseController
             return ScrobbleStatusOnFile(file, watched, resumePosition);
         }
 
-        var episode = episodeID.HasValue ? RepoFactory.AnimeEpisode.GetByID(episodeID.Value) : file.GetAnimeEpisodes()?.FirstOrDefault();
+        var episode = episodeID.HasValue ? RepoFactory.Shoko_Episode.GetByID(episodeID.Value) : file.GetEpisodes()?.FirstOrDefault();
         if (episode == null)
             return BadRequest("Could not get Episode with ID: " + episodeID);
 
         var playbackPositionTicks = resumePosition ?? 0;
-        if (playbackPositionTicks >= file.Duration)
+        if (playbackPositionTicks >= file.Duration.TotalMilliseconds)
         {
             watched = true;
             playbackPositionTicks = 0;
@@ -325,46 +485,46 @@ public class FileController : BaseController
         }
 
         if (watched.HasValue)
-            file.ToggleWatchedStatus(watched.Value, User.JMMUserID);
-        file.SetResumePosition(playbackPositionTicks, User.JMMUserID);
+            file.ToggleWatchedStatus(watched.Value, User.Id);
+        file.SetResumePosition(playbackPositionTicks, User.Id);
 
         return NoContent();
     }
 
     [NonAction]
-    private void ScrobbleToTrakt(SVR_VideoLocal file, SVR_AnimeEpisode episode, long position, ScrobblePlayingStatus status)
+    private void ScrobbleToTrakt(Shoko_Video file, Shoko_Episode episode, long position, ScrobblePlayingStatus status)
     {
-        if (User.IsTraktUser == 0)
+        if (User.IsTraktUser)
             return;
 
-        float percentage = 100 * (position / file.Duration);
-        ScrobblePlayingType scrobbleType = episode.GetAnimeSeries()?.GetAnime()?.AnimeType == (int)AnimeType.Movie
+        float percentage = 100 * (position / (long) file.Duration.TotalMilliseconds);
+        ScrobblePlayingType scrobbleType = episode.Series?.GetAnime().AnimeType == AnimeType.Movie
             ? ScrobblePlayingType.movie
             : ScrobblePlayingType.episode;
 
-        _traktHelper.Scrobble(scrobbleType, episode.AnimeEpisodeID.ToString(), status, percentage);
+        _traktHelper.Scrobble(scrobbleType, episode.Id.ToString(), status, percentage);
     }
 
     [NonAction]
-    private ActionResult ScrobbleStatusOnFile(SVR_VideoLocal file, bool? watched, long? resumePosition)
+    private ActionResult ScrobbleStatusOnFile(Shoko_Video file, bool? watched, long? resumePosition)
     {
         if (!(watched ?? false) && resumePosition != null)
         {
             var safeRP = resumePosition ?? 0;
             if (safeRP < 0) safeRP = 0;
 
-            if (safeRP >= file.Duration)
+            if (safeRP >= file.Duration.TotalMilliseconds)
                 watched = true;
             else
-                file.SetResumePosition(safeRP, User.JMMUserID);
+                file.SetResumePosition(safeRP, User.Id);
         }
 
         if (watched != null)
         {
             var safeWatched = watched ?? false;
-            file.ToggleWatchedStatus(safeWatched, User.JMMUserID);
+            file.ToggleWatchedStatus(safeWatched, User.Id);
             if (safeWatched)
-                file.SetResumePosition(0, User.JMMUserID);
+                file.SetResumePosition(0, User.Id);
 
         }
 
@@ -380,12 +540,12 @@ public class FileController : BaseController
     [HttpPut("{fileID}/Ignore")]
     public ActionResult IgnoreFile([FromRoute] int fileID, [FromQuery] bool value = true)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        file.IsIgnored = value ? 1 : 0;
-        RepoFactory.VideoLocal.Save(file, false);
+        file.IsIgnored = value;
+        RepoFactory.Shoko_Video.Save(file, false);
 
         return Ok();
     }
@@ -398,7 +558,7 @@ public class FileController : BaseController
     [HttpPost("{fileID}/AVDump")]
     public ActionResult<AVDumpResult> AvDumpFile([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
@@ -406,7 +566,7 @@ public class FileController : BaseController
         if (string.IsNullOrWhiteSpace(settings.AniDb.AVDumpKey))
             return BadRequest("Missing AVDump API key");
 
-        var filePath = file.GetBestVideoLocalPlace(true)?.FullServerPath;
+        var filePath = file.GetPreferredLocation(true)?.AbsolutePath;
         if (string.IsNullOrEmpty(filePath))
             return BadRequest(FileNoPath);
 
@@ -428,18 +588,18 @@ public class FileController : BaseController
     [HttpPost("{fileID}/Rescan")]
     public ActionResult RescanFile([FromRoute] int fileID, [FromQuery] bool priority = false)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var filePath = file.GetBestVideoLocalPlace(true)?.FullServerPath;
+        var filePath = file.GetPreferredLocation(true)?.AbsolutePath;
         if (string.IsNullOrEmpty(filePath))
             return BadRequest(FileNoPath);
 
         var command = _commandFactory.Create<CommandRequest_ProcessFile>(
             c =>
             {
-                c.VideoLocalID = file.VideoLocalID;
+                c.VideoLocalID = file.Id;
                 c.ForceAniDB = true;
             }
         );
@@ -456,11 +616,11 @@ public class FileController : BaseController
     [HttpPost("{fileID}/Rehash")]
     public ActionResult RehashFile([FromRoute] int fileID)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var filePath = file.GetBestVideoLocalPlace(true)?.FullServerPath;
+        var filePath = file.GetPreferredLocation(true)?.AbsolutePath;
         if (string.IsNullOrEmpty(filePath))
             return BadRequest(FileNoPath);
 
@@ -485,24 +645,24 @@ public class FileController : BaseController
     [HttpPost("{fileID}/Link")]
     public ActionResult LinkSingleEpisodeToFile([FromRoute] int fileID, [FromBody] File.Input.LinkEpisodesBody body)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
         if (RemoveXRefsForFile(file))
-            return BadRequest($"Cannot remove associations created from AniDB data for file '{file.VideoLocalID}'");
+            return BadRequest($"Cannot remove associations created from AniDB data for file '{file.Id}'");
 
         foreach (var episodeID in body.episodeIDs)
         {
-            var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+            var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
             if (episode == null)
                 return BadRequest("Could not find episode entry");
 
             var command = _commandFactory.Create<CommandRequest_LinkFileManually>(
                 c =>
                 {
-                    c.VideoLocalID = fileID;
-                    c.EpisodeID = episode.AnimeEpisodeID;
+                    c.VideoId = fileID;
+                    c.EpisodeId = episode.Id;
                 }
             );
             command.Save();
@@ -520,15 +680,15 @@ public class FileController : BaseController
     [HttpPost("{fileID}/LinkFromSeries")]
     public ActionResult LinkMultipleEpisodesToFile([FromRoute] int fileID, [FromBody] File.Input.LinkSeriesBody body)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
-        var series = RepoFactory.AnimeSeries.GetByID(body.seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(body.seriesID);
         if (series == null)
             return BadRequest("Unable to find series entry");
 
-        var episodeType = EpisodeType.Episode;
+        var episodeType = EpisodeType.Normal;
         var (rangeStart, startType, startErrorMessage) = Helpers.ModelHelper.GetEpisodeNumberAndTypeFromInput(body.rangeStart);
         if (!string.IsNullOrEmpty(startErrorMessage))
             return BadRequest(string.Format(startErrorMessage, "rangeStart"));
@@ -544,7 +704,7 @@ public class FileController : BaseController
         if (startType.HasValue) episodeType = startType.Value;
 
         // Validate the range.
-        var totalEpisodes = Helpers.ModelHelper.GetTotalEpisodesForType(series.GetAnimeEpisodes(), episodeType);
+        var totalEpisodes = Helpers.ModelHelper.GetTotalEpisodesForType(series.GetEpisodes(), episodeType);
         if (rangeStart < 1)
             return BadRequest("`rangeStart` cannot be lower than 1");
         if (rangeStart > totalEpisodes)
@@ -555,7 +715,7 @@ public class FileController : BaseController
             return BadRequest("`rangeEnd` cannot be higher than the total number of episodes for the selected type.");
 
         if (RemoveXRefsForFile(file))
-            return BadRequest($"Cannot remove associations created from AniDB data for file '{file.VideoLocalID}'");
+            return BadRequest($"Cannot remove associations created from AniDB data for file '{file.Id}'");
 
         for (int episodeNumber = rangeStart; episodeNumber <= rangeEnd; episodeNumber++)
         {
@@ -563,15 +723,15 @@ public class FileController : BaseController
             if (anidbEpisode == null)
                 return InternalError("Could not find the AniDB entry for episode");
 
-            var episode = RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(anidbEpisode.EpisodeID);
+            var episode = RepoFactory.Shoko_Episode.GetByAnidbEpisodeId(anidbEpisode.EpisodeId);
             if (episode == null)
                 return InternalError("Could not find episode entry");
 
             var command = _commandFactory.Create<CommandRequest_LinkFileManually>(
                 c =>
                 {
-                    c.VideoLocalID = fileID;
-                    c.EpisodeID = episode.AnimeEpisodeID;
+                    c.VideoId = fileID;
+                    c.EpisodeId = episode.Id;
                 }
             );
             command.Save();
@@ -589,38 +749,38 @@ public class FileController : BaseController
     [HttpDelete("{fileID}/Link")]
     public ActionResult UnlinkMultipleEpisodesFromFile([FromRoute] int fileID, [FromBody] File.Input.UnlinkEpisodesBody body)
     {
-        var file = RepoFactory.VideoLocal.GetByID(fileID);
+        var file = RepoFactory.Shoko_Video.GetByID(fileID);
         if (file == null)
             return NotFound(FileNotFoundWithFileID);
 
         var all = body == null;
         var episodeIdSet = body?.episodeIDs?.ToHashSet() ?? new();
         var seriesIDs = new HashSet<int>();
-        foreach (var episode in file.GetAnimeEpisodes())
+        foreach (var episode in file.GetEpisodes())
         {
-            if (!all && !episodeIdSet.Contains(episode.AnimeEpisodeID)) continue;
+            if (!all && !episodeIdSet.Contains(episode.Id)) continue;
 
-            seriesIDs.Add(episode.AnimeSeriesID);
-            var xref = RepoFactory.CrossRef_File_Episode.GetByHashAndEpisodeID(file.Hash, episode.AniDB_EpisodeID);
+            seriesIDs.Add(episode.SeriesId);
+            var xref = RepoFactory.CR_Video_Episode.GetByED2KAndAnidbEpisodeId(file.ED2K, episode.AnidbEpisodeId);
             if (xref != null)
             {
-                if (xref.CrossRefSource == (int)CrossRefSource.AniDB)
-                    return BadRequest($"Cannot remove associations created from AniDB data for file '{file.VideoLocalID}'");
+                if (xref.CrossReferenceSource == CrossRefSource.AniDB)
+                    return BadRequest($"Cannot remove associations created from AniDB data for file '{file.Id}'");
 
-                RepoFactory.CrossRef_File_Episode.Delete(xref.CrossRef_File_EpisodeID);
+                RepoFactory.CR_Video_Episode.Delete(xref);
             }
         }
 
-        if (file.DateTimeImported.HasValue)
+        if (file.LastImportedAt.HasValue)
         {
             // Reset the import date.
-            file.DateTimeImported = null;
-            RepoFactory.VideoLocal.Save(file);
+            file.LastImportedAt = null;
+            RepoFactory.Shoko_Video.Save(file);
         }
 
         foreach (var seriesID in seriesIDs)
         {
-            var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+            var series = RepoFactory.Shoko_Series.GetByID(seriesID);
             if (series != null)
                 series.QueueUpdateStats();
         }
@@ -640,20 +800,20 @@ public class FileController : BaseController
             return BadRequest("`fileIDs` must contain at least one element.");
 
         // Validate all the file ids.
-        var files = new List<SVR_VideoLocal>(body.fileIDs.Length);
+        var files = new List<Shoko_Video>(body.fileIDs.Length);
         for (int index = 0, fileID = body.fileIDs[0]; index < body.fileIDs.Length; fileID = body.fileIDs[++index])
         {
-            var file = RepoFactory.VideoLocal.GetByID(fileID);
+            var file = RepoFactory.Shoko_Video.GetByID(fileID);
             if (file == null)
                 return BadRequest($"Unable to find file entry for `fileIDs[{index}]`.");
 
             files[index] = file;
         }
 
-        var series = RepoFactory.AnimeSeries.GetByID(body.seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(body.seriesID);
         if (series == null) return BadRequest("Unable to find series entry");
 
-        var episodeType = EpisodeType.Episode;
+        var episodeType = EpisodeType.Normal;
         var (rangeStart, startType, startErrorMessage) = Helpers.ModelHelper.GetEpisodeNumberAndTypeFromInput(body.rangeStart);
         if (!string.IsNullOrEmpty(startErrorMessage))
         {
@@ -665,7 +825,7 @@ public class FileController : BaseController
 
         // Validate the range.
         var rangeEnd = rangeStart + files.Count - 1;
-        var totalEpisodes = Helpers.ModelHelper.GetTotalEpisodesForType(series.GetAnimeEpisodes(), episodeType);
+        var totalEpisodes = Helpers.ModelHelper.GetTotalEpisodesForType(series.GetEpisodes(), episodeType);
         if (rangeStart < 1)
         {
             return BadRequest("`rangeStart` cannot be lower than 1");
@@ -692,18 +852,18 @@ public class FileController : BaseController
             if (anidbEpisode == null)
                 return InternalError("Could not find the AniDB entry for episode");
 
-            var episode = RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(anidbEpisode.EpisodeID);
+            var episode = RepoFactory.Shoko_Episode.GetByAnidbEpisodeId(anidbEpisode.EpisodeId);
             if (episode == null)
                 return InternalError("Could not find episode entry");
 
             if (RemoveXRefsForFile(file))
-                return BadRequest($"Cannot remove associations created from AniDB data for file '{file.VideoLocalID}'");
+                return BadRequest($"Cannot remove associations created from AniDB data for file '{file.Id}'");
 
             var command = _commandFactory.Create<CommandRequest_LinkFileManually>(
                 c =>
                 {
-                    c.VideoLocalID = file.VideoLocalID;
-                    c.EpisodeID = episode.AnimeEpisodeID;
+                    c.VideoId = file.Id;
+                    c.EpisodeId = episode.Id;
                 }
             );
             if (singleEpisode)
@@ -730,19 +890,19 @@ public class FileController : BaseController
             return BadRequest("`fileIDs` must contain at least one element.");
 
         // Validate all the file ids.
-        var files = new List<SVR_VideoLocal>();
+        var files = new List<Shoko_Video>();
         foreach (var fileID in body.fileIDs)
         {
-            var file = RepoFactory.VideoLocal.GetByID(fileID);
+            var file = RepoFactory.Shoko_Video.GetByID(fileID);
             if (file == null)
                 return BadRequest($"Unable to find file entry for File ID {fileID}.");
 
             files.Add(file);
         }
 
-        var episode = RepoFactory.AnimeEpisode.GetByID(body.episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(body.episodeID);
         if (episode == null) return BadRequest("Unable to find episode entry");
-        var anidbEpisode = episode.AniDB_Episode;
+        var anidbEpisode = episode.AniDB;
         if (anidbEpisode == null)
             return InternalError("Could not find the AniDB entry for episode");
 
@@ -750,13 +910,13 @@ public class FileController : BaseController
         foreach (var file in files)
         {
             if (RemoveXRefsForFile(file))
-                return BadRequest($"Cannot remove associations created from AniDB data for file '{file.VideoLocalID}'");
+                return BadRequest($"Cannot remove associations created from AniDB data for file '{file.Id}'");
 
             var command = _commandFactory.Create<CommandRequest_LinkFileManually>(
                 c =>
                 {
-                    c.VideoLocalID = file.VideoLocalID;
-                    c.EpisodeID = episode.AnimeEpisodeID;
+                    c.VideoId = file.Id;
+                    c.EpisodeId = episode.Id;
                 }
             );
             command.Percentage = (int)Math.Round((double)(fileCount / files.Count * 100));
@@ -769,21 +929,21 @@ public class FileController : BaseController
     }
 
     [NonAction]
-    private bool RemoveXRefsForFile(SVR_VideoLocal file)
+    private bool RemoveXRefsForFile(Shoko_Video file)
     {
-        foreach (var xref in RepoFactory.CrossRef_File_Episode.GetByHash(file.Hash))
+        foreach (var xref in RepoFactory.CR_Video_Episode.GetByED2K(file.ED2K))
         {
-            if (xref.CrossRefSource == (int)CrossRefSource.AniDB)
+            if (xref.CrossReferenceSource == CrossRefSource.AniDB)
                 return true;
 
-            RepoFactory.CrossRef_File_Episode.Delete(xref.CrossRef_File_EpisodeID);
+            RepoFactory.CR_Video_Episode.Delete(xref);
         }
 
-        if (file.DateTimeImported.HasValue)
+        if (file.LastImportedAt.HasValue)
         {
             // Reset the import date.
-            file.DateTimeImported = null;
-            RepoFactory.VideoLocal.Save(file);
+            file.LastImportedAt = null;
+            RepoFactory.Shoko_Video.Save(file);
         }
 
         return false;
@@ -800,7 +960,7 @@ public class FileController : BaseController
     /// <param name="limit">Limit the number of returned results.</param>
     /// <returns>A list of all files with a file location that ends with the given path.</returns>
     [HttpGet("PathEndsWith")]
-    public ActionResult<List<File>> PathEndsWithQuery([FromQuery] string path, [FromQuery] bool includeXRefs = true,
+    public ActionResult<List<File>> PathEndsWithQuery([FromQuery] string path, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.V1,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
         [Range(0, 100)] int limit = 0)
         => PathEndsWithInternal(path, includeXRefs, includeDataFrom, limit);
@@ -816,7 +976,7 @@ public class FileController : BaseController
     /// <param name="limit">Limit the number of returned results.</param>
     /// <returns>A list of all files with a file location that ends with the given path.</returns>
     [HttpGet("PathEndsWith/{*path}")]
-    public ActionResult<List<File>> PathEndsWithPath([FromRoute] string path, [FromQuery] bool includeXRefs = true,
+    public ActionResult<List<File>> PathEndsWithPath([FromRoute] string path, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.V1,
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
         [Range(0, 100)] int limit = 0)
         => PathEndsWithInternal(Uri.UnescapeDataString(path), includeXRefs, includeDataFrom, limit);
@@ -831,38 +991,39 @@ public class FileController : BaseController
     /// <param name="includeDataFrom">Include data from selected <see cref="DataSource"/>s.</param>
     /// <param name="limit">Limit the number of returned results.</param>
     /// <returns>A list of all files with a file location that ends with the given path.</returns>
-    internal ActionResult<List<File>> PathEndsWithInternal(string path, bool includeXRefs,
+    internal ActionResult<List<File>> PathEndsWithInternal(string path, IncludeVideoXRefs includeXRefs,
         HashSet<DataSource> includeDataFrom, int limit = 0)
     {
         if (string.IsNullOrWhiteSpace(path))
             return new List<File>();
 
+        var user = User;
         var query = path
             .Replace('/', Path.DirectorySeparatorChar)
             .Replace('\\', Path.DirectorySeparatorChar);
-        var results = RepoFactory.VideoLocalPlace.GetAll()
+        var results = RepoFactory.Shoko_Video_Location.GetAll()
             .AsParallel()
-            .Where(location => location.FullServerPath?.EndsWith(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            .Select(location => location.VideoLocal)
+            .Where(location => location.AbsolutePath?.EndsWith(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            .Select(location => location.Video)
             .Where(file =>
             {
                 if (file == null)
                     return false;
 
-                var xrefs = file.EpisodeCrossRefs;
-                var series = xrefs.Count > 0 ? RepoFactory.AnimeSeries.GetByAnimeID(xrefs[0].AnimeID) : null;
-                return series == null || User.AllowedSeries(series);
+                var xrefs = file.GetCrossReferences(true);
+                var series = xrefs.Count > 0 ? xrefs[0].Series : null;
+                return series == null || user.AllowedSeries(series);
             })
-            .DistinctBy(file => file.VideoLocalID);
+            .DistinctBy(file => file.Id);
 
         if (limit <= 0)
             return results
-                .Select(a => new File(HttpContext, a, true, includeDataFrom))
+                .Select(a => new File(HttpContext, a, includeXRefs, includeDataFrom))
                 .ToList();
 
         return results
             .Take(limit)
-            .Select(a => new File(HttpContext, a, true, includeDataFrom))
+            .Select(a => new File(HttpContext, a, includeXRefs, includeDataFrom))
             .ToList();
     }
 
@@ -889,14 +1050,14 @@ public class FileController : BaseController
             return BadRequest(e.Message);
         }
 
-        var results = RepoFactory.VideoLocalPlace.GetAll().AsParallel()
-            .Where(a => regex.IsMatch(a.FullServerPath)).Select(a => a.VideoLocal)
+        var results = RepoFactory.Shoko_Video_Location.GetAll().AsParallel()
+            .Where(a => regex.IsMatch(a.AbsolutePath)).Select(a => a.Video)
             .Distinct()
             .Where(a =>
             {
-                var ser = a?.GetAnimeEpisodes().FirstOrDefault()?.GetAnimeSeries();
+                var ser = a?.GetSeries().FirstOrDefault();
                 return ser == null || User.AllowedSeries(ser);
-            }).Select(a => new File(HttpContext, a, true)).ToList();
+            }).Select(a => new File(HttpContext, a, IncludeVideoXRefs.V1)).ToList();
         return results;
     }
 
@@ -923,14 +1084,14 @@ public class FileController : BaseController
             return BadRequest(e.Message);
         }
 
-        var results = RepoFactory.VideoLocalPlace.GetAll().AsParallel()
-            .Where(a => regex.IsMatch(a.FileName)).Select(a => a.VideoLocal)
+        var results = RepoFactory.Shoko_Video_Location.GetAll().AsParallel()
+            .Where(a => regex.IsMatch(a.FileName)).Select(a => a.Video)
             .Distinct()
             .Where(a =>
             {
-                var ser = a?.GetAnimeEpisodes().FirstOrDefault()?.GetAnimeSeries();
+                var ser = a?.GetSeries().FirstOrDefault();
                 return ser == null || User.AllowedSeries(ser);
-            }).Select(a => new File(HttpContext, a, true)).ToList();
+            }).Select(a => new File(HttpContext, a, IncludeVideoXRefs.V1)).ToList();
         return results;
     }
 
@@ -939,7 +1100,7 @@ public class FileController : BaseController
     /// </summary>
     /// <returns></returns>
     [HttpGet("Recent/{limit:int?}")]
-    [Obsolete]
+    [Obsolete("Use the universal file endpoint instead.")]
     public ActionResult<ListResult<File>> GetRecentFilesObselete([FromRoute] [Range(0, 1000)] int limit = 100)
         => GetRecentFiles(limit);
 
@@ -950,10 +1111,11 @@ public class FileController : BaseController
     /// <param name="page">Page number.</param>
     /// <param name="includeXRefs">Set to false to exclude series and episode cross-references.</param>
     /// <returns></returns>
+    [Obsolete("Use the universal file endpoint instead.")]
     [HttpGet("Recent")]
-    public ActionResult<ListResult<File>> GetRecentFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] bool includeXRefs = true)
+    public ActionResult<ListResult<File>> GetRecentFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.V1)
     {
-        return RepoFactory.VideoLocal.GetMostRecentlyAdded(-1, 0, User.JMMUserID)
+        return RepoFactory.Shoko_Video.GetMostRecentlyAdded(-1, 0, User.Id)
             .ToListResult(file => new File(HttpContext, file, includeXRefs), page, pageSize);
     }
 
@@ -963,10 +1125,11 @@ public class FileController : BaseController
     /// <param name="pageSize">Limits the number of results per page. Set to 0 to disable the limit.</param>
     /// <param name="page">Page number.</param>
     /// <returns></returns>
+    [Obsolete("Use the universal file endpoint instead.")]
     [HttpGet("Ignored")]
     public ActionResult<ListResult<File>> GetIgnoredFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
-        return RepoFactory.VideoLocal.GetIgnoredVideos()
+        return RepoFactory.Shoko_Video.GetIgnoredVideos()
             .ToListResult(file => new File(HttpContext, file), page, pageSize);
     }
 
@@ -977,10 +1140,11 @@ public class FileController : BaseController
     /// <param name="page">Page number.</param>
     /// <param name="includeXRefs">Set to true to include series and episode cross-references.</param>
     /// <returns></returns>
+    [Obsolete("Use the universal file endpoint instead.")]
     [HttpGet("Duplicates")]
-    public ActionResult<ListResult<File>> GetExactDuplicateFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] bool includeXRefs = false)
+    public ActionResult<ListResult<File>> GetExactDuplicateFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.False)
     {
-        return RepoFactory.VideoLocal.GetExactDuplicateVideos()
+        return RepoFactory.Shoko_Video.GetExactDuplicateVideos()
             .ToListResult(file => new File(HttpContext, file, includeXRefs), page, pageSize);
     }
 
@@ -991,10 +1155,11 @@ public class FileController : BaseController
     /// <param name="page">Page number.</param>
     /// <param name="includeXRefs">Set to false to exclude series and episode cross-references.</param>
     /// <returns></returns>
+    [Obsolete("Use the universal file endpoint instead.")]
     [HttpGet("Linked")]
-    public ActionResult<ListResult<File>> GetManuellyLinkedFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] bool includeXRefs = true)
+    public ActionResult<ListResult<File>> GetManuellyLinkedFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.True)
     {
-        return RepoFactory.VideoLocal.GetManuallyLinkedVideos()
+        return RepoFactory.Shoko_Video.GetManuallyLinkedVideos()
             .ToListResult(file => new File(HttpContext, file, includeXRefs), page, pageSize);
     }
 
@@ -1008,13 +1173,13 @@ public class FileController : BaseController
     [HttpGet("MissingCrossReferenceData")]
     public ActionResult<ListResult<File>> GetFilesWithMissingCrossReferenceData([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1, [FromQuery] bool includeXRefs = true)
     {
-        return RepoFactory.VideoLocal.GetVideosWithMissingCrossReferenceData()
+        return RepoFactory.Shoko_Video.GetVideosWithMissingCrossReferenceData()
             .ToListResult(
                 file => new File(HttpContext, file)
                 {
-                    SeriesIDs = includeXRefs ? file.EpisodeCrossRefs
-                        .GroupBy(xref => xref.AnimeID, xref => new File.CrossReferenceIDs { ID = 0, AniDB = xref.EpisodeID, TvDB = new() })
-                        .Select(tuples => new File.SeriesCrossReference { SeriesID = new() { ID = 0, AniDB = tuples.Key, TvDB = new() }, EpisodeIDs = tuples.ToList() })
+                    SeriesIDs = includeXRefs ? file.GetCrossReferences(false)
+                        .GroupBy(xref => xref.AnidbAnimeId, xref => new Models.Shoko.EpisodeIDs(xref))
+                        .Select(tuples => new File.SeriesCrossReference { SeriesID = new() { AniDB = tuples.Key }, EpisodeIDs = tuples.ToList() })
                         .ToList() : null
                 },
                 page,
@@ -1029,10 +1194,11 @@ public class FileController : BaseController
     /// <param name="pageSize">Limits the number of results per page. Set to 0 to disable the limit.</param>
     /// <param name="page">Page number.</param>
     /// <returns></returns>
+    [Obsolete("Use the universal file endpoint instead.")]
     [HttpGet("Unrecognized")]
     public ActionResult<ListResult<File>> GetUnrecognizedFiles([FromQuery] [Range(0, 1000)] int pageSize = 100, [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
-        return RepoFactory.VideoLocal.GetVideosWithoutEpisode()
+        return RepoFactory.Shoko_Video.GetVideosWithoutEpisode()
             .ToListResult(file => new File(HttpContext, file), page, pageSize);
     }
 }

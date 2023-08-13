@@ -41,12 +41,12 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
         {
             // Use TvDB setting
             var settings = _settingsProvider.GetSettings();
-            if (!settings.TvDB.AutoLink)
+            if (!settings.TMDB.AutoLink)
             {
                 return;
             }
 
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
             if (anime == null)
             {
                 return;
@@ -55,7 +55,7 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
             var searchCriteria = anime.PreferredTitle;
 
             // if not wanting to use web cache, or no match found on the web cache go to TvDB directly
-            var results = _helper.Search(searchCriteria);
+            var results = _helper.SearchMovieMetadata(searchCriteria);
             Logger.LogTrace("Found {Count} moviedb results for {Criteria} on MovieDB", results.Count, searchCriteria);
             if (ProcessSearchResults(results, searchCriteria))
             {
@@ -70,19 +70,19 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
 
             foreach (var title in anime.GetTitles())
             {
-                if (title.TitleType != Shoko.Plugin.Abstractions.DataModels.TitleType.Official)
+                if (title.TitleType != Shoko.Plugin.Abstractions.Models.TitleType.Official)
                 {
                     continue;
                 }
 
-                if (string.Equals(searchCriteria, title.Title, StringComparison.CurrentCultureIgnoreCase))
+                if (string.Equals(searchCriteria, title.Value, StringComparison.CurrentCultureIgnoreCase))
                 {
                     continue;
                 }
 
-                results = _helper.Search(title.Title);
-                Logger.LogTrace("Found {Count} moviedb results for search on {Title}", results.Count, title.Title);
-                if (ProcessSearchResults(results, title.Title))
+                results = _helper.SearchMovieMetadata(title.Value);
+                Logger.LogTrace("Found {Count} moviedb results for search on {Title}", results.Count, title.Value);
+                if (ProcessSearchResults(results, title.Value))
                 {
                     return;
                 }
@@ -101,11 +101,10 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
             // since we are using this result, lets download the info
             Logger.LogTrace("Found 1 moviedb results for search on {SearchCriteria} --- Linked to {Name} ({ID})",
                 searchCriteria,
-                results[0].MovieName, results[0].MovieID);
+                results[0].MovieName, results[0].MovieId);
 
-            var movieID = results[0].MovieID;
-            _helper.UpdateMovieInfo(movieID, true);
-            _helper.LinkAniDBMovieDB(AnimeID, movieID, false);
+            var movieID = results[0].MovieId;
+            _helper.AddMovieLink(AnimeID, movieID, true);
             return true;
         }
 

@@ -52,11 +52,11 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
 
     public bool CreateSeriesEntry { get; set; }
 
-    [XmlIgnore] public SVR_AniDB_Anime Result { get; set; }
+    [XmlIgnore] public AniDB_Anime Result { get; set; }
 
     public override void PostInit()
     {
-        if (RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID) == null)
+        if (RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID) == null)
         {
             Priority = (int)CommandRequestPriority.Priority1;
         }
@@ -78,8 +78,8 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
                 };
             }
 
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
-            var update = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
+            var update = RepoFactory.AniDB_Anime_Update.GetByAnimeID(AnimeID);
             var animeRecentlyUpdated = false;
             if (anime != null && update != null)
             {
@@ -228,11 +228,11 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
             }
 
             // Create or update the anime record,
-            anime ??= new SVR_AniDB_Anime();
+            anime ??= new AniDB_Anime();
             _animeCreator.CreateAnime(response, anime, 0);
 
             // then conditionally create the series record if it doesn't exist,
-            var series = RepoFactory.AnimeSeries.GetByAnimeID(AnimeID);
+            var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(AnimeID);
             if (series == null && CreateSeriesEntry)
             {
                 series = anime.CreateAnimeSeriesAndGroup();
@@ -243,17 +243,17 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
             if (series != null)
             {
                 series.CreateAnimeEpisodes(anime);
-                RepoFactory.AnimeSeries.Save(series, true, false);
+                RepoFactory.Shoko_Series.Save(series, true, false);
             }
 
-            SVR_AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
+            AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
 
             Result = anime;
 
             ProcessRelations(response);
 
             // Request an image download
-            _commandFactory.Create<CommandRequest_DownloadAniDBImages>(c => c.AnimeID = anime.AnimeID).Save();
+            _commandFactory.Create<CommandRequest_DownloadAniDBImages>(c => c.AnimeID = anime.AnimeId).Save();
         }
         catch (Exception ex)
         {
@@ -292,14 +292,14 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
 
             // Skip queuing/processing the command if the anime record were
             // recently updated.
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(relation.RelatedAnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(relation.RelatedAnimeID);
             if (anime != null)
             {
                 // Check when the anime was last updated online if we are
                 // forcing a refresh and we're not banned, otherwise check when
                 // the local anime record was last updated (be it from a fresh
                 // online xml file or from a cached xml file).
-                var update = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(relation.RelatedAnimeID);
+                var update = RepoFactory.AniDB_Anime_Update.GetByAnimeID(relation.RelatedAnimeID);
                 var updatedAt = ForceRefresh && !_handler.IsBanned && update != null ? update.UpdatedAt : anime.DateTimeUpdated;
                 var ts = DateTime.Now - updatedAt;
                 if (ts.TotalHours < _settings.AniDb.MinimumHoursToRedownloadAnimeInfo)
@@ -358,7 +358,7 @@ public class CommandRequest_GetAnimeHTTP : CommandRequestImplementation
 
         // populate the fields
         AnimeID = int.Parse(TryGetProperty(docCreator, nameof(CommandRequest_GetAnimeHTTP), nameof(AnimeID)));
-        if (RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID) == null) Priority = (int)CommandRequestPriority.Priority1;
+        if (RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID) == null) Priority = (int)CommandRequestPriority.Priority1;
 
         if (bool.TryParse(
                 TryGetProperty(docCreator, nameof(CommandRequest_GetAnimeHTTP), nameof(DownloadRelations)),

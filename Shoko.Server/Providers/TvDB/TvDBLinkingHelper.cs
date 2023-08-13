@@ -5,12 +5,16 @@ using NLog;
 using Shoko.Commons.Extensions;
 using Shoko.Commons.Utils;
 using Shoko.Models.Azure;
-using Shoko.Models.Enums;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.TvDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
+
+using MatchRating = Shoko.Models.Enums.MatchRating;
 
 namespace Shoko.Server;
 
@@ -24,15 +28,15 @@ public static class TvDBLinkingHelper
         // wipe old links except User Verified
         if (!skipMatchClearing)
         {
-            RepoFactory.CrossRef_AniDB_TvDB_Episode.DeleteAllUnverifiedLinksForAnime(animeID);
+            RepoFactory.CR_AniDB_TvDB_Episode.DeleteAllUnverifiedLinksForAnime(animeID);
         }
 
-        var tvxrefs = RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(animeID);
+        var tvxrefs = RepoFactory.CR_AniDB_TvDB.GetByAnimeID(animeID);
         var tvdbID = tvxrefs.FirstOrDefault()?.TvDBID ?? 0;
 
         var matches = GetTvDBEpisodeMatches(animeID, tvdbID);
 
-        var tosave = new List<CrossRef_AniDB_TvDB_Episode>();
+        var tosave = new List<CR_AniDB_TvDB_Episode>();
         foreach (var match in matches)
         {
             if (match.AniDB == null || match.TvDB == null)
@@ -40,7 +44,7 @@ public static class TvDBLinkingHelper
                 continue;
             }
 
-            var xref = RepoFactory.CrossRef_AniDB_TvDB_Episode.GetByAniDBAndTvDBEpisodeIDs(match.AniDB.EpisodeID,
+            var xref = RepoFactory.CR_AniDB_TvDB_Episode.GetByAniDBAndTvDBEpisodeIDs(match.AniDB.EpisodeId,
                 match.TvDB.Id);
             // Don't touch User Verified links
             if (xref?.MatchRating == MatchRating.UserVerified)
@@ -51,7 +55,7 @@ public static class TvDBLinkingHelper
             // check for duplicates only if we skip clearing the links
             if (skipMatchClearing)
             {
-                xref = RepoFactory.CrossRef_AniDB_TvDB_Episode.GetByAniDBAndTvDBEpisodeIDs(match.AniDB.EpisodeID,
+                xref = RepoFactory.CR_AniDB_TvDB_Episode.GetByAniDBAndTvDBEpisodeIDs(match.AniDB.EpisodeId,
                     match.TvDB.Id);
                 if (xref != null)
                 {
@@ -67,18 +71,18 @@ public static class TvDBLinkingHelper
 
             if (xref == null)
             {
-                xref = new CrossRef_AniDB_TvDB_Episode();
+                xref = new();
             }
 
-            xref.AniDBEpisodeID = match.AniDB.EpisodeID;
-            xref.TvDBEpisodeID = match.TvDB.Id;
+            xref.AnidbEpisodeId = match.AniDB.EpisodeId;
+            xref.TvdbEpisodeId = match.TvDB.Id;
             xref.MatchRating = match.Rating;
 
             tosave.Add(xref);
         }
 
         TimeSpan ts;
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(animeID)?.MainTitle ?? animeID.ToString();
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(animeID)?.MainTitle ?? animeID.ToString();
 
         if (tosave.Count == 0)
         {
@@ -87,39 +91,39 @@ public static class TvDBLinkingHelper
             return;
         }
 
-        tosave.Batch(50).ForEach(RepoFactory.CrossRef_AniDB_TvDB_Episode.Save);
+        tosave.Batch(50).ForEach(RepoFactory.CR_AniDB_TvDB_Episode.Save);
         ts = DateTime.Now - start;
         logger.Trace($"Updated TvDB Matches for {anime} in {ts.TotalMilliseconds}ms");
     }
 
-    public static List<CrossRef_AniDB_TvDB_Episode> GetMatchPreview(int animeID, int tvdbID)
+    public static List<CR_AniDB_TvDB_Episode> GetMatchPreview(int animeID, int tvdbID)
     {
         var matches = GetTvDBEpisodeMatches(animeID, tvdbID);
-        return matches.Where(a => a.AniDB != null && a.TvDB != null).OrderBy(a => a.AniDB.EpisodeType)
-            .ThenBy(a => a.AniDB.EpisodeNumber).Select(match => new CrossRef_AniDB_TvDB_Episode
+        return matches.Where(a => a.AniDB != null && a.TvDB != null).OrderBy(a => a.AniDB.Type)
+            .ThenBy(a => a.AniDB.Number).Select(match => new CR_AniDB_TvDB_Episode()
             {
-                AniDBEpisodeID = match.AniDB.EpisodeID, TvDBEpisodeID = match.TvDB.Id, MatchRating = match.Rating
+                AnidbEpisodeId = match.AniDB.EpisodeId, TvdbEpisodeId = match.TvDB.Id, MatchRating = match.Rating
             }).ToList();
     }
 
-    public static List<CrossRef_AniDB_TvDB_Episode> GetMatchPreviewWithOverrides(int animeID, int tvdbID)
+    public static List<CR_AniDB_TvDB_Episode> GetMatchPreviewWithOverrides(int animeID, int tvdbID)
     {
         var matches = GetMatchPreview(animeID, tvdbID);
-        var overrides = RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAnimeID(animeID);
-        var result = new List<CrossRef_AniDB_TvDB_Episode>();
+        var overrides = RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAnimeID(animeID);
+        var result = new List<CR_AniDB_TvDB_Episode>();
         foreach (var match in matches)
         {
-            var match_override = overrides.FirstOrDefault(a => a.AniDBEpisodeID == match.AniDBEpisodeID);
+            var match_override = overrides.FirstOrDefault(a => a.AniDBEpisodeID == match.AnidbEpisodeId);
             if (match_override == null)
             {
                 result.Add(match);
             }
             else
             {
-                var new_match = new CrossRef_AniDB_TvDB_Episode
+                var new_match = new CR_AniDB_TvDB_Episode()
                 {
-                    AniDBEpisodeID = match_override.AniDBEpisodeID,
-                    TvDBEpisodeID = match_override.TvDBEpisodeID,
+                    AnidbEpisodeId = match_override.AniDBEpisodeID,
+                    TvdbEpisodeId = match_override.TvDBEpisodeID,
                     MatchRating = MatchRating.UserVerified
                 };
                 result.Add(new_match);
@@ -175,22 +179,22 @@ public static class TvDBLinkingHelper
             tveps.Where(a => a.SeasonNumber == 0).OrderBy(a => a.EpisodeNumber).ToList();
 
         // Get AniDB
-        var anieps = RepoFactory.AniDB_Episode.GetByAnimeID(animeID);
-        var aniepsNormal = anieps.Where(a => a.EpisodeType == (int)EpisodeType.Episode)
+        var anieps = RepoFactory.AniDB_Episode.GetByAnidbAnimeId(animeID);
+        var aniepsNormal = anieps.Where(a => a.Type == (int)EpisodeType.Normal)
             .OrderBy(a => a.EpisodeNumber).ToList();
 
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(animeID);
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(animeID);
 
         var matches =
             new List<(AniDB_Episode, TvDB_Episode, MatchRating)>();
 
         // 5 is arbitrary. Can be adjusted later
-        var isOVASeries = anime?.AnimeType is (int)AnimeType.OVA or (int)AnimeType.Web or (int)AnimeType.TVSpecial &&
+        var isOVASeries = anime?.AnimeType is AnimeType.OVA or AnimeType.Web or AnimeType.TVSpecial &&
                           aniepsNormal.Count > 5;
 
         // Try to match OVAs
         if (!isOVASeries &&
-            anime?.AnimeType is (int)AnimeType.OVA or (int)AnimeType.Movie or (int)AnimeType.TVSpecial &&
+            anime?.AnimeType is AnimeType.OVA or AnimeType.Movie or AnimeType.TVSpecial &&
             aniepsNormal.Count > 0 && tvepsSpecial.Count > 0)
         {
             TryToMatchSpeicalsToTvDB(aniepsNormal, tvepsSpecial, ref matches);
@@ -204,7 +208,7 @@ public static class TvDBLinkingHelper
 
         // Specials. We aren't going to try too hard here.
         // We'll try by titles and dates, but we'll rely mostly on overrides
-        var aniepsSpecial = anieps.Where(a => a.EpisodeType == (int)EpisodeType.Special)
+        var aniepsSpecial = anieps.Where(a => a.Type == (int)EpisodeType.Special)
             .OrderBy(a => a.EpisodeNumber).ToList();
 
         if (aniepsSpecial.Count > 0 && tvepsSpecial.Count > 0)
@@ -220,8 +224,7 @@ public static class TvDBLinkingHelper
         if (matches.Count == 0)
         {
             //Special Exception, sometimes tvdb matches series as anidb movies or viceversa
-            if ((anime?.AnimeType == (int)AnimeType.OVA || anime?.AnimeType == (int)AnimeType.Movie ||
-                 anime?.AnimeType == (int)AnimeType.TVSpecial) && aniepsSpecial.Count > 0)
+            if ((anime?.AnimeType is AnimeType.OVA or AnimeType.Movie or AnimeType.TVSpecial) && aniepsSpecial.Count > 0)
             {
                 TryToMatchNormalEpisodesToTvDB(aniepsNormal, tvepsNormal, anime?.EndDate == null, ref matches);
             }
@@ -230,8 +233,7 @@ public static class TvDBLinkingHelper
         if (matches.Count == 0)
         {
             //Special Exception (PATLABOR 1990) //Anime marked as an OVA in AniDb, and used as normal season in tvdb
-            if ((anime?.AnimeType == (int)AnimeType.OVA || anime?.AnimeType == (int)AnimeType.Movie ||
-                 anime?.AnimeType == (int)AnimeType.TVSpecial) && aniepsSpecial.Count > 0)
+            if ((anime?.AnimeType is AnimeType.OVA or AnimeType.Movie  or AnimeType.TVSpecial) && aniepsSpecial.Count > 0)
             {
                 TryToMatchNormalEpisodesToTvDB(aniepsSpecial, tvepsNormal, anime?.EndDate == null, ref matches);
             }
@@ -273,8 +275,8 @@ public static class TvDBLinkingHelper
                 // Saiki K => regular matching detection (5 to 1)
                 // We'll group by week, and we'll cheat by using ISO6801 calendar,
                 // as it ensures that the week is not split on the end of the year
-                airdategroupings = aniepsNormal.Where(a => a.GetAirDateAsDate() != null).GroupBy(a =>
-                        a.GetAirDateAsDate().Value.ToIso8601WeekNumber())
+                airdategroupings = aniepsNormal.Where(a => a.AirDate.HasValue).GroupBy(a =>
+                        a.AirDate.Value.ToIso8601WeekNumber())
                     .OrderBy(a => a.Key).ToList();
                 var airdatecounts = airdategroupings
                     .Select(a => a.Count()).ToList();
@@ -507,8 +509,8 @@ public static class TvDBLinkingHelper
         end = end.AddDays(5);
 
         // cache the relations, but don't always fetch them
-        List<SVR_AniDB_Anime> prequelAnimes = null;
-        List<SVR_AniDB_Anime> sequelAnimes = null;
+        List<AniDB_Anime> prequelAnimes = null;
+        List<AniDB_Anime> sequelAnimes = null;
 
         foreach (var season in seasonLookup)
         {
@@ -539,19 +541,19 @@ public static class TvDBLinkingHelper
                     if (prequelAnimes == null)
                     {
                         // only check the relations if they have the same TvDB Series ID
-                        var relations = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(aniepsNormal[0].AnimeID)
-                            .Where(a => a?.RelationType == "Prequel" && RepoFactory.CrossRef_AniDB_TvDB
-                                .GetByAnimeID(a.RelatedAnimeID).Any(b =>
+                        var relations = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(aniepsNormal[0].AnimeId)
+                            .Where(a => a?.RawType == "Prequel" && RepoFactory.CR_AniDB_TvDB
+                                .GetByAnimeID(a.RelatedAnidbAnimeId).Any(b =>
                                     season.Select(c => c.SeriesID).Contains(b.TvDBID))).ToList();
 
-                        var allPrequels = new List<SVR_AniDB_Anime_Relation>();
+                        var allPrequels = new List<AniDB_Anime_Relation>();
                         allPrequels.AddRange(relations);
-                        var visitedNodes = new HashSet<int> { aniepsNormal[0].AnimeID };
+                        var visitedNodes = new HashSet<int> { aniepsNormal[0].AnimeId };
 
                         GetAllRelationsByTypeRecursive(relations, ref visitedNodes, ref allPrequels, "Prequel");
 
                         prequelAnimes = allPrequels
-                            .Select(a => RepoFactory.AniDB_Anime.GetByAnimeID(a.RelatedAnimeID))
+                            .Select(a => RepoFactory.AniDB_Anime.GetByAnidbAnimeId(a.RelatedAnidbAnimeId))
                             .Where(a => a != null).OrderBy(a => a.AnimeID).ToList();
                     }
 
@@ -608,19 +610,19 @@ public static class TvDBLinkingHelper
                     if (sequelAnimes == null)
                     {
                         // only check the relations if they have the same TvDB Series ID
-                        var relations = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(aniepsNormal[0].AnimeID)
-                            .Where(a => a?.RelationType == "Sequel" && RepoFactory.CrossRef_AniDB_TvDB
-                                .GetByAnimeID(a.RelatedAnimeID).Any(b =>
+                        var relations = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(aniepsNormal[0].AnimeId)
+                            .Where(a => a?.RawType == "Sequel" && RepoFactory.CR_AniDB_TvDB
+                                .GetByAnimeID(a.RelatedAnidbAnimeId).Any(b =>
                                     season.Select(c => c.SeriesID).Contains(b.TvDBID))).ToList();
 
-                        var allSequels = new List<SVR_AniDB_Anime_Relation>();
+                        var allSequels = new List<AniDB_Anime_Relation>();
                         allSequels.AddRange(relations);
-                        var visitedNodes = new HashSet<int> { aniepsNormal[0].AnimeID };
+                        var visitedNodes = new HashSet<int> { aniepsNormal[0].AnimeId };
 
                         GetAllRelationsByTypeRecursive(relations, ref visitedNodes, ref allSequels, "Sequel");
 
                         sequelAnimes = allSequels
-                            .Select(a => RepoFactory.AniDB_Anime.GetByAnimeID(a.RelatedAnimeID))
+                            .Select(a => RepoFactory.AniDB_Anime.GetByAnidbAnimeId(a.RelatedAnidbAnimeId))
                             .Where(a => a != null).OrderByDescending(a => a.AnimeID).ToList();
                     }
 
@@ -679,25 +681,25 @@ public static class TvDBLinkingHelper
         }
     }
 
-    private static void GetAllRelationsByTypeRecursive(List<SVR_AniDB_Anime_Relation> allRelations,
-        ref HashSet<int> visitedNodes, ref List<SVR_AniDB_Anime_Relation> resultRelations, string type)
+    private static void GetAllRelationsByTypeRecursive(List<AniDB_Anime_Relation> allRelations,
+        ref HashSet<int> visitedNodes, ref List<AniDB_Anime_Relation> resultRelations, string type)
     {
         foreach (var relation in allRelations)
         {
-            if (visitedNodes.Contains(relation.RelatedAnimeID))
+            if (visitedNodes.Contains(relation.RelatedAnidbAnimeId))
             {
                 continue;
             }
 
-            var sequels = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(relation.RelatedAnimeID)
-                .Where(a => a?.RelationType == type).ToList();
+            var sequels = RepoFactory.AniDB_Anime_Relation.GetByAnimeID(relation.RelatedAnidbAnimeId)
+                .Where(a => a?.RawType == type).ToList();
             if (sequels.Count == 0)
             {
                 return;
             }
 
             GetAllRelationsByTypeRecursive(sequels, ref visitedNodes, ref resultRelations, type);
-            visitedNodes.Add(relation.RelatedAnimeID);
+            visitedNodes.Add(relation.RelatedAnidbAnimeId);
             resultRelations.AddRange(sequels);
         }
     }
@@ -890,12 +892,12 @@ public static class TvDBLinkingHelper
         // Aggregate throws on an empty list.... Why doesn't it just return default like everything else...
         if (matches.Count > 0)
         {
-            if (aniepsNormal.Min(a => a.EpisodeNumber == 1))
+            if (aniepsNormal.Min(a => a.Number == 1))
             {
-                var minaniep = matches.Aggregate((a, b) => a.AniDB.EpisodeNumber < b.AniDB.EpisodeNumber ? a : b);
+                var minaniep = matches.Aggregate((a, b) => a.AniDB.Number < b.AniDB.Number ? a : b);
                 var mintvep = minaniep.TvDB;
-                foreach (var aniep in aniepsNormal.Where(a => a.EpisodeNumber < minaniep.AniDB.EpisodeNumber)
-                             .OrderByDescending(a => a.EpisodeNumber).ToList())
+                foreach (var aniep in aniepsNormal.Where(a => a.Number < minaniep.AniDB.Number)
+                             .OrderByDescending(a => a.Number).ToList())
                 {
                     (var season, var epnumber) = mintvep.GetPreviousEpisode();
                     var tvep = tvepsNormal.FirstOrDefault(a =>
@@ -912,19 +914,19 @@ public static class TvDBLinkingHelper
                 }
             }
 
-            foreach (var aniDbEpisode in aniepsNormal.OrderBy(a => a.EpisodeNumber).ToList())
+            foreach (var aniDbEpisode in aniepsNormal.OrderBy(a => a.Number).ToList())
             {
-                var aniEpNumber = aniDbEpisode.EpisodeNumber;
+                var aniEpNumber = aniDbEpisode.Number;
 
                 // Find the episode that was the last linked episode before this number
-                var previouseps = matches.Where(a => a.AniDB.EpisodeNumber < aniEpNumber).ToList();
+                var previouseps = matches.Where(a => a.AniDB.Number < aniEpNumber).ToList();
                 if (previouseps.Count == 0)
                 {
                     break;
                 }
 
                 var previousep =
-                    previouseps.Aggregate((a, b) => a.AniDB.EpisodeNumber > b.AniDB.EpisodeNumber ? a : b);
+                    previouseps.Aggregate((a, b) => a.AniDB.Number > b.AniDB.Number ? a : b);
                 // Now we need to figure out what the next episode is
                 (var nextSeason, var nextEpisode) = previousep.TvDB.GetNextEpisode();
                 if (nextSeason == 0 || nextEpisode == 0)
@@ -1082,7 +1084,7 @@ public static class TvDBLinkingHelper
     }
 
     public static List<CrossRef_AniDB_TvDB_Episode_Override> GetSpecialsOverridesFromLegacy(
-        List<CrossRef_AniDB_TvDBV2> links)
+        List<CL_CrossRef_AniDB_TvDB> links)
     {
         var list = links.Select(a => (a.AnimeID, a.AniDBStartEpisodeType, a.AniDBStartEpisodeNumber, a.TvDBID,
             a.TvDBSeasonNumber, a.TvDBStartEpisodeNumber)).ToList();
@@ -1103,7 +1105,7 @@ public static class TvDBLinkingHelper
         var xrefs = links.OrderByDescending(a => a.AniDBStartType).ThenBy(a => a.AniDBStartNumber).ToList();
         // No support for more than one series link in Legacy
         var AnimeID = xrefs.FirstOrDefault().AnimeID;
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
         if (anime == null)
         {
             return new List<CrossRef_AniDB_TvDB_Episode_Override>();
@@ -1129,8 +1131,8 @@ public static class TvDBLinkingHelper
         }
 
         // we can do everything in one loop, since we've already matched
-        var episodes = RepoFactory.AniDB_Episode.GetByAnimeID(AnimeID)
-            .Where(a => a.EpisodeType == (int)EpisodeType.Special || a.EpisodeType == (int)EpisodeType.Episode)
+        var episodes = RepoFactory.AniDB_Episode.GetByAnidbAnimeId(AnimeID)
+            .Where(a => a.Type == (int)EpisodeType.Special || a.Type == (int)EpisodeType.Episode)
             .OrderBy(a => a.EpisodeNumber).ToList();
 
         RemoveDefaultLinks(episodes, ref xrefs);
@@ -1209,7 +1211,7 @@ public static class TvDBLinkingHelper
         var season = -1;
         foreach (var episode in episodes)
         {
-            var xref = GetXRefForEpisode(episode.EpisodeType, episode.EpisodeNumber, xrefs);
+            var xref = GetXRefForEpisode(episode.Type, episode.Number, xrefs);
             // we are dealing with tuples, so we can only return default, which will set everything to 0
             if (xref.AniDBStartType == 0)
             {
@@ -1225,7 +1227,7 @@ public static class TvDBLinkingHelper
             }
 
             // due to AniDB not matching up (season BS), we take the delta, and then iterate next TvDB episode 
-            var delta = episode.EpisodeNumber - xref.AniDBStartNumber;
+            var delta = episode.Number - xref.AniDBStartNumber;
 
             if (delta > 0)
             {
@@ -1260,7 +1262,7 @@ public static class TvDBLinkingHelper
                     goto label1;
                 }
 
-                new_xrefs.Add((episode.AnimeID, episode.EpisodeType, episode.EpisodeNumber, xref.TvDBID,
+                new_xrefs.Add((episode.AnimeId, episode.Type, episode.Number, xref.TvDBID,
                     tvep.SeasonNumber, tvep.EpisodeNumber));
                 season = tvep.SeasonNumber;
             }

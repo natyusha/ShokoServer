@@ -99,8 +99,8 @@ public class CommandRequest_GetCalendar : CommandRequestImplementation
 
     private void GetAnime(ResponseCalendar.CalendarEntry cal, IServerSettings settings)
     {
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(cal.AnimeID);
-        var update = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(cal.AnimeID);
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(cal.AnimeID);
+        var update = RepoFactory.AniDB_Anime_Update.GetByAnimeID(cal.AnimeID);
         if (anime != null && update != null)
         {
             // don't update if the local data is less 2 days old
@@ -127,10 +127,10 @@ public class CommandRequest_GetCalendar : CommandRequestImplementation
 
                 anime.AirDate = cal.ReleaseDate;
                 RepoFactory.AniDB_Anime.Save(anime);
-                var ser = RepoFactory.AnimeSeries.GetByAnimeID(anime.AnimeID);
+                var ser = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anime.AnimeId);
                 if (ser != null)
                 {
-                    RepoFactory.AnimeSeries.Save(ser, true, false);
+                    RepoFactory.Shoko_Series.Save(ser, true, false);
                 }
             }
         }

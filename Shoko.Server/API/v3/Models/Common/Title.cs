@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.API.v3.Models.Common;
 
@@ -16,28 +17,37 @@ public class Title
     /// the title
     /// </summary>
     [Required]
-    public string Name { get; set; }
+    public string Name { get; }
 
     /// <summary>
     /// convert to AniDB style (x-jat is the special one, but most are standard 3-digit short names)
     /// </summary>
     [Required]
-    public string Language { get; set; }
+    public string Language { get; }
 
     /// <summary>
     /// AniDB type
     /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
-    public TitleType Type { get; set; }
+    public TitleType Type { get; }
 
     /// <summary>
     /// If this is the default title
     /// </summary>
-    public bool Default { get; set; }
+    public bool Default { get; }
 
     /// <summary>
     /// AniDB, TvDB, AniList, etc
     /// </summary>
     [Required]
-    public string Source { get; set; }
+    public string Source { get; }
+    
+    public Title(ITitle title)
+    {
+        Name = title.Value;
+        Language = title.LanguageCode;
+        Type = title.Type;
+        Default = title.IsPreferred;
+        Source = title.DataSource.ToString();
+    }
 }

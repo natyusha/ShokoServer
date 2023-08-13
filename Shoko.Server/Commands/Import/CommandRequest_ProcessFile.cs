@@ -11,10 +11,13 @@ using Shoko.Server.Commands.AniDB;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.CrossReferences;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Repositories;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.Commands;
@@ -35,7 +38,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
 
     public bool SkipMyList { get; set; }
 
-    private SVR_VideoLocal vlocal;
+    private Shoko_Video Video;
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority3;
 
@@ -43,13 +46,13 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
     {
         get
         {
-            if (vlocal != null)
+            if (Video != null)
             {
                 return new QueueStateStruct
                 {
                     message = "Getting file info from UDP API: {0}",
                     queueState = QueueStateEnum.FileInfo,
-                    extraParams = new[] { vlocal.FileName }
+                    extraParams = new[] { Video.FileName }
                 };
             }
 
@@ -69,45 +72,45 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         try
         {
             // Check if the video local (file) is available.
-            if (vlocal == null)
+            if (Video == null)
             {
-                vlocal = RepoFactory.VideoLocal.GetByID(VideoLocalID);
-                if (vlocal == null)
+                Video = RepoFactory.Shoko_Video.GetByID(VideoLocalID);
+                if (Video == null)
                     return;
             }
 
             // Store a hash-set of the old cross-references for comparison later.
-            var oldXRefs = vlocal.EpisodeCrossRefs
-                .Select(xref => xref.EpisodeID)
+            var oldXRefs = Video.GetCrossReferences(false)
+                .Select(xref => xref.AnidbEpisodeId)
                 .ToHashSet();
 
             // Process and get the AniDB file entry.
-            var aniFile = ProcessFile_AniDB(vlocal);
+            var aniFile = ProcessFile_AniDB(Video);
 
             // Rename and/or move the physical file(s) if needed.
-            vlocal.Places.ForEach(a => { a.RenameAndMoveAsRequired(); });
+            Video.Locations.ForEach(a => { a.RenameAndMoveAsRequired(); });
 
             // Check if an AniDB file is now available and if the cross-references changed.
-            var newXRefs = vlocal.EpisodeCrossRefs
-                .Select(xref => xref.EpisodeID)
+            var newXRefs = Video.GetCrossReferences(false)
+                .Select(xref => xref.AnidbEpisodeId)
                 .ToHashSet();
             var xRefsMatch = newXRefs.SetEquals(oldXRefs);
             if (aniFile != null && newXRefs.Count > 0 && !xRefsMatch)
             {
                 // Set/update the import date
-                vlocal.DateTimeImported = DateTime.Now;
-                RepoFactory.VideoLocal.Save(vlocal);
+                Video.LastImportedAt = DateTime.Now;
+                RepoFactory.Shoko_Video.Save(Video);
 
                 // Dispatch the on file matched event.
-                ShokoEventHandler.Instance.OnFileMatched(vlocal.GetBestVideoLocalPlace(), vlocal);
+                ShokoEventHandler.Instance.OnFileMatched(Video.GetPreferredLocation());
             }
             // Fire the file not matched event if we didn't update the cross-references.
             else
             {
-                var autoMatchAttempts = RepoFactory.AniDB_FileUpdate.GetByFileSizeAndHash(vlocal.FileSize, vlocal.Hash).Count;
+                var autoMatchAttempts = RepoFactory.AniDB_File_Update.GetByFileSizeAndHash(Video.Size, Video.ED2K).Count;
                 var hasXRefs = newXRefs.Count > 0 && xRefsMatch;
                 var isUDPBanned = _udpConnectionHandler.IsBanned;
-                ShokoEventHandler.Instance.OnFileNotMatched(vlocal.GetBestVideoLocalPlace(), vlocal, autoMatchAttempts, hasXRefs, isUDPBanned);
+                ShokoEventHandler.Instance.OnFileNotMatched(Video.GetPreferredLocation(), autoMatchAttempts, hasXRefs, isUDPBanned);
             }
         }
         catch (Exception ex)
@@ -116,24 +119,24 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         }
     }
 
-    private SVR_AniDB_File ProcessFile_AniDB(SVR_VideoLocal vidLocal)
+    private AniDB_File ProcessFile_AniDB(Shoko_Video vidLocal)
     {
-        Logger.LogTrace("Checking for AniDB_File record for: {VidLocalHash} --- {VidLocalFileName}", vidLocal.Hash,
+        Logger.LogTrace("Checking for AniDB_File record for: {VidLocalHash} --- {VidLocalFileName}", vidLocal.ED2K,
             vidLocal.FileName);
         // check if we already have this AniDB_File info in the database
 
         var animeIDs = new Dictionary<int, bool>();
 
         var aniFile = GetLocalAniDBFile(vidLocal);
-        if (aniFile?.FileSize != vlocal.FileSize)
+        if (aniFile?.FileSize != Video.Size)
             aniFile ??= TryGetAniDBFileFromAniDB(vidLocal, animeIDs);
         if (aniFile == null) return null;
 
-        PopulateAnimeForFile(vidLocal, aniFile.EpisodeCrossRefs, animeIDs);
+        PopulateAnimeForFile(vidLocal, aniFile.CrossReferences, animeIDs);
 
         // We do this inside, as the info will not be available as needed otherwise
         var videoLocals =
-            aniFile.EpisodeIDs?.SelectMany(a => RepoFactory.VideoLocal.GetByAniDBEpisodeID(a))
+            aniFile.EpisodeIDs?.SelectMany(a => RepoFactory.Shoko_Video.GetByAnidbEpisodeId(a))
                 .Where(b => b != null)
                 .ToList();
         if (videoLocals == null) return null;
@@ -142,26 +145,26 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         GetWatchedStateIfNeeded(vidLocal, videoLocals);
 
         // update stats for groups and series. The series are not saved until here, so it's absolutely necessary!!
-        animeIDs.Keys.ForEach(SVR_AniDB_Anime.UpdateStatsByAnimeID);
+        animeIDs.Keys.ForEach(AniDB_Anime.UpdateStatsByAnimeID);
 
         if (_settings.FileQualityFilterEnabled)
         {
             videoLocals.Sort(FileQualityFilter.CompareTo);
             var keep = videoLocals
-                .Take(FileQualityFilter.Settings.MaxNumberOfFilesToKeep)
+                .Take(_settings.FileQualityPreferences.MaxNumberOfFilesToKeep)
                 .ToList();
             foreach (var vl2 in keep)
             {
                 videoLocals.Remove(vl2);
             }
 
-            if (!FileQualityFilter.Settings.AllowDeletionOfImportedFiles &&
+            if (!_settings.FileQualityPreferences.AllowDeletionOfImportedFiles &&
                 videoLocals.Contains(vidLocal))
             {
                 videoLocals.Remove(vidLocal);
             }
 
-            videoLocals = videoLocals.Where(a => !FileQualityFilter.CheckFileKeep(a)).ToList();
+            videoLocals = videoLocals.Where(FileQualityFilter.ShouldRemoveVideo).ToList();
 
             videoLocals.ForEach(a => a.Places.ForEach(b => b.RemoveRecordAndDeletePhysicalFile()));
         }
@@ -181,11 +184,11 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         }
 
         // Add this file to the users list
-        if (_settings.AniDb.MyList_AddFiles && !SkipMyList && vidLocal.MyListID <= 0)
+        if (_settings.AniDb.MyList_AddFiles && !SkipMyList && vidLocal.AniDBMyListId <= 0)
         {
             _commandFactory.Create<CommandRequest_AddFileToMyList>(c =>
             {
-                c.Hash = vidLocal.ED2KHash;
+                c.ED2K = vidLocal.ED2K;
                 c.ReadStates = true;
             }).Save();
         }
@@ -193,39 +196,39 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         return aniFile;
     }
 
-    private void GetWatchedStateIfNeeded(SVR_VideoLocal vidLocal, List<SVR_VideoLocal> videoLocals)
+    private void GetWatchedStateIfNeeded(Shoko_Video vidLocal, List<Shoko_Video> videoLocals)
     {
         if (!_settings.Import.UseExistingFileWatchedStatus) return;
 
         // Copy over watched states
-        foreach (var user in RepoFactory.JMMUser.GetAll())
+        foreach (var user in RepoFactory.Shoko_User.GetAll())
         {
             var watchedVideo = videoLocals.FirstOrDefault(a =>
-                a?.GetUserRecord(user.JMMUserID)?.WatchedDate != null);
+                a?.GetUserRecord(user.Id)?.LastWatchedAt != null);
             // No files that are watched
             if (watchedVideo == null)
             {
                 continue;
             }
 
-            var watchedRecord = watchedVideo.GetUserRecord(user.JMMUserID);
-            var userRecord = vidLocal.GetOrCreateUserRecord(user.JMMUserID);
+            var watchedRecord = watchedVideo.GetUserRecord(user.Id);
+            var userRecord = vidLocal.GetOrCreateUserRecord(user.Id);
 
-            userRecord.WatchedDate = watchedRecord.WatchedDate;
+            userRecord.LastWatchedAt = watchedRecord.LastWatchedAt;
             userRecord.WatchedCount = watchedRecord.WatchedCount;
             userRecord.ResumePosition = watchedRecord.ResumePosition;
 
-            userRecord.LastUpdated = DateTime.Now;
-            RepoFactory.VideoLocalUser.Save(userRecord);
+            userRecord.LastUpdatedAt = DateTime.Now;
+            RepoFactory.Shoko_Video_User.Save(userRecord);
         }
     }
 
-    private SVR_AniDB_File GetLocalAniDBFile(SVR_VideoLocal vidLocal)
+    private AniDB_File GetLocalAniDBFile(Shoko_Video vidLocal)
     {
-        SVR_AniDB_File aniFile = null;
+        AniDB_File aniFile = null;
         if (!ForceAniDB)
         {
-            aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(vidLocal.Hash, vlocal.FileSize);
+            aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(vidLocal.ED2K, Video.Size);
 
             if (aniFile == null)
             {
@@ -234,8 +237,8 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         }
 
         // If cross refs were wiped, but the AniDB_File was not, we unfortunately need to requery the info
-        var crossRefs = RepoFactory.CrossRef_File_Episode.GetByHash(vidLocal.Hash);
-        if (crossRefs == null || crossRefs.Count == 0)
+        var crossRefs = vidLocal.GetCrossReferences(false);
+        if (crossRefs.Count == 0)
         {
             aniFile = null;
         }
@@ -243,29 +246,23 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         return aniFile;
     }
 
-    private void PopulateAnimeForFile(SVR_VideoLocal vidLocal, List<CrossRef_File_Episode> xrefs, Dictionary<int, bool> animeIDs)
+    private void PopulateAnimeForFile(Shoko_Video vidLocal, IReadOnlyList<CR_Video_Episode> xrefs, Dictionary<int, bool> animeIDs)
     {
         // check if we have the episode info
         // if we don't, we will need to re-download the anime info (which also has episode info)
         if (xrefs.Count == 0)
         {
             // if we have the AniDB file, but no cross refs it means something has been broken
-            Logger.LogDebug("Could not find any cross ref records for: {Ed2KHash}", vidLocal.ED2KHash);
+            Logger.LogDebug("Could not find any cross ref records for: {Ed2KHash}", vidLocal.ED2K);
         }
         else
         {
             foreach (var xref in xrefs)
             {
-                var ep = RepoFactory.AniDB_Episode.GetByEpisodeID(xref.EpisodeID);
-
-                if (animeIDs.ContainsKey(xref.AnimeID))
-                {
-                    animeIDs[xref.AnimeID] = animeIDs[xref.AnimeID] || ep == null;
-                }
+                if (animeIDs.TryGetValue(xref.AnidbAnimeId, out var current))
+                    animeIDs[xref.AnidbAnimeId] = current || xref.Episode == null;
                 else
-                {
-                    animeIDs.Add(xref.AnimeID, ep == null);
-                }
+                    animeIDs.Add(xref.AnidbAnimeId, xref.Episode == null);
             }
         }
 
@@ -274,8 +271,8 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
             var animeID = kV.Key;
             var missingEpisodes = kV.Value;
             // get from DB
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(animeID);
-            var update = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(animeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(animeID);
+            var update = RepoFactory.AniDB_Anime_Update.GetByAnimeID(animeID);
             var animeRecentlyUpdated = false;
 
             if (anime != null && update != null)
@@ -329,7 +326,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
 
             Logger.LogDebug("Creating groups, series and episodes....");
             // check if there is an AnimeSeries Record associated with this AnimeID
-            var ser = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
+            var ser = RepoFactory.Shoko_Series.GetByAnidbAnimeId(animeID);
 
             if (ser == null)
             {
@@ -358,30 +355,30 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
 
             // check if we have any group status data for this associated anime
             // if not we will download it now
-            if (RepoFactory.AniDB_GroupStatus.GetByAnimeID(anime.AnimeID).Count == 0)
+            if (RepoFactory.AniDB_Anime_ReleaseGroup_Status.GetByAnimeID(anime.AnimeId).Count == 0)
             {
-                _commandFactory.Create<CommandRequest_GetReleaseGroupStatus>(c => c.AnimeID = anime.AnimeID).Save();
+                _commandFactory.Create<CommandRequest_GetReleaseGroupStatus>(c => c.AnimeID = anime.AnimeId).Save();
             }
 
             // Only save the date, we'll update GroupFilters and stats in one pass
-            // don't bother saving the series here, it'll happen in SVR_AniDB_Anime.UpdateStatsByAnimeID()
+            // don't bother saving the series here, it'll happen in AniDB_Anime.UpdateStatsByAnimeID()
             // just don't do anything that needs this changed data before then
             ser.EpisodeAddedDate = DateTime.Now;
 
             foreach (var grp in ser.AllGroupsAbove)
             {
                 grp.EpisodeAddedDate = DateTime.Now;
-                RepoFactory.AnimeGroup.Save(grp, false, false, false);
+                RepoFactory.Shoko_Group.Save(grp, false, false, false);
             }
         }
     }
 
-    private SVR_AniDB_File TryGetAniDBFileFromAniDB(SVR_VideoLocal vidLocal, Dictionary<int, bool> animeIDs)
+    private SVR_AniDB_File TryGetAniDBFileFromAniDB(Shoko_Video vidLocal, Dictionary<int, bool> animeIDs)
     {
         // check if we already have a record
-        var aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(vidLocal.Hash, vlocal.FileSize);
+        var aniFile = RepoFactory.AniDB_File.GetByHashAndFileSize(vidLocal.ED2K, Video.Size);
 
-        if (aniFile == null || aniFile.FileSize != vlocal.FileSize)
+        if (aniFile == null || aniFile.FileSize != Video.Size)
         {
             ForceAniDB = true;
         }
@@ -394,7 +391,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
             {
                 var fileCommand = _commandFactory.Create<CommandRequest_GetFile>(c =>
                 {
-                    c.VideoLocalID = vlocal.VideoLocalID;
+                    c.VideoLocalID = Video.VideoLocalID;
                     c.ForceAniDB = true;
                     c.BubbleExceptions = true;
                 });
@@ -408,7 +405,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
                 var fileCommand = _commandFactory.Create<CommandRequest_ProcessFile>(
                     c =>
                     {
-                        c.VideoLocalID = vlocal.VideoLocalID;
+                        c.VideoLocalID = Video.VideoLocalID;
                         c.ForceAniDB = true;
                     }
                 );
@@ -422,7 +419,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         }
 
         // get Anime IDs from the file for processing, the episodes might not be created yet here
-        aniFile.EpisodeCrossRefs.Select(a => a.AnimeID).Distinct().ForEach(animeID =>
+        aniFile.CrossReferences.Select(a => a.AnidbAnimeId).Distinct().ForEach(animeID =>
         {
             if (animeIDs.ContainsKey(animeID))
             {
@@ -464,7 +461,7 @@ public class CommandRequest_ProcessFile : CommandRequestImplementation
         VideoLocalID = int.Parse(TryGetProperty(docCreator, "CommandRequest_ProcessFile", "VideoLocalID"));
         ForceAniDB = bool.Parse(TryGetProperty(docCreator, "CommandRequest_ProcessFile", "ForceAniDB"));
         SkipMyList = bool.Parse(TryGetProperty(docCreator, "CommandRequest_ProcessFile", "SkipMyList"));
-        vlocal = RepoFactory.VideoLocal.GetByID(VideoLocalID);
+        Video = RepoFactory.Shoko_Video.GetByID(VideoLocalID);
 
         return true;
     }

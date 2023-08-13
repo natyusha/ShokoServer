@@ -49,7 +49,7 @@ public class ShokoServiceImplementationKodi : IShokoServerKodi, IHttpContextAcce
     }
 
     [HttpGet("Metadata/{userId}/{type}/{id}/{filterid?}")]
-    public MediaContainer GetMetadata(string userId, int type, string id, int? filterid)
+    public MediaContainer GetMetadata(int userId, JMMType type, string id, int? filterid)
     {
         return _impl.GetMetadata(new KodiProvider { HttpContext = HttpContext }, userId, type, id, null, false,
             filterid);

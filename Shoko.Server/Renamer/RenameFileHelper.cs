@@ -6,13 +6,15 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using Shoko.Commons.Extensions;
-using Shoko.Models.Server;
 using Shoko.Plugin.Abstractions;
-using Shoko.Plugin.Abstractions.DataModels;
-using Shoko.Server.Models;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.Implementations;
 using Shoko.Server.Repositories;
 using Shoko.Plugin.Abstractions.Attributes;
 using Shoko.Server.Utilities;
+using Shoko.Plugin.Abstractions.Events;
+using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 
 namespace Shoko.Server;
 
@@ -31,7 +33,7 @@ public class RenameFileHelper
             return null;
         }
 
-        return new RenameScriptImpl { Script = script.Script, Type = script.RenamerType, ExtraData = script.ExtraData };
+        return new RenameScriptImpl(script.RenamerType, script.Script, script.ExtraData);
     }
 
     private static IRenameScript _getRenameScriptWithFallback(string name)
@@ -42,24 +44,14 @@ public class RenameFileHelper
             return null;
         }
 
-        return new RenameScriptImpl { Script = script.Script, Type = script.RenamerType, ExtraData = script.ExtraData };
+        return new RenameScriptImpl(script.RenamerType, script.Script, script.ExtraData);
     }
 
-    public static string GetFilename(SVR_VideoLocal_Place place, string scriptName)
+    public static string GetFilename(IShokoVideoLocation videoLocation, string scriptName)
     {
-        var result = Path.GetFileName(place.FilePath);
+        var result = Path.GetFileName(videoLocation.RelativePath);
         var script = _getRenameScript(scriptName);
-        var args = new RenameEventArgs
-        {
-            AnimeInfo = place.VideoLocal?.GetAnimeEpisodes().Select(a => a?.GetAnimeSeries()?.GetAnime())
-                .Where(a => a != null).Cast<IAnime>().ToList(),
-            GroupInfo = place.VideoLocal?.GetAnimeEpisodes().Select(a => a.GetAnimeSeries()?.AnimeGroup)
-                .Where(a => a != null).DistinctBy(a => a.AnimeGroupID).Cast<IGroup>().ToList(),
-            EpisodeInfo = place.VideoLocal?.GetAnimeEpisodes().Where(a => a != null).Cast<IEpisode>().ToList(),
-            FileInfo = place,
-            Script = script
-        };
-
+        var args = new RenameEventArgs(videoLocation, script);
         foreach (var renamer in GetPluginRenamersSorted(script?.Type))
         {
             try
@@ -95,23 +87,14 @@ public class RenameFileHelper
         return result;
     }
 
-    public static (ImportFolder, string) GetDestination(SVR_VideoLocal_Place place, string scriptName)
+    public static (IImportFolder, string) GetDestination(IImportFolder importFolder, IShokoVideoLocation videoLocation, string scriptName)
     {
         var script = _getRenameScriptWithFallback(scriptName);
-
-        var args = new MoveEventArgs
-        {
-            AnimeInfo = place.VideoLocal?.GetAnimeEpisodes().Select(a => a?.GetAnimeSeries()?.GetAnime())
-                .Where(a => a != null).Cast<IAnime>().ToList(),
-            GroupInfo = place.VideoLocal?.GetAnimeEpisodes().Select(a => a.GetAnimeSeries()?.AnimeGroup)
-                .Where(a => a != null).DistinctBy(a => a.AnimeGroupID).Cast<IGroup>().ToList(),
-            EpisodeInfo = place.VideoLocal?.GetAnimeEpisodes().Where(a => a != null).Cast<IEpisode>().ToList(),
-            FileInfo = place,
-            AvailableFolders = RepoFactory.ImportFolder.GetAll().Cast<IImportFolder>()
-                .Where(a => a.DropFolderType != DropFolderType.Excluded).ToList(),
-            Script = script
-        };
-
+        var availableFolders = RepoFactory.ImportFolder.GetAll()
+            .Cast<IImportFolder>()
+            .Where(a => a.Type != ImportFolderType.Excluded)
+            .ToList();
+        var args = new MoveEventArgs(availableFolders, importFolder, videoLocation, script);
         foreach (var renamer in GetPluginRenamersSorted(script?.Type))
         {
             try
@@ -135,9 +118,9 @@ public class RenameFileHelper
                     destPath = destPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
                 }
 
-                destPath = RemoveFilename(place.FilePath, destPath);
+                destPath = RemoveFilename(videoLocation.RelativePath, destPath);
 
-                var importFolder = RepoFactory.ImportFolder.GetByImportLocation(destFolder.Location);
+                var importFolder = RepoFactory.ImportFolder.GetByImportLocation(destFolder.Path);
                 if (importFolder == null)
                 {
                     Logger.Error(
@@ -155,7 +138,7 @@ public class RenameFileHelper
                 }
 
                 Logger.Warn(
-                    $"Renamer: {renamer.GetType().Name} threw an error while moving, deferring to next renamer. Path: \"{place.FullServerPath}\" Error message: \"{e.Message}\"");
+                    $"Renamer: {renamer.GetType().Name} threw an error while moving, deferring to next renamer. Path: \"{videoLocation.Path}\" Error message: \"{e.Message}\"");
             }
         }
 

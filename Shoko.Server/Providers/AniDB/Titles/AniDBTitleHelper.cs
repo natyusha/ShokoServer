@@ -5,7 +5,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Xml.Serialization;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
@@ -69,7 +70,7 @@ public class AniDBTitleHelper
             }
 
             return _cache?.Animes
-                .FirstOrDefault(a => a.AnimeID == animeID);
+                .FirstOrDefault(a => a.AnimeId == animeID);
         }
         catch (Exception e)
         {
@@ -96,9 +97,9 @@ public class AniDBTitleHelper
                     .Search(
                         query,
                         anime => anime.Titles
-                            .Where(a => a.TitleType == TitleType.Main || a.Language == TitleLanguage.English || a.Language == TitleLanguage.Romaji ||
+                            .Where(a => a.Type == TitleType.Main || a.Language == TextLanguage.English || a.Language == TextLanguage.Romaji ||
                                         languages.Contains(a.LanguageCode))
-                            .Select(a => a.Title)
+                            .Select(a => a.Value)
                             .ToList(),
                         fuzzy
                     )

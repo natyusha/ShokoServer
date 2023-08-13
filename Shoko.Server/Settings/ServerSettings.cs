@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 using Shoko.Models;
 using Shoko.Models.Enums;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
@@ -47,7 +48,7 @@ public class ServerSettings : IServerSettings
 
     public TvDBSettings TvDB { get; set; } = new();
 
-    public MovieDbSettings MovieDb { get; set; } = new();
+    public TMDBSettings TMDB { get; set; } = new();
 
     public ImportSettings Import { get; set; } = new();
 
@@ -99,9 +100,9 @@ public class ServerSettings : IServerSettings
 
     public int CloudWatcherTime { get; set; } = 3;
 
-    public DataSourceType EpisodeTitleSource { get; set; } = DataSourceType.AniDB;
-    public DataSourceType SeriesDescriptionSource { get; set; } = DataSourceType.AniDB;
-    public DataSourceType SeriesNameSource { get; set; } = DataSourceType.AniDB;
+    public DataSource EpisodeTitleSource { get; set; } = DataSource.AniDB;
+    public DataSource SeriesDescriptionSource { get; set; } = DataSource.AniDB;
+    public DataSource SeriesNameSource { get; set; } = DataSource.AniDB;
 
     [JsonIgnore] public string _ImagesPath;
 

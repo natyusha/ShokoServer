@@ -16,6 +16,8 @@ using Shoko.Server.Commands;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.TraktTV.Contracts;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
@@ -419,7 +421,7 @@ public class TraktTVHelper
     public string LinkAniDBTrakt(ISession session, int animeID, EpisodeType aniEpType, int aniEpNumber,
         string traktID, int seasonNumber, int traktEpNumber, bool excludeFromWebCache)
     {
-        var xrefTemps = RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeIDEpTypeEpNumber(
+        var xrefTemps = RepoFactory.CR_AniDB_Trakt.GetByAnimeIDEpTypeEpNumber(
             session, animeID,
             (int)aniEpType,
             aniEpNumber);
@@ -447,7 +449,7 @@ public class TraktTVHelper
 
         // download and update series info, episode info and episode images
 
-        var xref = RepoFactory.CrossRef_AniDB_TraktV2.GetByTraktID(session, traktID,
+        var xref = RepoFactory.CR_AniDB_Trakt.GetByTraktID(session, traktID,
             seasonNumber, traktEpNumber,
             animeID,
             (int)aniEpType, aniEpNumber) ?? new CrossRef_AniDB_TraktV2();
@@ -461,21 +463,14 @@ public class TraktTVHelper
         xref.TraktStartEpisodeNumber = traktEpNumber;
         if (traktShow != null)
         {
-            xref.TraktTitle = traktShow.Title;
+            xref.TraktTitle = traktShow.MainTitle;
         }
 
-        if (excludeFromWebCache)
-        {
-            xref.CrossRefSource = (int)CrossRefSource.WebCache;
-        }
-        else
-        {
-            xref.CrossRefSource = (int)CrossRefSource.User;
-        }
+        xref.CrossRefSource = (int)CrossRefSource.User;
 
-        RepoFactory.CrossRef_AniDB_TraktV2.Save(xref);
+        RepoFactory.CR_AniDB_Trakt.Save(xref);
 
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
+        AniDB_Anime.UpdateStatsByAnimeID(animeID);
 
         _logger.LogTrace("Changed trakt association: {AnimeID}", animeID);
 
@@ -485,7 +480,7 @@ public class TraktTVHelper
     public void RemoveLinkAniDBTrakt(int animeID, EpisodeType aniEpType, int aniEpNumber, string traktID,
         int seasonNumber, int traktEpNumber)
     {
-        var xref = RepoFactory.CrossRef_AniDB_TraktV2.GetByTraktID(traktID, seasonNumber,
+        var xref = RepoFactory.CR_AniDB_Trakt.GetByTraktID(traktID, seasonNumber,
             traktEpNumber, animeID,
             (int)aniEpType,
             aniEpNumber);
@@ -494,17 +489,17 @@ public class TraktTVHelper
             return;
         }
 
-        RepoFactory.CrossRef_AniDB_TraktV2.Delete(xref.CrossRef_AniDB_TraktV2ID);
+        RepoFactory.CR_AniDB_Trakt.Delete(xref.CrossRef_AniDB_TraktV2ID);
 
         // Disable auto-matching when we remove an existing match for the series.
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
+        var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(animeID);
         if (series != null)
         {
             series.IsTraktAutoMatchingDisabled = true;
-            RepoFactory.AnimeSeries.Save(series, false, true, true);
+            RepoFactory.Shoko_Series.Save(series, false, true, true);
         }
 
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
+        AniDB_Anime.UpdateStatsByAnimeID(animeID);
     }
 
     public void ScanForMatches()
@@ -514,9 +509,9 @@ public class TraktTVHelper
             return;
         }
 
-        var allSeries = RepoFactory.AnimeSeries.GetAll();
+        var allSeries = RepoFactory.Shoko_Series.GetAll();
 
-        var allCrossRefs = RepoFactory.CrossRef_AniDB_TraktV2.GetAll();
+        var allCrossRefs = RepoFactory.CR_AniDB_Trakt.GetAll();
         var alreadyLinked = new List<int>();
         foreach (var xref in allCrossRefs)
         {
@@ -539,7 +534,7 @@ public class TraktTVHelper
         }
     }
 
-    private int? GetTraktEpisodeIdV2(SVR_AnimeEpisode ep, ref string traktID, ref int season,
+    private int? GetTraktEpisodeIdV2(Shoko_Episode ep, ref string traktID, ref int season,
         ref int epNumber)
     {
         var aniep = ep?.AniDB_Episode;
@@ -548,7 +543,7 @@ public class TraktTVHelper
             return null;
         }
 
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(aniep.AnimeID);
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(aniep.AnimeID);
         if (anime == null)
         {
             return null;
@@ -557,7 +552,7 @@ public class TraktTVHelper
         return GetTraktEpisodeIdV2(anime, aniep, ref traktID, ref season, ref epNumber);
     }
 
-    private int? GetTraktEpisodeIdV2(SVR_AniDB_Anime anime, AniDB_Episode ep, ref string traktID,
+    private int? GetTraktEpisodeIdV2(AniDB_Anime anime, AniDB_Episode ep, ref string traktID,
         ref int season,
         ref int epNumber)
     {
@@ -608,7 +603,7 @@ public class TraktTVHelper
                             continue;
                         }
 
-                        if (ep.EpisodeNumber >= xrefTrakt.AniDBStartEpisodeNumber)
+                        if (ep.Number >= xrefTrakt.AniDBStartEpisodeNumber)
                         {
                             foundStartingPoint = true;
                             xrefBase = xrefTrakt;
@@ -635,7 +630,7 @@ public class TraktTVHelper
                         if (dictTraktSeasons != null && dictTraktSeasons.ContainsKey(xrefBase.TraktSeasonNumber))
                         {
                             var episodeNumber = dictTraktSeasons[xrefBase.TraktSeasonNumber] +
-                                                (ep.EpisodeNumber + xrefBase.TraktStartEpisodeNumber - 2) -
+                                                (ep.Number + xrefBase.TraktStartEpisodeNumber - 2) -
                                                 (xrefBase.AniDBStartEpisodeNumber - 1);
                             if (dictTraktEpisodes.ContainsKey(episodeNumber))
                             {
@@ -675,7 +670,7 @@ public class TraktTVHelper
                         continue;
                     }
 
-                    if (ep.EpisodeNumber >= xrefTrakt.AniDBStartEpisodeNumber)
+                    if (ep.Number >= xrefTrakt.AniDBStartEpisodeNumber)
                     {
                         foundStartingPoint = true;
                         xrefBase = xrefTrakt;
@@ -702,7 +697,7 @@ public class TraktTVHelper
                     if (dictTraktSeasons != null && dictTraktSeasons.ContainsKey(xrefBase.TraktSeasonNumber))
                     {
                         var episodeNumber = dictTraktSeasons[xrefBase.TraktSeasonNumber] +
-                                            (ep.EpisodeNumber + xrefBase.TraktStartEpisodeNumber - 2) -
+                                            (ep.Number + xrefBase.TraktStartEpisodeNumber - 2) -
                                             (xrefBase.AniDBStartEpisodeNumber - 1);
                         if (dictTraktEpisodes != null && dictTraktEpisodes.ContainsKey(episodeNumber))
                         {
@@ -801,7 +796,7 @@ public class TraktTVHelper
         }
     }
 
-    private DateTime GetEpisodeDateForSync(SVR_AnimeEpisode ep, TraktSyncType syncType)
+    private DateTime GetEpisodeDateForSync(Shoko_Episode ep, TraktSyncType syncType)
     {
         DateTime epDate;
 
@@ -840,7 +835,7 @@ public class TraktTVHelper
 
             // get the latest user record and find the latest date this episode was watched
             DateTime? thisDate = null;
-            var traktUsers = RepoFactory.JMMUser.GetTraktUsers();
+            var traktUsers = RepoFactory.Shoko_User.GetTraktUsers();
             if (traktUsers.Count <= 0)
             {
                 return epDate;
@@ -848,21 +843,21 @@ public class TraktTVHelper
 
             foreach (var juser in traktUsers)
             {
-                var userRecord = ep.GetUserRecord(juser.JMMUserID);
+                var userRecord = ep.GetUserRecord(juser.Id);
                 if (userRecord == null)
                 {
                     continue;
                 }
 
-                if (!thisDate.HasValue && userRecord.WatchedDate.HasValue)
+                if (!thisDate.HasValue && userRecord.LastWatchedAt.HasValue)
                 {
-                    thisDate = userRecord.WatchedDate;
+                    thisDate = userRecord.LastWatchedAt;
                 }
 
-                if (userRecord.WatchedDate.HasValue && thisDate.HasValue &&
-                    userRecord.WatchedDate > thisDate)
+                if (userRecord.LastWatchedAt.HasValue && thisDate.HasValue &&
+                    userRecord.LastWatchedAt > thisDate)
                 {
-                    thisDate = userRecord.WatchedDate;
+                    thisDate = userRecord.LastWatchedAt;
                 }
             }
 
@@ -875,7 +870,7 @@ public class TraktTVHelper
         return epDate;
     }
 
-    public void SyncEpisodeToTrakt(SVR_AnimeEpisode ep, TraktSyncType syncType)
+    public void SyncEpisodeToTrakt(Shoko_Episode ep, TraktSyncType syncType)
     {
         try
         {
@@ -998,7 +993,7 @@ public class TraktTVHelper
                 return 400;
             }
 
-            var ep = RepoFactory.AnimeEpisode.GetByID(aep);
+            var ep = RepoFactory.Shoko_Episode.GetByID(aep);
             var slugID = string.Empty;
             var season = 0;
             var epNumber = 0;
@@ -1033,7 +1028,7 @@ public class TraktTVHelper
                 //3. nothing to send log error
                 _logger.LogWarning(
                     "TraktTVHelper.Scrobble: No TraktID found for: AnimeEpisodeID: {ID} AnimeRomajiName: {Title}", aep,
-                    ep.Title);
+                    ep.PreferredTitle);
                 return 404;
             }
 
@@ -1216,7 +1211,7 @@ public class TraktTVHelper
             // delete episodes if they no longer exist on Trakt
             if (seasons.Count > 0)
             {
-                foreach (var epTemp in RepoFactory.Trakt_Episode.GetByShowID(show.Trakt_ShowID))
+                foreach (var epTemp in RepoFactory.Trakt_Episode.GetByShowID(show.Id))
                 {
                     TraktV2Episode ep = null;
                     var sea = seasons.FirstOrDefault(x => x.number == epTemp.Season);
@@ -1235,12 +1230,12 @@ public class TraktTVHelper
 
             foreach (var sea in seasons)
             {
-                var season = RepoFactory.Trakt_Season.GetByShowIDAndSeason(show.Trakt_ShowID, sea.number) ??
+                var season = RepoFactory.Trakt_Season.GetByShowIDAndSeason(show.Id, sea.number) ??
                              new Trakt_Season();
 
                 season.Season = sea.number;
-                season.URL = string.Format(TraktURIs.WebsiteSeason, show.TraktID, sea.number);
-                season.Trakt_ShowID = show.Trakt_ShowID;
+                season.URL = string.Format(TraktURIs.WebsiteSeason, show.TraktShowID, sea.number);
+                season.Trakt_ShowID = show.Id;
                 RepoFactory.Trakt_Season.Save(season);
 
                 if (sea.episodes == null)
@@ -1251,7 +1246,7 @@ public class TraktTVHelper
                 foreach (var ep in sea.episodes)
                 {
                     var episode = RepoFactory.Trakt_Episode.GetByShowIDSeasonAndEpisode(
-                        show.Trakt_ShowID, ep.season,
+                        show.Id, ep.season,
                         ep.number) ?? new Trakt_Episode();
 
                     episode.TraktID = ep.ids.TraktID;
@@ -1260,8 +1255,8 @@ public class TraktTVHelper
                     // this is now part of a separate API call for V2, we get this info from TvDB anyway
                     episode.Season = ep.season;
                     episode.Title = ep.title;
-                    episode.URL = string.Format(TraktURIs.WebsiteEpisode, show.TraktID, ep.season, ep.number);
-                    episode.Trakt_ShowID = show.Trakt_ShowID;
+                    episode.URL = string.Format(TraktURIs.WebsiteEpisode, show.TraktShowID, ep.season, ep.number);
+                    episode.Trakt_ShowID = show.Id;
                     RepoFactory.Trakt_Episode.Save(episode);
                 }
             }
@@ -1290,7 +1285,7 @@ public class TraktTVHelper
             }
 
             var traktXRefs =
-                RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeID(session, animeID);
+                RepoFactory.CR_AniDB_Trakt.GetByAnimeID(session, animeID);
             if (traktXRefs == null || traktXRefs.Count == 0)
             {
                 return null;
@@ -1436,7 +1431,7 @@ public class TraktTVHelper
             return;
         }
 
-        var allCrossRefs = RepoFactory.CrossRef_AniDB_TraktV2.GetAll();
+        var allCrossRefs = RepoFactory.CR_AniDB_Trakt.GetAll();
         foreach (var xref in allCrossRefs)
         {
             var cmd = _commandFactory.Create<CommandRequest_TraktUpdateInfo>(c => c.TraktID = xref.TraktID);
@@ -1444,18 +1439,18 @@ public class TraktTVHelper
         }
     }
 
-    public void SyncCollectionToTrakt_Series(SVR_AnimeSeries series)
+    public void SyncCollectionToTrakt_Series(ShokoSeries series)
     {
         try
         {
             // check that we have at least one user nominated for Trakt
-            var traktUsers = RepoFactory.JMMUser.GetTraktUsers();
+            var traktUsers = RepoFactory.Shoko_User.GetTraktUsers();
             if (traktUsers.Count == 0)
             {
                 return;
             }
 
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(series.AniDB_ID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(series.AniDB_ID);
             if (anime == null)
             {
                 return;
@@ -1504,13 +1499,13 @@ public class TraktTVHelper
             }
 
             // check that we have at least one user nominated for Trakt
-            var traktUsers = RepoFactory.JMMUser.GetTraktUsers();
+            var traktUsers = RepoFactory.Shoko_User.GetTraktUsers();
             if (traktUsers.Count == 0)
             {
                 return;
             }
 
-            var allSeries = RepoFactory.AnimeSeries.GetAll();
+            var allSeries = RepoFactory.Shoko_Series.GetAll();
 
             // now get the full users collection from Trakt
             var collected = new List<TraktV2ShowCollectedResult>();
@@ -1539,9 +1534,9 @@ public class TraktTVHelper
                 counter++;
                 _logger.LogTrace("Syncing check -  local collection: {Counter} / {Count} - {Name}", counter,
                     allSeries.Count,
-                    series.GetSeriesName());
+                    series.GetPreferredTitle());
 
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(series.AniDB_ID);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(series.AniDB_ID);
                 if (anime == null)
                 {
                     continue;
@@ -1558,7 +1553,7 @@ public class TraktTVHelper
 
                 // get the current watched records for this series on Trakt
 
-                foreach (var ep in series.GetAnimeEpisodes())
+                foreach (var ep in series.GetEpisodes())
                 {
                     if (ep.EpisodeTypeEnum is not EpisodeType.Episode and not EpisodeType.Special)
                     {
@@ -1618,7 +1613,7 @@ public class TraktTVHelper
 
                 // check if we have this series locally
                 var xrefs =
-                    RepoFactory.CrossRef_AniDB_TraktV2.GetByTraktID(col.show.ids.slug);
+                    RepoFactory.CR_AniDB_Trakt.GetByTraktID(col.show.ids.slug);
 
                 if (xrefs.Count <= 0)
                 {
@@ -1627,7 +1622,7 @@ public class TraktTVHelper
 
                 foreach (var xref in xrefs)
                 {
-                    var locSeries = RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                    var locSeries = RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AnimeID);
                     if (locSeries == null)
                     {
                         continue;
@@ -1641,7 +1636,7 @@ public class TraktTVHelper
                     }
 
                     // if we have this series locSeries, let's sync the whole series
-                    foreach (var ep in locSeries.GetAnimeEpisodes())
+                    foreach (var ep in locSeries.GetEpisodes())
                     {
                         if (ep.EpisodeTypeEnum is not EpisodeType.Episode and not EpisodeType.Special)
                         {
@@ -1703,7 +1698,7 @@ public class TraktTVHelper
 
                 // check if we have this series locally
                 var xrefs =
-                    RepoFactory.CrossRef_AniDB_TraktV2.GetByTraktID(wtch.show.ids.slug);
+                    RepoFactory.CR_AniDB_Trakt.GetByTraktID(wtch.show.ids.slug);
 
                 if (xrefs.Count <= 0)
                 {
@@ -1712,7 +1707,7 @@ public class TraktTVHelper
 
                 foreach (var xref in xrefs)
                 {
-                    var locSeries = RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                    var locSeries = RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AnimeID);
                     if (locSeries == null)
                     {
                         continue;
@@ -1726,7 +1721,7 @@ public class TraktTVHelper
                     }
 
                     // if we have this series locSeries, let's sync the whole series
-                    foreach (var ep in locSeries.GetAnimeEpisodes())
+                    foreach (var ep in locSeries.GetEpisodes())
                     {
                         if (ep.EpisodeTypeEnum is not EpisodeType.Episode and not EpisodeType.Special)
                         {
@@ -1846,7 +1841,7 @@ public class TraktTVHelper
             }
 
             // note - getting extended show info also updates it as well
-            var showOnline = GetShowInfoV2(show.TraktID, ref traktCode);
+            var showOnline = GetShowInfoV2(show.TraktShowID, ref traktCode);
             if (showOnline != null || traktCode != TraktStatusCodes.Not_Found)
             {
                 return true;
@@ -1858,7 +1853,7 @@ public class TraktTVHelper
             }
 
             _logger.LogInformation(
-                "TRAKT_CLEANUP: Could not find '{TraktID}' on Trakt so starting removal from database", show.TraktID);
+                "TRAKT_CLEANUP: Could not find '{TraktID}' on Trakt so starting removal from database", show.TraktShowID);
             RemoveTraktDBEntries(show);
             return false;
         }
@@ -1873,22 +1868,22 @@ public class TraktTVHelper
     {
         // this means Trakt has no record of this slug.
         // 1. Delete any cross ref links
-        RepoFactory.CrossRef_AniDB_TraktV2.Delete(RepoFactory.CrossRef_AniDB_TraktV2.GetByTraktID(show.TraktID));
+        RepoFactory.CR_AniDB_Trakt.Delete(RepoFactory.CR_AniDB_Trakt.GetByTraktID(show.TraktShowID));
 
         // 2. Delete default image links
 
         // 3. Delete episodes
-        RepoFactory.Trakt_Episode.Delete(RepoFactory.Trakt_Episode.GetByShowID(show.Trakt_ShowID));
+        RepoFactory.Trakt_Episode.Delete(RepoFactory.Trakt_Episode.GetByShowID(show.Id));
 
         // 5. Delete seasons
-        RepoFactory.Trakt_Season.Delete(RepoFactory.Trakt_Season.GetByShowID(show.Trakt_ShowID));
+        RepoFactory.Trakt_Season.Delete(RepoFactory.Trakt_Season.GetByShowID(show.Id));
 
         // 6. Delete the show
-        RepoFactory.Trakt_Show.Delete(show.Trakt_ShowID);
+        RepoFactory.Trakt_Show.Delete(show.Id);
     }
 
-    private EpisodeSyncDetails ReconSyncTraktEpisode(SVR_AnimeSeries ser, SVR_AnimeEpisode ep,
-        List<SVR_JMMUser> traktUsers, List<TraktV2ShowCollectedResult> collected,
+    private EpisodeSyncDetails ReconSyncTraktEpisode(ShokoSeries ser, Shoko_Episode ep,
+        List<Shoko_User> traktUsers, List<TraktV2ShowCollectedResult> collected,
         List<TraktV2ShowWatchedResult> watched, bool sendNow)
     {
         try
@@ -2066,7 +2061,7 @@ public class TraktTVHelper
             }
 
             // check that we have at least one user nominated for Trakt
-            var traktUsers = RepoFactory.JMMUser.GetTraktUsers();
+            var traktUsers = RepoFactory.Shoko_User.GetTraktUsers();
             if (traktUsers.Count == 0)
             {
                 return false;

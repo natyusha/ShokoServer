@@ -3,17 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Shoko.Commons.Extensions;
 using Shoko.Server.PlexAndKodi.Plex;
-using UPnP;
 
 namespace Shoko.Server.PlexAndKodi;
 
 public static class HttpExtensions
 {
-    public static string ServerUrl(this IProvider prov, int port, string path, bool externalip = false,
-        bool forcescheme = false)
+    public static string ServerUrl(this IProvider prov, int port, string path)
     {
-        var scheme_host = prov?.GetSchemeHost(externalip);
-        if (scheme_host == null || forcescheme)
+        var scheme_host = prov?.GetSchemeHost();
+        if (scheme_host == null)
         {
             return "{SCHEME}://{HOST}:" + port + "/" + path;
         }
@@ -21,7 +19,7 @@ public static class HttpExtensions
         return scheme_host.Item1 + "://" + scheme_host.Item2 + ":" + port + "/" + path;
     }
 
-    private static Tuple<string, string> GetSchemeHost(this IProvider prov, bool externalip = false)
+    private static Tuple<string, string> GetSchemeHost(this IProvider prov)
     {
         var req = prov?.HttpContext?.Request;
         var host = req?.Host.Host;
@@ -32,21 +30,12 @@ public static class HttpExtensions
             return null;
         }
 
-        if (externalip)
-        {
-            var ip = NAT.GetExternalAddress();
-            if (ip != null)
-            {
-                host = ip.ToString();
-            }
-        }
-
         return new Tuple<string, string>(scheme, host);
     }
 
-    public static string ReplaceSchemeHost(this IProvider prov, string str, bool externalip = false)
+    public static string ReplaceSchemeHost(this IProvider prov, string str)
     {
-        var scheme_host = prov.GetSchemeHost(externalip);
+        var scheme_host = prov.GetSchemeHost();
         if (scheme_host == null)
         {
             scheme_host = new Tuple<string, string>("http", "127.0.0.1");
@@ -67,13 +56,8 @@ public static class HttpExtensions
 
     public static bool IsExternalRequest(this IProvider prov)
     {
-        if (!NAT.UPnPPortAvailable)
-        {
-            return false;
-        }
-
         var extarnalhost = prov.GetQueryParameter("externalhost");
-        if (extarnalhost == null || extarnalhost == "0")
+        if (string.IsNullOrEmpty(extarnalhost) || extarnalhost == "0")
         {
             return false;
         }

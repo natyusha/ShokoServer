@@ -8,8 +8,8 @@ namespace Shoko.Server.API.v3.Helpers;
 
 public static class APIGroupFilterSortingHelper
 {
-    public static IEnumerable<SVR_AnimeGroup> OrderByGroupFilter(this IEnumerable<SVR_AnimeGroup> groups,
-        SVR_GroupFilter gf)
+    public static IEnumerable<ShokoGroup> OrderByGroupFilter(this IEnumerable<ShokoGroup> groups,
+        GroupFilter gf)
     {
         var isFirst = true;
         var query = groups;
@@ -22,8 +22,8 @@ public static class APIGroupFilterSortingHelper
         return query;
     }
 
-    public static IEnumerable<SVR_AnimeSeries> OrderByGroupFilter(this IEnumerable<SVR_AnimeSeries> series,
-        SVR_GroupFilter gf)
+    public static IEnumerable<ShokoSeries> OrderByGroupFilter(this IEnumerable<ShokoSeries> series,
+        GroupFilter gf)
     {
         var isFirst = true;
         var result = series;
@@ -36,7 +36,7 @@ public static class APIGroupFilterSortingHelper
         return result;
     }
 
-    private static IOrderedEnumerable<SVR_AnimeGroup> Order(IEnumerable<SVR_AnimeGroup> groups,
+    private static IOrderedEnumerable<ShokoGroup> Order(IEnumerable<ShokoGroup> groups,
         GroupFilterSortingCriteria gfsc, bool isFirst)
     {
         var desc = gfsc.SortDirection == GroupFilterSortDirection.Desc;
@@ -74,7 +74,7 @@ public static class APIGroupFilterSortingHelper
         }
     }
 
-    private static IOrderedEnumerable<SVR_AnimeSeries> Order(IEnumerable<SVR_AnimeSeries> groups,
+    private static IOrderedEnumerable<ShokoSeries> Order(IEnumerable<ShokoSeries> groups,
         GroupFilterSortingCriteria gfsc, bool isFirst)
     {
         var desc = gfsc.SortDirection == GroupFilterSortDirection.Desc;

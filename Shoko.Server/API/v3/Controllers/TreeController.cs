@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.ModelBinders;
@@ -19,7 +19,7 @@ using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using EpisodeType = Shoko.Server.API.v3.Models.Shoko.EpisodeType;
-using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
+using AniDBEpisodeType = Shoko.Plugin.Abstractions.Models.Enums.EpisodeType;
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
 
 namespace Shoko.Server.API.v3.Controllers;
@@ -48,18 +48,16 @@ public class TreeController : BaseController
     public ActionResult<ListResult<File>> GetFilesInImportFolder([FromRoute] int folderID,
         [FromQuery] [Range(0, 100)] int pageSize = 50,
         [FromQuery] [Range(1, int.MaxValue)] int page = 1,
-        [FromQuery] bool includeXRefs = false)
+        [FromQuery] IncludeVideoXRefs includeXRefs = IncludeVideoXRefs.V1)
     {
         var importFolder = RepoFactory.ImportFolder.GetByID(folderID);
         if (importFolder == null)
-        {
             return NotFound("Import folder not found.");
-        }
 
-        return RepoFactory.VideoLocalPlace.GetByImportFolder(importFolder.ImportFolderID)
-            .GroupBy(place => place.VideoLocalID)
-            .Select(places => RepoFactory.VideoLocal.GetByID(places.Key))
-            .OrderBy(file => file.DateTimeCreated)
+        return RepoFactory.Shoko_Video_Location.GetByImportFolderId(importFolder.Id)
+            .GroupBy(location => location.VideoId)
+            .Select(places => RepoFactory.Shoko_Video.GetByID(places.Key))
+            .OrderBy(file => file.CreatedAt)
             .ToListResult(file => new File(HttpContext, file, includeXRefs), page, pageSize);
     }
 
@@ -83,7 +81,7 @@ public class TreeController : BaseController
         [FromQuery] [Range(0, 100)] int pageSize = 50, [FromQuery] [Range(1, int.MaxValue)] int page = 1,
         [FromQuery] bool showHidden = false)
     {
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterController.FilterNotFound);
@@ -94,7 +92,7 @@ public class TreeController : BaseController
             return BadRequest("Filter contains no sub-filters.");
         }
 
-        return RepoFactory.GroupFilter.GetByParentID(filterID)
+        return RepoFactory.Shoko_Group_Filter.GetByParentID(filterID)
             .Where(filter => showHidden || filter.InvisibleInClients != 1)
             .OrderBy(filter => filter.GroupFilterName)
             .ToListResult(filter => new Filter(HttpContext, filter), page, pageSize);
@@ -116,17 +114,17 @@ public class TreeController : BaseController
         [FromQuery] bool includeEmpty = false, [FromQuery] bool randomImages = false, [FromQuery] bool orderByName = false)
     {
         // Return the top level groups with no filter.
-        IEnumerable<SVR_AnimeGroup> groups;
+        IEnumerable<ShokoGroup> groups;
         if (filterID == 0)
         {
             var user = User;
-            groups = RepoFactory.AnimeGroup.GetAll()
+            groups = RepoFactory.Shoko_Group.GetAll()
                 .Where(group => !group.AnimeGroupParentID.HasValue && user.AllowedGroup(group))
                 .OrderBy(group => group.GetSortName());
         }
         else
         {
-            var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+            var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
             if (groupFilter == null)
             {
                 return NotFound(FilterController.FilterNotFound);
@@ -139,7 +137,7 @@ public class TreeController : BaseController
             }
 
             groups = groupIds
-                .Select(group => RepoFactory.AnimeGroup.GetByID(group))
+                .Select(group => RepoFactory.Shoko_Group.GetByID(group))
                 .Where(group =>
                 {
                     if (group == null || group.AnimeGroupParentID.HasValue)
@@ -173,7 +171,7 @@ public class TreeController : BaseController
         var user = User;
         if (filterID.HasValue && filterID > 0)
         {
-            var groupFilter = RepoFactory.GroupFilter.GetByID(filterID.Value);
+            var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID.Value);
             if (groupFilter == null)
                 return NotFound(FilterController.FilterNotFound);
 
@@ -182,7 +180,7 @@ public class TreeController : BaseController
                 return new Dictionary<char, int>();
 
             var groups = groupIds
-                .Select(group => RepoFactory.AnimeGroup.GetByID(group))
+                .Select(group => RepoFactory.Shoko_Group.GetByID(group))
                 .Where(group =>
                 {
                     if (group == null || group.AnimeGroupParentID.HasValue)
@@ -196,7 +194,7 @@ public class TreeController : BaseController
                 .ToDictionary(groupList => groupList.Key, groupList => groupList.Count());
         }
 
-        return RepoFactory.AnimeGroup.GetAll()
+        return RepoFactory.Shoko_Group.GetAll()
             .Where(group =>
             {
                 if (group.AnimeGroupParentID.HasValue)
@@ -232,14 +230,14 @@ public class TreeController : BaseController
         // Return the series with no group filter applied.
         if (filterID == 0)
         {
-            return RepoFactory.AnimeSeries.GetAll()
+            return RepoFactory.Shoko_Series.GetAll()
                 .Where(series => User.AllowedSeries(series))
                 .OrderBy(series => series.GetSeriesName().ToLowerInvariant())
                 .ToListResult(series => new Series(HttpContext, series, randomImages), page, pageSize);
         }
 
         // Check if the group filter exists.
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterController.FilterNotFound);
@@ -248,7 +246,7 @@ public class TreeController : BaseController
         // Return all series if group filter is not applied to series.
         if (groupFilter.ApplyToSeries != 1)
         {
-            return RepoFactory.AnimeSeries.GetAll()
+            return RepoFactory.Shoko_Series.GetAll()
                 .Where(series => User.AllowedSeries(series))
                 .OrderBy(series => series.GetSeriesName().ToLowerInvariant())
                 .ToListResult(series => new Series(HttpContext, series, randomImages), page, pageSize);
@@ -260,7 +258,7 @@ public class TreeController : BaseController
             return new ListResult<Series>();
         }
 
-        return seriesIDs.Select(id => RepoFactory.AnimeSeries.GetByID(id))
+        return seriesIDs.Select(id => RepoFactory.Shoko_Series.GetByID(id))
             .Where(series => series != null && User.AllowedSeries(series))
             .OrderBy(series => series.GetSeriesName().ToLowerInvariant())
             .ToListResult(series => new Series(HttpContext, series, randomImages), page, pageSize);
@@ -284,14 +282,14 @@ public class TreeController : BaseController
             return GetSubGroups(groupID, randomImages, includeEmpty);
         }
 
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterController.FilterNotFound);
         }
 
         // Check if the group exists.
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
@@ -365,7 +363,7 @@ public class TreeController : BaseController
         }
 
         // Check if the group filter exists.
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterController.FilterNotFound);
@@ -377,7 +375,7 @@ public class TreeController : BaseController
         }
 
         // Check if the group exists.
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
@@ -395,7 +393,7 @@ public class TreeController : BaseController
             return new List<Series>();
         }
 
-        return (recursive ? group.GetAllSeries() : group.GetSeries())
+        return (recursive ? group.GetAllSeries() : group.Series)
             .Where(series => seriesIDs.Contains(series.AnimeSeriesID))
             .OrderBy(series => series.GetAnime()?.AirDate ?? DateTime.MaxValue)
             .Select(series => new Series(HttpContext, series, randomImages, includeDataFrom))
@@ -419,7 +417,7 @@ public class TreeController : BaseController
         [FromQuery] bool includeEmpty = false)
     {
         // Check if the group exists.
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
@@ -471,14 +469,14 @@ public class TreeController : BaseController
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
         // Check if the group exists.
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
         }
 
         var user = User;
-        return (recursive ? group.GetAllSeries() : group.GetSeries())
+        return (recursive ? group.GetAllSeries() : group.Series)
             .Where(a => user.AllowedSeries(a))
             .OrderBy(series => series.GetAnime()?.AirDate ?? DateTime.MaxValue)
             .Select(series => new Series(HttpContext, series, randomImages, includeDataFrom))
@@ -503,7 +501,7 @@ public class TreeController : BaseController
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
         // Check if the group exists.
-        var group = RepoFactory.AnimeGroup.GetByID(groupID);
+        var group = RepoFactory.Shoko_Group.GetByID(groupID);
         if (group == null)
         {
             return NotFound(GroupController.GroupNotFound);
@@ -554,7 +552,7 @@ public class TreeController : BaseController
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<EpisodeType> type = null,
         [FromQuery] string search = null, [FromQuery] bool fuzzy = true)
     {
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);
@@ -567,7 +565,7 @@ public class TreeController : BaseController
 
         var user = User;
         var hasSearch = !string.IsNullOrWhiteSpace(search);
-        var episodes = series.GetAnimeEpisodes()
+        var episodes = series.GetEpisodes()
             .AsParallel()
             .Select(episode => new { Shoko = episode, AniDB = episode?.AniDB_Episode })
             .Where(both =>
@@ -625,15 +623,15 @@ public class TreeController : BaseController
         {
             var languages = SettingsProvider.GetSettings()
                 .LanguagePreference
-                .Select(lang => lang.GetTitleLanguage())
-                .Concat(new TitleLanguage[] { TitleLanguage.English, TitleLanguage.Romaji })
+                .Select(lang => lang.ToTextLanguage())
+                .Concat(new TextLanguage[] { TextLanguage.English, TextLanguage.Romaji })
                 .ToHashSet();
             return episodes
                 .Search(
                     search,
                     ep => RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.AniDB.EpisodeID)
                         .Where(title => title != null && languages.Contains(title.Language))
-                        .Select(title => title.Title)
+                        .Select(title => title.Value)
                         .Append(ep.Shoko.Title)
                         .Distinct()
                         .ToList(),
@@ -671,7 +669,7 @@ public class TreeController : BaseController
         [FromQuery] bool includeRewatching = false, [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null)
     {
         var user = User;
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);
@@ -714,7 +712,7 @@ public class TreeController : BaseController
         [FromQuery] bool? isManuallyLinked = null, [FromQuery] bool includeMediaInfo = false)
     {
         var user = User;
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);
@@ -725,7 +723,7 @@ public class TreeController : BaseController
             return Forbid(SeriesController.SeriesForbiddenForUser);
         }
 
-        return series.GetVideoLocals(isManuallyLinked.HasValue ? isManuallyLinked.Value ? CrossRefSource.User : CrossRefSource.AniDB : null)        
+        return series.GetVideos(isManuallyLinked.HasValue ? isManuallyLinked.Value ? CrossRefSource.User : CrossRefSource.AniDB : null)        
             .Select(file => new File(HttpContext, file, includeXRefs, includeDataFrom, includeMediaInfo))
             .ToList();
     }
@@ -749,13 +747,13 @@ public class TreeController : BaseController
         [FromQuery, ModelBinder(typeof(CommaDelimitedModelBinder))] HashSet<DataSource> includeDataFrom = null,
         [FromQuery] bool? isManuallyLinked = null, [FromQuery] bool includeMediaInfo = false)
     {
-        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        var episode = RepoFactory.Shoko_Episode.GetByID(episodeID);
         if (episode == null)
         {
             return NotFound(EpisodeController.EpisodeNotFoundWithEpisodeID);
         }
 
-        var series = episode.GetAnimeSeries();
+        var series = episode.Series;
         if (series == null)
         {
             return InternalError("No Series entry for given Episode");
@@ -766,7 +764,7 @@ public class TreeController : BaseController
             return Forbid(EpisodeController.EpisodeForbiddenForUser);
         }
 
-        return episode.GetVideoLocals(isManuallyLinked.HasValue ? isManuallyLinked.Value ? CrossRefSource.User : CrossRefSource.AniDB : null)
+        return episode.GetVideos(isManuallyLinked.HasValue ? isManuallyLinked.Value ? CrossRefSource.User : CrossRefSource.AniDB : null)
             .Select(file => new File(HttpContext, file, includeXRefs, includeDataFrom, includeMediaInfo))
             .ToList();
     }

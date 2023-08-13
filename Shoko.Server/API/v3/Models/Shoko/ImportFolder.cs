@@ -4,7 +4,7 @@ using Shoko.Models.Enums;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models;
 using Shoko.Server.Repositories;
-
+using SVR_ImportFolder = Shoko.Server.Models.Internal.ImportFolder;
 namespace Shoko.Server.API.v3.Models.Shoko;
 
 public class ImportFolder : BaseModel
@@ -41,10 +41,10 @@ public class ImportFolder : BaseModel
 
     public ImportFolder(SVR_ImportFolder folder)
     {
-        var series = RepoFactory.VideoLocalPlace.GetByImportFolder(folder.ImportFolderID)
+        var series = RepoFactory.Shoko_Video_Location.GetByImportFolder(folder.ImportFolderID)
             .Select(a => a?.VideoLocal?.Hash).Where(a => !string.IsNullOrEmpty(a)).Distinct()
-            .SelectMany(RepoFactory.CrossRef_File_Episode.GetByHash).DistinctBy(a => a.AnimeID).Count();
-        var size = RepoFactory.VideoLocalPlace.GetByImportFolder(folder.ImportFolderID)
+            .SelectMany(RepoFactory.CR_Video_Episode.GetByHash).DistinctBy(a => a.AnimeID).Count();
+        var size = RepoFactory.Shoko_Video_Location.GetByImportFolder(folder.ImportFolderID)
             .Select(a => a.VideoLocal).Where(b => b != null)
             .Sum(b => b.FileSize);
 
@@ -68,7 +68,7 @@ public class ImportFolder : BaseModel
 
         ID = folder.ImportFolderID;
         Name = folder.ImportFolderName;
-        Path = folder.ImportFolderLocation;
+        Path = folder.Path;
         WatchForNewFiles = folder.FolderIsWatched;
         DropFolderType = type;
         Size = series;
@@ -82,7 +82,7 @@ public class ImportFolder : BaseModel
             ImportFolderID = ID,
             ImportFolderName = Name,
             ImportFolderType = (int)ImportFolderType.HDD,
-            ImportFolderLocation = Path,
+            Path = Path,
             IsWatched = WatchForNewFiles ? 1 : 0,
             IsDropDestination = DropFolderType.HasFlag(DropFolderType.Destination) ? 1 : 0,
             IsDropSource = DropFolderType.HasFlag(DropFolderType.Source) ? 1 : 0

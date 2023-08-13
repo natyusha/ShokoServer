@@ -8,12 +8,12 @@ public class Trakt_ShowMap : ClassMap<Trakt_Show>
     public Trakt_ShowMap()
     {
         Not.LazyLoad();
-        Id(x => x.Trakt_ShowID);
+        Id(x => x.Id);
 
-        Map(x => x.Overview);
-        Map(x => x.Title);
-        Map(x => x.TraktID);
-        Map(x => x.TvDB_ID);
+        Map(x => x.MainOverview);
+        Map(x => x.MainTitle);
+        Map(x => x.TraktShowID);
+        Map(x => x.TvdbShowId);
         Map(x => x.URL);
         Map(x => x.Year);
     }

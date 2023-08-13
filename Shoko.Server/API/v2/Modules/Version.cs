@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Commons;
+using Shoko.Models.Client;
 using Shoko.Models.Server;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.v2.Models.core;
@@ -46,7 +47,7 @@ public class Version : BaseController
 
         version = new ComponentVersion
         {
-            version = Assembly.GetAssembly(typeof(AniDB_Anime)).GetName().Version.ToString(), name = "models"
+            version = Assembly.GetAssembly(typeof(CL_AniDB_Anime)).GetName().Version.ToString(), name = "models"
         };
         list.Add(version);
 

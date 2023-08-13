@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 
@@ -28,7 +29,7 @@ public class CustomAuthHandler : AuthenticationHandler<CustomAuthOptions>
                 new[]
                 {
                     new Claim(ClaimTypes.Role, "init"),
-                    new Claim(ClaimTypes.NameIdentifier, InitUser.Instance.JMMUserID.ToString()),
+                    new Claim(ClaimTypes.NameIdentifier, InitUser.Instance.Id.ToString()),
                     new Claim(ClaimTypes.AuthenticationMethod, "init")
                 }, CustomAuthOptions.DefaultScheme));
             initPrincipal.AddIdentity(new ClaimsIdentity(InitUser.Instance));
@@ -58,10 +59,10 @@ public class CustomAuthHandler : AuthenticationHandler<CustomAuthOptions>
         var claims = new List<Claim>
         {
             new(ClaimTypes.Role, "user"),
-            new(ClaimTypes.NameIdentifier, user.JMMUserID.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.AuthenticationMethod, "apikey")
         };
-        if (user.IsAdmin == 1)
+        if (user.IsAdmin)
         {
             claims.Add(new Claim(ClaimTypes.Role, "admin"));
         }
@@ -74,7 +75,7 @@ public class CustomAuthHandler : AuthenticationHandler<CustomAuthOptions>
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 
-    private static SVR_JMMUser GetUserForKey(string ctx)
+    private static Shoko_User GetUserForKey(string ctx)
     {
         if (!(ServerState.Instance?.ServerOnline ?? false))
         {
@@ -87,7 +88,7 @@ public class CustomAuthHandler : AuthenticationHandler<CustomAuthOptions>
             return null;
         }
 
-        var auth = RepoFactory.AuthTokens.GetByToken(apikey);
-        return auth != null ? RepoFactory.JMMUser.GetByID(auth.UserID) : null;
+        var auth = RepoFactory.Shoko_User_AuthToken.GetByToken(apikey);
+        return auth != null ? RepoFactory.Shoko_User.GetByID(auth.UserID) : null;
     }
 }

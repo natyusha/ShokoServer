@@ -3,7 +3,7 @@ using Shoko.Server.Models;
 
 namespace Shoko.Server.Mappings;
 
-public class AniDB_AnimeMap : ClassMap<SVR_AniDB_Anime>
+public class AniDB_AnimeMap : ClassMap<AniDB_Anime>
 {
     public AniDB_AnimeMap()
     {

@@ -62,10 +62,10 @@ public class Group : BaseModel
 
     #region Constructors
 
-    public Group(HttpContext ctx, SVR_AnimeGroup group, bool randomiseImages = false)
+    public Group(HttpContext ctx, ShokoGroup group, bool randomiseImages = false)
     {
         var subGroupCount = group.GetChildGroups().Count;
-        var userID = ctx.GetUser()?.JMMUserID ?? 0;
+        var userID = ctx.GetUser()?.Id ?? 0;
         var allSeries = group.GetAllSeries();
         var mainSeries = allSeries.FirstOrDefault();
         var episodes = allSeries.SelectMany(a => a.GetAnimeEpisodes()).ToList();
@@ -217,23 +217,23 @@ public class Group : BaseModel
 
             public CreateOrUpdateGroupBody() { }
 
-            public CreateOrUpdateGroupBody(SVR_AnimeGroup group)
+            public CreateOrUpdateGroupBody(ShokoGroup group)
             {
                 Name = group.GroupName;
                 SortName = group.SortName;
                 ParentID = group.AnimeGroupParentID;
                 DefaultSeriesID = group.DefaultAnimeSeriesID;
-                SeriesIDs = group.GetSeries().Select(series => series.AnimeSeriesID).ToList();
+                SeriesIDs = group.Series.Select(series => series.AnimeSeriesID).ToList();
                 ChildIDs = group.GetChildGroups().Select(group => group.AnimeGroupID).ToList();
             }
 
-            public Group? MergeWithExisting(HttpContext ctx, SVR_AnimeGroup group, ModelStateDictionary modelState)
+            public Group? MergeWithExisting(HttpContext ctx, ShokoGroup group, ModelStateDictionary modelState)
             {
                 // Validate if the parent exists if a parent id is set.
-                SVR_AnimeGroup? parent = null;
+                ShokoGroup? parent = null;
                 if (ParentID.HasValue && ParentID.Value != 0)
                 {
-                    parent = RepoFactory.AnimeGroup.GetByID(ParentID.Value);
+                    parent = RepoFactory.Shoko_Group.GetByID(ParentID.Value);
                     if (parent == null)
                     {
                         modelState.AddModelError(nameof(ParentID), $"Unable to get parent group with id \"{ParentID.Value}\".");
@@ -249,26 +249,26 @@ public class Group : BaseModel
 
                 // Get the groups and validate the group ids.
                 var childGroups = ChildIDs
-                    .Select(groupID => RepoFactory.AnimeGroup.GetByID(groupID))
+                    .Select(groupID => RepoFactory.Shoko_Group.GetByID(groupID))
                     .Where(childGroup => childGroup != null)
                     .ToList();
                 if (childGroups.Count != ChildIDs.Count)
                 {
                     var unknownGroupIDs = ChildIDs
-                        .Where(id => !childGroups.Any(childGroup => childGroup.AnimeGroupID == id))
+                        .Where(id => !childGroups.Any(childGroup => childGroup.Id == id))
                         .ToList();
                     modelState.AddModelError(nameof(ChildIDs), $"Unable to get child groups with ids \"{string.Join("\", \"", unknownGroupIDs)}\".");
                 }
 
                 // Get the series and validate the series ids.
                 var seriesList = SeriesIDs
-                    .Select(id => RepoFactory.AnimeSeries.GetByID(id))
+                    .Select(id => RepoFactory.Shoko_Series.GetByID(id))
                     .Where(s => s != null)
                     .ToList();
                 if (seriesList.Count != SeriesIDs.Count)
                 {
                     var unknownSeriesIDs = SeriesIDs
-                        .Where(id => !seriesList.Any(series => series.AnimeSeriesID == id))
+                        .Where(id => !seriesList.Any(series => series.Id == id))
                         .ToList();
                     throw new Exception($"Unable to get series with ids \"{string.Join("\", \"", unknownSeriesIDs)}\".");
                 }
@@ -286,7 +286,7 @@ public class Group : BaseModel
                 }
 
                 // Find the default series among the list of seris.
-                SVR_AnimeSeries? defaultSeries = null;
+                ShokoSeries? defaultSeries = null;
                 if (DefaultSeriesID.HasValue)
                 {
                     defaultSeries = allSeriesList
@@ -302,7 +302,7 @@ public class Group : BaseModel
                 // Save the group now if it's a new group, so we can get a valid
                 // id to use.
                 if (group.AnimeGroupID == 0)
-                    RepoFactory.AnimeGroup.Save(group);
+                    RepoFactory.Shoko_Group.Save(group);
 
                 // Check if the names have changed if we omit the value, or if
                 // we set it to true.
@@ -363,14 +363,14 @@ public class Group : BaseModel
                         continue;
 
                     childGroup.AnimeGroupParentID = group.AnimeGroupID;
-                    RepoFactory.AnimeGroup.Save(group, false, false);
+                    RepoFactory.Shoko_Group.Save(group, false, false);
                 }
 
                 // Move the series over to the new group.
                 foreach (var series in seriesList)
                 {
                     // Skip adding series already part of the group.
-                    if (series.AnimeGroupID == group.AnimeGroupID)
+                    if (series.ParentGroupId == group.AnimeGroupID)
                         continue;
 
                     series.MoveSeries(group);

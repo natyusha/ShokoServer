@@ -8,7 +8,7 @@ public class SearchResult : Serie
 {
     [DataMember] public string match { get; set; }
 
-    public static SearchResult GenerateFromAnimeSeries(HttpContext ctx, SVR_AnimeSeries ser, int uid, bool nocast,
+    public static SearchResult GenerateFromAnimeSeries(HttpContext ctx, ShokoSeries ser, int uid, bool nocast,
         bool notag,
         int level,
         bool all, string match, bool allpic, int pic, TagFilter.Filter tagfilter)

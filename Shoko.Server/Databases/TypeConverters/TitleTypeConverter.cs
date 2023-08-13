@@ -6,7 +6,7 @@ using System.Data;
 using System.Data.Common;
 using NHibernate;
 using NHibernate.Engine;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Extensions;
 
 namespace Shoko.Server.Databases.TypeConverters;

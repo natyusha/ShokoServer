@@ -1,5 +1,5 @@
 ﻿using System;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 
 namespace Shoko.Server.Commands.Attributes;
 

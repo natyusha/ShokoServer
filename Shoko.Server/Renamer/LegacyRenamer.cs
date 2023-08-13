@@ -2,25 +2,86 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NLog;
-using Shoko.Commons.Extensions;
-using Shoko.Models.Server;
+using Microsoft.Extensions.Logging;
 using Shoko.Plugin.Abstractions;
 using Shoko.Plugin.Abstractions.Attributes;
-using Shoko.Plugin.Abstractions.DataModels;
-using Shoko.Server.Models;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.AniDB;
+using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Events;
+using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Repositories;
-using Shoko.Server.Server;
-using Shoko.Server.Utilities;
-using EpisodeType = Shoko.Models.Enums.EpisodeType;
+using Shoko.Server.Models.AniDB;
 
 namespace Shoko.Server.Renamer;
+
+// http://wiki.anidb.net/w/WebAOM#Move.2Frename_system
+public struct FileRenameTag
+{
+    public static readonly string AnimeNameRomaji = "%ann";
+    public static readonly string AnimeNameKanji = "%kan";
+    public static readonly string AnimeNameEnglish = "%eng";
+    public static readonly string EpisodeNameRomaji = "%epn";
+    public static readonly string EpisodeNameEnglish = "%epr";
+    public static readonly string EpisodeNumber = "%enr";
+    public static readonly string GroupShortName = "%grp";
+    public static readonly string GroupLongName = "%grl";
+    public static readonly string ED2KLower = "%ed2";
+    public static readonly string ED2KUpper = "%ED2";
+    public static readonly string CRCLower = "%crc";
+    public static readonly string CRCUpper = "%CRC";
+    public static readonly string FileVersion = "%ver";
+    public static readonly string Source = "%src";
+    public static readonly string Resolution = "%res";
+    public static readonly string VideoHeight = "%vdh";
+    public static readonly string Year = "%yea";
+    public static readonly string Episodes = "%eps"; // Total number of episodes
+    public static readonly string Type = "%typ"; // Type [unknown, TV, OVA, Movie, TV Special, Other, web]
+    public static readonly string FileID = "%fid";
+    public static readonly string AnimeID = "%aid";
+    public static readonly string EpisodeID = "%eid";
+    public static readonly string GroupID = "%gid";
+    public static readonly string DubLanguage = "%dub";
+    public static readonly string SubLanguage = "%sub";
+    public static readonly string VideoCodec = "%vid"; //tracks separated with '
+    public static readonly string AudioCodec = "%aud"; //tracks separated with '
+    public static readonly string VideoBitDepth = "%bit"; // 8bit, 10bit
+
+    public static readonly string OriginalFileName = "%sna";
+    // The original file name as specified by the sub group
+
+    public static readonly string Censored = "%cen";
+    public static readonly string Deprecated = "%dep";
+
+
+    /*
+    %md5 / %MD5	 md5 sum (lower/upper)
+    %sha / %SHA	 sha1 sum (lower/upper)
+    %inv	 Invalid crc string
+        * */
+}
+
+public struct FileRenameReserved
+{
+    public static readonly string Do = "DO";
+    public static readonly string Fail = "FAIL";
+    public static readonly string Add = "ADD";
+    public static readonly string Replace = "REPLACE";
+    public static readonly string None = "none"; // used for videos with no audio or no subitle languages
+    public static readonly string Unknown = "unknown"; // used for videos with no audio or no subitle languages
+}
 
 [Renamer(RENAMER_ID, Description = "Legacy")]
 public class LegacyRenamer : IRenamer
 {
     private const string RENAMER_ID = "Legacy";
-    private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+    private readonly ILogger<LegacyRenamer> logger;
+
+    public LegacyRenamer(ILogger<LegacyRenamer> logger)
+    {
+        this.logger = logger;
+    }
 
     public string GetFilename(RenameEventArgs args)
     {
@@ -98,7 +159,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="episodes"></param>
     /// <returns></returns>
-    private static bool EvaluateTestA(string test, List<AniDB_Episode> episodes)
+    private bool EvaluateTestA(string test, List<IEpisodeMetadata> episodes)
     {
         try
         {
@@ -116,14 +177,14 @@ public class LegacyRenamer : IRenamer
 
             if (notCondition)
             {
-                return animeID != episodes[0].AnimeID;
+                return test != episodes[0].ShowId;
             }
 
-            return animeID == episodes[0].AnimeID;
+            return test == episodes[0].ShowId;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -134,7 +195,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="aniFile"></param>
     /// <returns></returns>
-    private static bool EvaluateTestG(string test, SVR_AniDB_File aniFile)
+    private bool EvaluateTestG(string test, IAniDBFile aniFile)
     {
         try
         {
@@ -158,14 +219,14 @@ public class LegacyRenamer : IRenamer
 
             if (notCondition)
             {
-                return groupID != aniFile.GroupID;
+                return groupID != aniFile.ReleaseGroup.Id;
             }
 
-            return groupID == aniFile.GroupID;
+            return groupID == aniFile.ReleaseGroup.Id;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -178,7 +239,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="aniFile"></param>
     /// <param name="episodes"></param>
     /// <returns></returns>
-    private static bool EvaluateTestM(string test, SVR_AniDB_File aniFile, List<AniDB_Episode> episodes)
+    private bool EvaluateTestM(string test, IAniDBFile aniFile, List<IEpisodeMetadata> episodes)
     {
         try
         {
@@ -204,7 +265,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -217,7 +278,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="aniFile"></param>
     /// <param name="episodes"></param>
     /// <returns></returns>
-    private static bool EvaluateTestN(string test, SVR_AniDB_File aniFile, List<AniDB_Episode> episodes)
+    private bool EvaluateTestN(string test, IAniDBFile aniFile, List<IEpisodeMetadata> episodes)
     {
         try
         {
@@ -234,7 +295,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -245,7 +306,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="aniFile"></param>
     /// <returns></returns>
-    private static bool EvaluateTestD(string test, SVR_AniDB_File aniFile)
+    private bool EvaluateTestD(string test, IAniDBFile aniFile)
     {
         try
         {
@@ -269,7 +330,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -280,7 +341,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="aniFile"></param>
     /// <returns></returns>
-    private static bool EvaluateTestS(string test, SVR_AniDB_File aniFile)
+    private bool EvaluateTestS(string test, IAniDBFile aniFile)
     {
         try
         {
@@ -298,8 +359,8 @@ public class LegacyRenamer : IRenamer
 
             if (
                 test.Trim()
-                    .Equals(Constants.FileRenameReserved.None, StringComparison.InvariantCultureIgnoreCase) &&
-                aniFile.Subtitles.Count == 0)
+                    .Equals(FileRenameReserved.None, StringComparison.InvariantCultureIgnoreCase) &&
+                aniFile.Media.SubtitleLanguages.Count == 0)
             {
                 return !notCondition;
             }
@@ -312,7 +373,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -323,7 +384,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="aniFile"></param>
     /// <returns></returns>
-    private static bool EvaluateTestF(string test, SVR_AniDB_File aniFile)
+    private bool EvaluateTestF(string test, IAniDBFile aniFile)
     {
         try
         {
@@ -371,7 +432,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -382,7 +443,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="test"></param>
     /// <param name="vid"></param>
     /// <returns></returns>
-    private static bool EvaluateTestZ(string test, SVR_VideoLocal vid)
+    private bool EvaluateTestZ(string test, IShokoVideo vid)
     {
         try
         {
@@ -394,7 +455,8 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
-            if (vid.Media?.VideoStream == null)
+            var videoStream = vid.Media?.Video.FirstOrDefault();
+            if (videoStream == null)
             {
                 return false;
             }
@@ -405,37 +467,37 @@ public class LegacyRenamer : IRenamer
             {
                 if (!notCondition)
                 {
-                    return testBitDepth == vid.Media?.VideoStream?.BitDepth;
+                    return testBitDepth == videoStream.BitDepth;
                 }
 
-                return testBitDepth != vid.Media?.VideoStream?.BitDepth;
+                return testBitDepth != videoStream.BitDepth;
             }
 
             if (greaterThan)
             {
-                return vid.Media?.VideoStream?.BitDepth > testBitDepth;
+                return videoStream.BitDepth > testBitDepth;
             }
 
             if (greaterThanEqual)
             {
-                return vid.Media?.VideoStream?.BitDepth >= testBitDepth;
+                return videoStream.BitDepth >= testBitDepth;
             }
 
             if (lessThan)
             {
-                return vid.Media?.VideoStream?.BitDepth < testBitDepth;
+                return videoStream.BitDepth < testBitDepth;
             }
 
-            return vid.Media?.VideoStream?.BitDepth <= testBitDepth;
+            return videoStream.BitDepth <= testBitDepth;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestW(string test, SVR_VideoLocal vid)
+    private bool EvaluateTestW(string test, IShokoVideo vid)
     {
         try
         {
@@ -452,7 +514,7 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
-            var width = Utils.GetVideoWidth(vid.VideoResolution);
+            var width = vid.Media?.Video.FirstOrDefault()?.Width ?? 0;
 
             var hasFileVersionOperator = greaterThan | greaterThanEqual | lessThan | lessThanEqual;
 
@@ -485,12 +547,12 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestU(string test, SVR_VideoLocal vid)
+    private bool EvaluateTestU(string test, IShokoVideo vid)
     {
         try
         {
@@ -507,7 +569,7 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
-            var height = Utils.GetVideoHeight(vid.VideoResolution);
+            var height = vid.Media?.Video.FirstOrDefault()?.Height ?? 0;
 
             var hasFileVersionOperator = greaterThan | greaterThanEqual | lessThan | lessThanEqual;
 
@@ -540,13 +602,13 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
 
-    private static bool EvaluateTestR(string test, SVR_AniDB_File aniFile)
+    private bool EvaluateTestR(string test, IAniDBFile aniFile)
     {
         try
         {
@@ -562,17 +624,17 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
-            var hasSource = !string.IsNullOrEmpty(aniFile.File_Source);
+            var hasSource = aniFile.Source != FileSource.Unknown;
             if (
                 test.Trim()
-                    .Equals(Constants.FileRenameReserved.Unknown, StringComparison.InvariantCultureIgnoreCase) &&
+                    .Equals(FileRenameReserved.Unknown, StringComparison.InvariantCultureIgnoreCase) &&
                 !hasSource)
             {
                 return !notCondition;
             }
 
 
-            if (test.Trim().Equals(aniFile.File_Source, StringComparison.InvariantCultureIgnoreCase))
+            if (test.Trim().Equals(aniFile.Source.ToString(), StringComparison.InvariantCultureIgnoreCase))
             {
                 return !notCondition;
             }
@@ -581,12 +643,12 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestT(string test, SVR_AniDB_Anime anime)
+    private bool EvaluateTestT(string test, IShowMetadata anime)
     {
         try
         {
@@ -597,17 +659,16 @@ public class LegacyRenamer : IRenamer
                 test = test.Substring(1, test.Length - 1);
             }
 
-            var hasType = !string.IsNullOrEmpty(anime.GetAnimeTypeRAW());
+            var hasType = !string.IsNullOrEmpty(anime.AnimeType.ToRawString());
             if (
                 test.Trim()
-                    .Equals(Constants.FileRenameReserved.Unknown, StringComparison.InvariantCultureIgnoreCase) &&
+                    .Equals(FileRenameReserved.Unknown, StringComparison.InvariantCultureIgnoreCase) &&
                 !hasType)
             {
                 return !notCondition;
             }
 
-
-            if (test.Trim().Equals(anime.GetAnimeTypeRAW(), StringComparison.InvariantCultureIgnoreCase))
+            if (test.Trim().Equals(anime.AnimeType.ToRawString(), StringComparison.InvariantCultureIgnoreCase))
             {
                 return !notCondition;
             }
@@ -616,12 +677,12 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestY(string test, SVR_AniDB_Anime anime)
+    private bool EvaluateTestY(string test, IShowMetadata anime)
     {
         try
         {
@@ -633,43 +694,44 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
+            var year = anime.AirDate.HasValue ? anime.AirDate.Value.Year : 0;
             var hasFileVersionOperator = greaterThan | greaterThanEqual | lessThan | lessThanEqual;
 
             if (!hasFileVersionOperator)
             {
                 if (!notCondition)
                 {
-                    return anime.BeginYear == testYear;
+                    return year == testYear;
                 }
 
-                return anime.BeginYear != testYear;
+                return year != testYear;
             }
 
             if (greaterThan)
             {
-                return anime.BeginYear > testYear;
+                return year > testYear;
             }
 
             if (greaterThanEqual)
             {
-                return anime.BeginYear >= testYear;
+                return year >= testYear;
             }
 
             if (lessThan)
             {
-                return anime.BeginYear < testYear;
+                return year < testYear;
             }
 
-            return anime.BeginYear <= testYear;
+            return year <= testYear;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestE(string test, List<AniDB_Episode> episodes)
+    private bool EvaluateTestE(string test, List<IEpisodeMetadata> episodes)
     {
         try
         {
@@ -687,37 +749,37 @@ public class LegacyRenamer : IRenamer
             {
                 if (!notCondition)
                 {
-                    return episodes[0].EpisodeNumber == testEpNumber;
+                    return episodes[0].Number == testEpNumber;
                 }
 
-                return episodes[0].EpisodeNumber != testEpNumber;
+                return episodes[0].Number != testEpNumber;
             }
 
             if (greaterThan)
             {
-                return episodes[0].EpisodeNumber > testEpNumber;
+                return episodes[0].Number > testEpNumber;
             }
 
             if (greaterThanEqual)
             {
-                return episodes[0].EpisodeNumber >= testEpNumber;
+                return episodes[0].Number >= testEpNumber;
             }
 
             if (lessThan)
             {
-                return episodes[0].EpisodeNumber < testEpNumber;
+                return episodes[0].Number < testEpNumber;
             }
 
-            return episodes[0].EpisodeNumber <= testEpNumber;
+            return episodes[0].Number <= testEpNumber;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
 
-    private static bool EvaluateTestH(string test, List<AniDB_Episode> episodes)
+    private bool EvaluateTestH(string test, List<IEpisodeMetadata> episodes)
     {
         try
         {
@@ -729,12 +791,12 @@ public class LegacyRenamer : IRenamer
             }
 
             var epType = string.Empty;
-            switch (episodes[0].GetEpisodeTypeEnum())
+            switch (episodes[0].Type)
             {
-                case EpisodeType.Episode:
+                case EpisodeType.Normal:
                     epType = "E";
                     break;
-                case EpisodeType.Credits:
+                case EpisodeType.ThemeSong:
                     epType = "C";
                     break;
                 case EpisodeType.Other:
@@ -749,6 +811,9 @@ public class LegacyRenamer : IRenamer
                 case EpisodeType.Trailer:
                     epType = "T";
                     break;
+                default:
+                    epType = "U";
+                    break;
             }
 
 
@@ -761,7 +826,7 @@ public class LegacyRenamer : IRenamer
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -776,7 +841,7 @@ public class LegacyRenamer : IRenamer
     /// <param name="greaterThanEqual"></param>
     /// <param name="lessThan"></param>
     /// <param name="lessThanEqual"></param>
-    private static void ProcessNumericalOperators(ref string test, out bool notCondition, out bool greaterThan,
+    private void ProcessNumericalOperators(ref string test, out bool notCondition, out bool greaterThan,
         out bool greaterThanEqual, out bool lessThan, out bool lessThanEqual)
     {
         notCondition = false;
@@ -819,7 +884,7 @@ public class LegacyRenamer : IRenamer
         test = test.Substring(1, test.Length - 1);
     }
 
-    private static bool EvaluateTestX(string test, SVR_AniDB_Anime anime)
+    private bool EvaluateTestX(string test, IShowMetadata anime)
     {
         try
         {
@@ -831,38 +896,39 @@ public class LegacyRenamer : IRenamer
                 return false;
             }
 
+            var normalCount = anime.EpisodeCounts.Normal;
             var hasFileVersionOperator = greaterThan | greaterThanEqual | lessThan | lessThanEqual;
 
             if (!hasFileVersionOperator)
             {
                 if (!notCondition)
                 {
-                    return anime.EpisodeCountNormal == epCount;
+                    return normalCount == epCount;
                 }
 
-                return anime.EpisodeCountNormal != epCount;
+                return normalCount != epCount;
             }
 
             if (greaterThan)
             {
-                return anime.EpisodeCountNormal > epCount;
+                return normalCount > epCount;
             }
 
             if (greaterThanEqual)
             {
-                return anime.EpisodeCountNormal >= epCount;
+                return normalCount >= epCount;
             }
 
             if (lessThan)
             {
-                return anime.EpisodeCountNormal < epCount;
+                return normalCount < epCount;
             }
 
-            return anime.EpisodeCountNormal <= epCount;
+            return normalCount <= epCount;
         }
         catch (Exception ex)
         {
-            logger.Error(ex, ex.ToString());
+            logger.LogError(ex, ex.ToString());
             return false;
         }
     }
@@ -876,9 +942,9 @@ public class LegacyRenamer : IRenamer
     /// <param name="episodes"></param>
     /// <param name="anime"></param>
     /// <returns></returns>
-    private static bool EvaluateTestI(string test, SVR_VideoLocal vid, SVR_AniDB_File aniFile,
-        List<AniDB_Episode> episodes,
-        SVR_AniDB_Anime anime)
+    private bool EvaluateTestI(string test, IShokoVideo vid, IAniDBFile aniFile,
+        List<IEpisodeMetadata> episodes,
+        IShowMetadata anime)
     {
         try
         {
@@ -899,8 +965,8 @@ public class LegacyRenamer : IRenamer
 
             // Test if Anime ID exists
 
-            var tagAnimeID = Constants.FileRenameTag.AnimeID.Substring(1,
-                Constants.FileRenameTag.AnimeID.Length - 1); // remove % at the front
+            var tagAnimeID = FileRenameTag.AnimeID.Substring(1,
+                FileRenameTag.AnimeID.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagAnimeID, StringComparison.InvariantCultureIgnoreCase))
             {
                 // manually linked files won't have an anime id
@@ -928,8 +994,8 @@ public class LegacyRenamer : IRenamer
 
             // Test if Group ID exists
 
-            var tagGroupID = Constants.FileRenameTag.GroupID.Substring(1,
-                Constants.FileRenameTag.GroupID.Length - 1); // remove % at the front
+            var tagGroupID = FileRenameTag.GroupID.Substring(1,
+                FileRenameTag.GroupID.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagGroupID, StringComparison.InvariantCultureIgnoreCase))
             {
                 // manually linked files won't have an group id
@@ -957,14 +1023,14 @@ public class LegacyRenamer : IRenamer
 
             // Test if Original File Nameexists
 
-            var tagOriginalFileName = Constants.FileRenameTag.OriginalFileName.Substring(1,
-                Constants.FileRenameTag.OriginalFileName.Length - 1); // remove % at the front
+            var tagOriginalFileName = FileRenameTag.OriginalFileName.Substring(1,
+                FileRenameTag.OriginalFileName.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagOriginalFileName, StringComparison.InvariantCultureIgnoreCase))
             {
                 // manually linked files won't have an Original File Name
                 if (aniFile != null)
                 {
-                    if (string.IsNullOrEmpty(aniFile.FileName))
+                    if (string.IsNullOrEmpty(aniFile.OriginalFilename))
                     {
                         return notCondition;
                     }
@@ -980,8 +1046,8 @@ public class LegacyRenamer : IRenamer
             #region Test if Episode Number exists
 
             // Test if Episode Number exists
-            var tagEpisodeNumber = Constants.FileRenameTag.EpisodeNumber.Substring(1,
-                Constants.FileRenameTag.EpisodeNumber.Length - 1); // remove % at the front
+            var tagEpisodeNumber = FileRenameTag.EpisodeNumber.Substring(1,
+                FileRenameTag.EpisodeNumber.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagEpisodeNumber, StringComparison.InvariantCultureIgnoreCase))
             {
                 // manually linked files won't have an Episode Number
@@ -998,8 +1064,8 @@ public class LegacyRenamer : IRenamer
             #region Test file version
 
             // Test if Group Short Name exists - yes it always does
-            var tagFileVersion = Constants.FileRenameTag.FileVersion.Substring(1,
-                Constants.FileRenameTag.FileVersion.Length - 1); // remove % at the front
+            var tagFileVersion = FileRenameTag.FileVersion.Substring(1,
+                FileRenameTag.FileVersion.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagFileVersion, StringComparison.InvariantCultureIgnoreCase))
             {
                 // manually linked files won't have an anime id
@@ -1016,8 +1082,8 @@ public class LegacyRenamer : IRenamer
             #region Test if ED2K Upper exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagED2KUpper = Constants.FileRenameTag.ED2KUpper.Substring(1,
-                Constants.FileRenameTag.ED2KUpper.Length - 1); // remove % at the front
+            var tagED2KUpper = FileRenameTag.ED2KUpper.Substring(1,
+                FileRenameTag.ED2KUpper.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagED2KUpper, StringComparison.InvariantCultureIgnoreCase))
             {
                 return !notCondition;
@@ -1028,8 +1094,8 @@ public class LegacyRenamer : IRenamer
             #region Test if ED2K Lower exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagED2KLower = Constants.FileRenameTag.ED2KLower.Substring(1,
-                Constants.FileRenameTag.ED2KLower.Length - 1); // remove % at the front
+            var tagED2KLower = FileRenameTag.ED2KLower.Substring(1,
+                FileRenameTag.ED2KLower.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagED2KLower, StringComparison.InvariantCultureIgnoreCase))
             {
                 return !notCondition;
@@ -1039,12 +1105,12 @@ public class LegacyRenamer : IRenamer
 
             #region Test if English title exists
 
-            var tagAnimeNameEnglish = Constants.FileRenameTag.AnimeNameEnglish.Substring(1,
-                Constants.FileRenameTag.AnimeNameEnglish.Length - 1); // remove % at the front
+            var tagAnimeNameEnglish = FileRenameTag.AnimeNameEnglish.Substring(1,
+                FileRenameTag.AnimeNameEnglish.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagAnimeNameEnglish, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (anime.GetTitles().Any(ti =>
-                        ti.Language == TitleLanguage.English &&
+                        ti.Language == TextLanguage.English &&
                         (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official)))
                 {
                     return !notCondition;
@@ -1057,12 +1123,12 @@ public class LegacyRenamer : IRenamer
 
             #region Test if Kanji title exists
 
-            var tagAnimeNameKanji = Constants.FileRenameTag.AnimeNameKanji.Substring(1,
-                Constants.FileRenameTag.AnimeNameKanji.Length - 1); // remove % at the front
+            var tagAnimeNameKanji = FileRenameTag.AnimeNameKanji.Substring(1,
+                FileRenameTag.AnimeNameKanji.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagAnimeNameKanji, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (anime.GetTitles().Any(ti =>
-                        ti.Language == TitleLanguage.Japanese &&
+                        ti.Language == TextLanguage.Japanese &&
                         (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official)))
                 {
                     return !notCondition;
@@ -1075,12 +1141,12 @@ public class LegacyRenamer : IRenamer
 
             #region Test if Romaji title exists
 
-            var tagAnimeNameRomaji = Constants.FileRenameTag.AnimeNameRomaji.Substring(1,
-                Constants.FileRenameTag.AnimeNameRomaji.Length - 1); // remove % at the front
+            var tagAnimeNameRomaji = FileRenameTag.AnimeNameRomaji.Substring(1,
+                FileRenameTag.AnimeNameRomaji.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagAnimeNameRomaji, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (anime.GetTitles().Any(ti =>
-                        ti.Language == TitleLanguage.Romaji &&
+                        ti.Language == TextLanguage.Romaji &&
                         (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official)))
                 {
                     return !notCondition;
@@ -1093,13 +1159,13 @@ public class LegacyRenamer : IRenamer
 
             #region Test if episode name (english) exists
 
-            var tagEpisodeNameEnglish = Constants.FileRenameTag.EpisodeNameEnglish.Substring(1,
-                Constants.FileRenameTag.EpisodeNameEnglish.Length - 1); // remove % at the front
+            var tagEpisodeNameEnglish = FileRenameTag.EpisodeNameEnglish.Substring(1,
+                FileRenameTag.EpisodeNameEnglish.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagEpisodeNameEnglish, StringComparison.InvariantCultureIgnoreCase))
             {
                 var title = RepoFactory.AniDB_Episode_Title
-                    .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TitleLanguage.English)
-                    .FirstOrDefault()?.Title;
+                    .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TextLanguage.English)
+                    .FirstOrDefault()?.Value;
                 if (string.IsNullOrEmpty(title))
                 {
                     return notCondition;
@@ -1112,13 +1178,13 @@ public class LegacyRenamer : IRenamer
 
             #region Test if episode name (romaji) exists
 
-            var tagEpisodeNameRomaji = Constants.FileRenameTag.EpisodeNameRomaji.Substring(1,
-                Constants.FileRenameTag.EpisodeNameRomaji.Length - 1); // remove % at the front
+            var tagEpisodeNameRomaji = FileRenameTag.EpisodeNameRomaji.Substring(1,
+                FileRenameTag.EpisodeNameRomaji.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagEpisodeNameRomaji, StringComparison.InvariantCultureIgnoreCase))
             {
                 var title = RepoFactory.AniDB_Episode_Title
-                    .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TitleLanguage.Romaji)
-                    .FirstOrDefault()?.Title;
+                    .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TextLanguage.Romaji)
+                    .FirstOrDefault()?.Value;
                 if (string.IsNullOrEmpty(title))
                 {
                     return notCondition;
@@ -1132,8 +1198,8 @@ public class LegacyRenamer : IRenamer
             #region Test if group name short exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagGroupShortName = Constants.FileRenameTag.GroupShortName.Substring(1,
-                Constants.FileRenameTag.GroupShortName.Length - 1); // remove % at the front
+            var tagGroupShortName = FileRenameTag.GroupShortName.Substring(1,
+                FileRenameTag.GroupShortName.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagGroupShortName, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (string.IsNullOrEmpty(aniFile?.Anime_GroupNameShort))
@@ -1149,8 +1215,8 @@ public class LegacyRenamer : IRenamer
             #region Test if group name long exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagGroupLongName = Constants.FileRenameTag.GroupLongName.Substring(1,
-                Constants.FileRenameTag.GroupLongName.Length - 1); // remove % at the front
+            var tagGroupLongName = FileRenameTag.GroupLongName.Substring(1,
+                FileRenameTag.GroupLongName.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagGroupLongName, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (string.IsNullOrEmpty(aniFile?.Anime_GroupName))
@@ -1166,8 +1232,8 @@ public class LegacyRenamer : IRenamer
             #region Test if CRC Lower exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagCRCLower = Constants.FileRenameTag.CRCLower.Substring(1,
-                Constants.FileRenameTag.CRCLower.Length - 1); // remove % at the front
+            var tagCRCLower = FileRenameTag.CRCLower.Substring(1,
+                FileRenameTag.CRCLower.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagCRCLower, StringComparison.InvariantCultureIgnoreCase))
             {
                 var crc = vid.CRC32;
@@ -1185,8 +1251,8 @@ public class LegacyRenamer : IRenamer
             #region Test if CRC Upper exists
 
             // Test if Group Short Name exists - yes it always does
-            var tagCRCUpper = Constants.FileRenameTag.CRCUpper.Substring(1,
-                Constants.FileRenameTag.CRCUpper.Length - 1); // remove % at the front
+            var tagCRCUpper = FileRenameTag.CRCUpper.Substring(1,
+                FileRenameTag.CRCUpper.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagCRCUpper, StringComparison.InvariantCultureIgnoreCase))
             {
                 var crc = vid.CRC32;
@@ -1203,8 +1269,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test file has an audio track
 
-            var tagDubLanguage = Constants.FileRenameTag.DubLanguage.Substring(1,
-                Constants.FileRenameTag.DubLanguage.Length - 1); // remove % at the front
+            var tagDubLanguage = FileRenameTag.DubLanguage.Substring(1,
+                FileRenameTag.DubLanguage.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagDubLanguage, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (aniFile == null || aniFile.Languages.Count == 0)
@@ -1219,8 +1285,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test file has a subtitle track
 
-            var tagSubLanguage = Constants.FileRenameTag.SubLanguage.Substring(1,
-                Constants.FileRenameTag.SubLanguage.Length - 1); // remove % at the front
+            var tagSubLanguage = FileRenameTag.SubLanguage.Substring(1,
+                FileRenameTag.SubLanguage.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagSubLanguage, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (aniFile == null || aniFile.Subtitles.Count == 0)
@@ -1235,8 +1301,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test if Video resolution exists
 
-            var tagVidRes = Constants.FileRenameTag.Resolution.Substring(1,
-                Constants.FileRenameTag.Resolution.Length - 1); // remove % at the front
+            var tagVidRes = FileRenameTag.Resolution.Substring(1,
+                FileRenameTag.Resolution.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagVidRes, StringComparison.InvariantCultureIgnoreCase))
             {
                 var vidRes = string.Empty;
@@ -1258,8 +1324,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test file has a video codec defined
 
-            var tagVideoCodec = Constants.FileRenameTag.VideoCodec.Substring(1,
-                Constants.FileRenameTag.VideoCodec.Length - 1); // remove % at the front
+            var tagVideoCodec = FileRenameTag.VideoCodec.Substring(1,
+                FileRenameTag.VideoCodec.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagVideoCodec, StringComparison.InvariantCultureIgnoreCase))
             {
                 return notCondition;
@@ -1269,8 +1335,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test file has an audio codec defined
 
-            var tagAudioCodec = Constants.FileRenameTag.AudioCodec.Substring(1,
-                Constants.FileRenameTag.AudioCodec.Length - 1); // remove % at the front
+            var tagAudioCodec = FileRenameTag.AudioCodec.Substring(1,
+                FileRenameTag.AudioCodec.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagAudioCodec, StringComparison.InvariantCultureIgnoreCase))
             {
                 return notCondition;
@@ -1280,8 +1346,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test file has Video Bit Depth defined
 
-            var tagVideoBitDepth = Constants.FileRenameTag.VideoBitDepth.Substring(1,
-                Constants.FileRenameTag.VideoBitDepth.Length - 1); // remove % at the front
+            var tagVideoBitDepth = FileRenameTag.VideoBitDepth.Substring(1,
+                FileRenameTag.VideoBitDepth.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagVideoBitDepth, StringComparison.InvariantCultureIgnoreCase))
             {
                 var bitDepthExists = vid?.Media?.VideoStream != null && vid.Media?.VideoStream?.BitDepth != 0;
@@ -1297,8 +1363,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test if censored
 
-            var tagCensored = Constants.FileRenameTag.Censored.Substring(1,
-                Constants.FileRenameTag.Censored.Length - 1); // remove % at the front
+            var tagCensored = FileRenameTag.Censored.Substring(1,
+                FileRenameTag.Censored.Length - 1); // remove % at the front
             if (test.Trim().Equals(tagCensored, StringComparison.InvariantCultureIgnoreCase))
             {
                 var isCensored = false;
@@ -1319,8 +1385,8 @@ public class LegacyRenamer : IRenamer
 
             #region Test if Deprecated
 
-            var tagDeprecated = Constants.FileRenameTag.Deprecated.Substring(1,
-                Constants.FileRenameTag.Deprecated.Length - 1); // remove % at the front
+            var tagDeprecated = FileRenameTag.Deprecated.Substring(1,
+                FileRenameTag.Deprecated.Length - 1); // remove % at the front
             if (!test.Trim().Equals(tagDeprecated, StringComparison.InvariantCultureIgnoreCase))
             {
                 return false;
@@ -1358,27 +1424,25 @@ public class LegacyRenamer : IRenamer
             throw new Exception("*Unable to get import folder");
         }
 
-        var place = RepoFactory.VideoLocalPlace.GetByFilePathAndImportFolderID(
-            args.FileInfo.FilePath.Replace(sourceFolder.ImportFolderLocation, ""), sourceFolder.ImportFolderID);
-        var vid = place?.VideoLocal;
+        var location = args.VideoLocation;
+        var video = args.Video;
         var lines = script.Split(Environment.NewLine.ToCharArray());
 
         var newFileName = string.Empty;
 
-
         var episodes = new List<AniDB_Episode>();
-        SVR_AniDB_Anime anime;
+        AniDB_Anime anime;
 
-        if (vid == null)
+        if (video == null)
         {
             throw new Exception("*Error: Unable to access file");
         }
 
         // get all the data so we don't need to get multiple times
-        var aniFile = vid.GetAniDBFile();
+        var aniFile = video.GetAniDBFile();
         if (aniFile == null)
         {
-            var animeEps = vid.GetAnimeEpisodes();
+            var animeEps = video.GetAnimeEpisodes();
             if (animeEps.Count == 0)
             {
                 throw new Exception("*Error: Unable to get episode for file");
@@ -1425,12 +1489,12 @@ public class LegacyRenamer : IRenamer
 
 
             // check if this line has no tests (applied to all files)
-            if (thisLine.StartsWith(Constants.FileRenameReserved.Do, StringComparison.InvariantCultureIgnoreCase))
+            if (thisLine.StartsWith(FileRenameReserved.Do, StringComparison.InvariantCultureIgnoreCase))
             {
                 var action = GetAction(thisLine);
-                PerformActionOnFileName(ref newFileName, action, vid, aniFile, episodes, anime);
+                PerformActionOnFileName(ref newFileName, action, video, aniFile, episodes, anime);
             }
-            else if (EvaluateTest(thisLine, vid, aniFile, episodes, anime))
+            else if (EvaluateTest(thisLine, video, aniFile, episodes, anime))
             {
                 // if the line has passed the tests, then perform the action
 
@@ -1439,12 +1503,12 @@ public class LegacyRenamer : IRenamer
                 // if the action is fail, we don't want to rename
                 if (action.ToUpper()
                     .Trim()
-                    .Equals(Constants.FileRenameReserved.Fail, StringComparison.InvariantCultureIgnoreCase))
+                    .Equals(FileRenameReserved.Fail, StringComparison.InvariantCultureIgnoreCase))
                 {
                     throw new Exception("*Error: The script called FAIL");
                 }
 
-                PerformActionOnFileName(ref newFileName, action, vid, aniFile, episodes, anime);
+                PerformActionOnFileName(ref newFileName, action, video, aniFile, episodes, anime);
             }
         }
 
@@ -1453,7 +1517,7 @@ public class LegacyRenamer : IRenamer
             throw new Exception("*Error: the new filename is empty (script error)");
         }
 
-        var pathToVid = place.FilePath;
+        var pathToVid = location.FilePath;
         if (string.IsNullOrEmpty(pathToVid))
         {
             throw new Exception("*Error: Unable to get the file's old filename");
@@ -1473,7 +1537,7 @@ public class LegacyRenamer : IRenamer
     }
 
     private static void PerformActionOnFileName(ref string newFileName, string action, SVR_VideoLocal vid,
-        SVR_AniDB_File aniFile, List<AniDB_Episode> episodes, SVR_AniDB_Anime anime)
+        SVR_AniDB_File aniFile, List<AniDB_Episode> episodes, AniDB_Anime anime)
     {
         // find the first test
         var posStart = action.IndexOf(" ", StringComparison.Ordinal);
@@ -1488,13 +1552,13 @@ public class LegacyRenamer : IRenamer
 
         // action is to add the the new file name
         if (actionType.Trim()
-            .Equals(Constants.FileRenameReserved.Add, StringComparison.InvariantCultureIgnoreCase))
+            .Equals(FileRenameReserved.Add, StringComparison.InvariantCultureIgnoreCase))
         {
             PerformActionOnFileNameADD(ref newFileName, parameter, vid, aniFile, episodes, anime);
         }
 
         if (actionType.Trim()
-            .Equals(Constants.FileRenameReserved.Replace, StringComparison.InvariantCultureIgnoreCase))
+            .Equals(FileRenameReserved.Replace, StringComparison.InvariantCultureIgnoreCase))
         {
             PerformActionOnFileNameREPLACE(ref newFileName, parameter);
         }
@@ -1543,65 +1607,65 @@ public class LegacyRenamer : IRenamer
     }
 
     private static void PerformActionOnFileNameADD(ref string newFileName, string action, SVR_VideoLocal vid,
-        SVR_AniDB_File aniFile, List<AniDB_Episode> episodes, SVR_AniDB_Anime anime)
+        SVR_AniDB_File aniFile, List<AniDB_Episode> episodes, AniDB_Anime anime)
     {
         newFileName += action;
         newFileName = newFileName.Replace("'", string.Empty);
 
         #region Anime ID
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.AnimeID.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.AnimeID.ToLower()))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.AnimeID, anime.AnimeID.ToString());
+            newFileName = newFileName.Replace(FileRenameTag.AnimeID, anime.AnimeID.ToString());
         }
 
         #endregion
 
         #region English title
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.AnimeNameEnglish.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.AnimeNameEnglish.ToLower()))
         {
             newFileName = anime.GetTitles()
                 .Where(ti =>
-                    ti.Language == TitleLanguage.English &&
+                    ti.Language == TextLanguage.English &&
                     (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official))
                 .Aggregate(newFileName,
-                    (current, ti) => current.Replace(Constants.FileRenameTag.AnimeNameEnglish, ti.Title));
+                    (current, ti) => current.Replace(FileRenameTag.AnimeNameEnglish, ti.Value));
         }
 
         #endregion
 
         #region Romaji title
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.AnimeNameRomaji.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.AnimeNameRomaji.ToLower()))
         {
             newFileName = anime.GetTitles()
                 .Where(ti =>
-                    ti.Language == TitleLanguage.Romaji &&
+                    ti.Language == TextLanguage.Romaji &&
                     (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official))
                 .Aggregate(newFileName,
-                    (current, ti) => current.Replace(Constants.FileRenameTag.AnimeNameRomaji, ti.Title));
+                    (current, ti) => current.Replace(FileRenameTag.AnimeNameRomaji, ti.Value));
         }
 
         #endregion
 
         #region Kanji title
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.AnimeNameKanji.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.AnimeNameKanji.ToLower()))
         {
             newFileName = anime.GetTitles()
                 .Where(ti =>
-                    ti.Language == TitleLanguage.Japanese &&
+                    ti.Language == TextLanguage.Japanese &&
                     (ti.TitleType == TitleType.Main || ti.TitleType == TitleType.Official))
                 .Aggregate(newFileName,
-                    (current, ti) => current.Replace(Constants.FileRenameTag.AnimeNameKanji, ti.Title));
+                    (current, ti) => current.Replace(FileRenameTag.AnimeNameKanji, ti.Value));
         }
 
         #endregion
 
         #region Episode Number
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.EpisodeNumber.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.EpisodeNumber.ToLower()))
         {
             var prefix = string.Empty;
             int epCount;
@@ -1661,14 +1725,14 @@ public class LegacyRenamer : IRenamer
                                  episodes[episodes.Count - 1].EpisodeNumber.ToString().PadLeft(zeroPadding, '0');
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.EpisodeNumber, episodeNumber);
+            newFileName = newFileName.Replace(FileRenameTag.EpisodeNumber, episodeNumber);
         }
 
         #endregion
 
         #region Episode Number
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.Episodes.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.Episodes.ToLower()))
         {
             int epCount;
 
@@ -1695,50 +1759,50 @@ public class LegacyRenamer : IRenamer
 
             var episodeNumber = epCount.ToString().PadLeft(zeroPadding, '0');
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Episodes, episodeNumber);
+            newFileName = newFileName.Replace(FileRenameTag.Episodes, episodeNumber);
         }
 
         #endregion
 
         #region Episode name (english)
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.EpisodeNameEnglish.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.EpisodeNameEnglish.ToLower()))
         {
             var epname = RepoFactory.AniDB_Episode_Title
-                .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TitleLanguage.English)
-                .FirstOrDefault()?.Title;
+                .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TextLanguage.English)
+                .FirstOrDefault()?.Value;
             var settings = Utils.SettingsProvider.GetSettings();
             if (epname?.Length > settings.LegacyRenamerMaxEpisodeLength)
             {
                 epname = epname.Substring(0, settings.LegacyRenamerMaxEpisodeLength - 1) + "…";
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.EpisodeNameEnglish, epname);
+            newFileName = newFileName.Replace(FileRenameTag.EpisodeNameEnglish, epname);
         }
 
         #endregion
 
         #region Episode name (romaji)
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.EpisodeNameRomaji.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.EpisodeNameRomaji.ToLower()))
         {
             var epname = RepoFactory.AniDB_Episode_Title
-                .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TitleLanguage.Romaji)
-                .FirstOrDefault()?.Title;
+                .GetByEpisodeIDAndLanguage(episodes[0].EpisodeID, TextLanguage.Romaji)
+                .FirstOrDefault()?.Value;
             var settings = Utils.SettingsProvider.GetSettings();
             if (epname?.Length > settings.LegacyRenamerMaxEpisodeLength)
             {
                 epname = epname.Substring(0, settings.LegacyRenamerMaxEpisodeLength - 1) + "…";
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.EpisodeNameRomaji, epname);
+            newFileName = newFileName.Replace(FileRenameTag.EpisodeNameRomaji, epname);
         }
 
         #endregion
 
         #region sub group name (short)
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.GroupShortName.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.GroupShortName.ToLower()))
         {
             var subgroup = aniFile?.Anime_GroupNameShort ?? "Unknown";
             if (subgroup.Equals("raw", StringComparison.InvariantCultureIgnoreCase))
@@ -1746,16 +1810,16 @@ public class LegacyRenamer : IRenamer
                 subgroup = "Unknown";
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.GroupShortName, subgroup);
+            newFileName = newFileName.Replace(FileRenameTag.GroupShortName, subgroup);
         }
 
         #endregion
 
         #region sub group name (long)
 
-        if (action.Trim().ToLower().Contains(Constants.FileRenameTag.GroupLongName.ToLower()))
+        if (action.Trim().ToLower().Contains(FileRenameTag.GroupLongName.ToLower()))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.GroupLongName,
+            newFileName = newFileName.Replace(FileRenameTag.GroupLongName,
                 aniFile?.Anime_GroupName ?? "Unknown");
         }
 
@@ -1763,32 +1827,32 @@ public class LegacyRenamer : IRenamer
 
         #region ED2k hash (upper)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.ED2KUpper))
+        if (action.Trim().Contains(FileRenameTag.ED2KUpper))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.ED2KUpper, vid.Hash.ToUpper());
+            newFileName = newFileName.Replace(FileRenameTag.ED2KUpper, vid.Hash.ToUpper());
         }
 
         #endregion
 
         #region ED2k hash (lower)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.ED2KLower))
+        if (action.Trim().Contains(FileRenameTag.ED2KLower))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.ED2KLower, vid.Hash.ToLower());
+            newFileName = newFileName.Replace(FileRenameTag.ED2KLower, vid.Hash.ToLower());
         }
 
         #endregion
 
         #region CRC (upper)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.CRCUpper))
+        if (action.Trim().Contains(FileRenameTag.CRCUpper))
         {
             var crc = vid.CRC32;
 
             if (!string.IsNullOrEmpty(crc))
             {
                 crc = crc.ToUpper();
-                newFileName = newFileName.Replace(Constants.FileRenameTag.CRCUpper, crc);
+                newFileName = newFileName.Replace(FileRenameTag.CRCUpper, crc);
             }
         }
 
@@ -1796,14 +1860,14 @@ public class LegacyRenamer : IRenamer
 
         #region CRC (lower)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.CRCLower))
+        if (action.Trim().Contains(FileRenameTag.CRCLower))
         {
             var crc = vid.CRC32;
 
             if (!string.IsNullOrEmpty(crc))
             {
                 crc = crc.ToLower();
-                newFileName = newFileName.Replace(Constants.FileRenameTag.CRCLower, crc);
+                newFileName = newFileName.Replace(FileRenameTag.CRCLower, crc);
             }
         }
 
@@ -1811,9 +1875,9 @@ public class LegacyRenamer : IRenamer
 
         #region File Version
 
-        if (action.Trim().Contains(Constants.FileRenameTag.FileVersion))
+        if (action.Trim().Contains(FileRenameTag.FileVersion))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.FileVersion,
+            newFileName = newFileName.Replace(FileRenameTag.FileVersion,
                 aniFile?.FileVersion.ToString() ?? "1");
         }
 
@@ -1821,38 +1885,38 @@ public class LegacyRenamer : IRenamer
 
         #region Audio languages (dub)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.DubLanguage))
+        if (action.Trim().Contains(FileRenameTag.DubLanguage))
         {
             newFileName =
-                newFileName.Replace(Constants.FileRenameTag.DubLanguage, aniFile?.LanguagesRAW ?? string.Empty);
+                newFileName.Replace(FileRenameTag.DubLanguage, aniFile?.LanguagesRAW ?? string.Empty);
         }
 
         #endregion
 
         #region Subtitle languages (sub)
 
-        if (action.Trim().Contains(Constants.FileRenameTag.SubLanguage))
+        if (action.Trim().Contains(FileRenameTag.SubLanguage))
         {
             newFileName =
-                newFileName.Replace(Constants.FileRenameTag.SubLanguage, aniFile?.SubtitlesRAW ?? string.Empty);
+                newFileName.Replace(FileRenameTag.SubLanguage, aniFile?.SubtitlesRAW ?? string.Empty);
         }
 
         #endregion
 
         #region Video Codec
 
-        if (action.Trim().Contains(Constants.FileRenameTag.VideoCodec))
+        if (action.Trim().Contains(FileRenameTag.VideoCodec))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.VideoCodec, vid?.Media?.VideoStream?.CodecID);
+            newFileName = newFileName.Replace(FileRenameTag.VideoCodec, vid?.Media?.VideoStream?.CodecID);
         }
 
         #endregion
 
         #region Audio Codec
 
-        if (action.Trim().Contains(Constants.FileRenameTag.AudioCodec))
+        if (action.Trim().Contains(FileRenameTag.AudioCodec))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.AudioCodec,
+            newFileName = newFileName.Replace(FileRenameTag.AudioCodec,
                 vid?.Media?.AudioStreams.FirstOrDefault()?.CodecID);
         }
 
@@ -1860,9 +1924,9 @@ public class LegacyRenamer : IRenamer
 
         #region Video Bit Depth
 
-        if (action.Trim().Contains(Constants.FileRenameTag.VideoBitDepth))
+        if (action.Trim().Contains(FileRenameTag.VideoBitDepth))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.VideoBitDepth,
+            newFileName = newFileName.Replace(FileRenameTag.VideoBitDepth,
                 (vid?.Media?.VideoStream?.BitDepth).ToString());
         }
 
@@ -1870,25 +1934,25 @@ public class LegacyRenamer : IRenamer
 
         #region Video Source
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Source))
+        if (action.Trim().Contains(FileRenameTag.Source))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Source, aniFile?.File_Source ?? "Unknown");
+            newFileName = newFileName.Replace(FileRenameTag.Source, aniFile?.File_Source ?? "Unknown");
         }
 
         #endregion
 
         #region Anime Type
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Type))
+        if (action.Trim().Contains(FileRenameTag.Type))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Type, anime.GetAnimeTypeRAW());
+            newFileName = newFileName.Replace(FileRenameTag.Type, anime.GetAnimeTypeRAW());
         }
 
         #endregion
 
         #region Video Resolution
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Resolution))
+        if (action.Trim().Contains(FileRenameTag.Resolution))
         {
             var res = string.Empty;
             // try the video info
@@ -1897,14 +1961,14 @@ public class LegacyRenamer : IRenamer
                 res = vid.VideoResolution;
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Resolution, res.Trim());
+            newFileName = newFileName.Replace(FileRenameTag.Resolution, res.Trim());
         }
 
         #endregion
 
         #region Video Height
 
-        if (action.Trim().Contains(Constants.FileRenameTag.VideoHeight))
+        if (action.Trim().Contains(FileRenameTag.VideoHeight))
         {
             var res = string.Empty;
             // try the video info
@@ -1919,27 +1983,27 @@ public class LegacyRenamer : IRenamer
                 res = reses[1];
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.VideoHeight, res);
+            newFileName = newFileName.Replace(FileRenameTag.VideoHeight, res);
         }
 
         #endregion
 
         #region Year
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Year))
+        if (action.Trim().Contains(FileRenameTag.Year))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Year, anime.BeginYear.ToString());
+            newFileName = newFileName.Replace(FileRenameTag.Year, anime.BeginYear.ToString());
         }
 
         #endregion
 
         #region File ID
 
-        if (action.Trim().Contains(Constants.FileRenameTag.FileID))
+        if (action.Trim().Contains(FileRenameTag.FileID))
         {
             if (aniFile != null)
             {
-                newFileName = newFileName.Replace(Constants.FileRenameTag.FileID, aniFile.FileID.ToString());
+                newFileName = newFileName.Replace(FileRenameTag.FileID, aniFile.FileID.ToString());
             }
         }
 
@@ -1947,26 +2011,26 @@ public class LegacyRenamer : IRenamer
 
         #region Episode ID
 
-        if (action.Trim().Contains(Constants.FileRenameTag.EpisodeID))
+        if (action.Trim().Contains(FileRenameTag.EpisodeID))
         {
-            newFileName = newFileName.Replace(Constants.FileRenameTag.EpisodeID, episodes[0].EpisodeID.ToString());
+            newFileName = newFileName.Replace(FileRenameTag.EpisodeID, episodes[0].EpisodeID.ToString());
         }
 
         #endregion
 
         #region Group ID
 
-        if (action.Trim().Contains(Constants.FileRenameTag.GroupID))
+        if (action.Trim().Contains(FileRenameTag.GroupID))
         {
             newFileName =
-                newFileName.Replace(Constants.FileRenameTag.GroupID, aniFile?.GroupID.ToString() ?? "Unknown");
+                newFileName.Replace(FileRenameTag.GroupID, aniFile?.GroupID.ToString() ?? "Unknown");
         }
 
         #endregion
 
         #region Original File Name
 
-        if (action.Trim().Contains(Constants.FileRenameTag.OriginalFileName))
+        if (action.Trim().Contains(FileRenameTag.OriginalFileName))
         {
             // remove the extension first
             if (aniFile != null)
@@ -1974,7 +2038,7 @@ public class LegacyRenamer : IRenamer
                 var ext = Path.GetExtension(aniFile.FileName);
                 var partial = aniFile.FileName.Substring(0, aniFile.FileName.Length - ext.Length);
 
-                newFileName = newFileName.Replace(Constants.FileRenameTag.OriginalFileName, partial);
+                newFileName = newFileName.Replace(FileRenameTag.OriginalFileName, partial);
             }
         }
 
@@ -1982,7 +2046,7 @@ public class LegacyRenamer : IRenamer
 
         #region Censored
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Censored))
+        if (action.Trim().Contains(FileRenameTag.Censored))
         {
             var censored = "cen";
             if (aniFile?.IsCensored ?? false)
@@ -1990,14 +2054,14 @@ public class LegacyRenamer : IRenamer
                 censored = "unc";
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Censored, censored);
+            newFileName = newFileName.Replace(FileRenameTag.Censored, censored);
         }
 
         #endregion
 
         #region Deprecated
 
-        if (action.Trim().Contains(Constants.FileRenameTag.Deprecated))
+        if (action.Trim().Contains(FileRenameTag.Deprecated))
         {
             var depr = "New";
             if (aniFile?.IsDeprecated ?? false)
@@ -2005,7 +2069,7 @@ public class LegacyRenamer : IRenamer
                 depr = "DEPR";
             }
 
-            newFileName = newFileName.Replace(Constants.FileRenameTag.Deprecated, depr);
+            newFileName = newFileName.Replace(FileRenameTag.Deprecated, depr);
         }
 
         #endregion
@@ -2026,7 +2090,7 @@ public class LegacyRenamer : IRenamer
 
     private static bool EvaluateTest(string line, SVR_VideoLocal vid, SVR_AniDB_File aniFile,
         List<AniDB_Episode> episodes,
-        SVR_AniDB_Anime anime)
+        AniDB_Anime anime)
     {
         line = line.Trim();
         // determine if this line has a test
@@ -2118,9 +2182,9 @@ public class LegacyRenamer : IRenamer
         return false;
     }
 
-    private static bool EvaluateTest(char testChar, string testCondition, SVR_VideoLocal vid,
-        SVR_AniDB_File aniFile,
-        List<AniDB_Episode> episodes, SVR_AniDB_Anime anime)
+    private static bool EvaluateTest(char testChar, string testCondition, IShokoVideo vid,
+        IAniDBFile aniFile,
+        List<IEpisodeMetadata> episodes, IShowMetadata anime)
     {
         testCondition = testCondition.Trim();
 
@@ -2169,9 +2233,9 @@ public class LegacyRenamer : IRenamer
         }
     }
 
-    public (SVR_ImportFolder dest, string folder) GetDestinationFolder(MoveEventArgs args)
+    public (IImportFolder dest, string folder) GetDestinationFolder(MoveEventArgs args)
     {
-        SVR_ImportFolder destFolder = null;
+        IImportFolder destFolder = null;
         var settings = Utils.SettingsProvider.GetSettings();
         foreach (var fldr in RepoFactory.ImportFolder.GetAll())
         {
@@ -2192,7 +2256,7 @@ public class LegacyRenamer : IRenamer
 
             // Continue if on a separate drive and there's no space
             if (!settings.Import.SkipDiskSpaceChecks &&
-                !args.FileInfo.FilePath.StartsWith(Path.GetPathRoot(fldr.ImportFolderLocation)))
+                !args.VideoLocation.AbsolutePath.StartsWith(Path.GetPathRoot(fldr.ImportFolderLocation)))
             {
                 var available = 0L;
                 try
@@ -2204,7 +2268,7 @@ public class LegacyRenamer : IRenamer
                     logger.Error(e);
                 }
 
-                if (available < args.FileInfo.FileSize)
+                if (available < args.Video.Size)
                 {
                     continue;
                 }
@@ -2214,7 +2278,7 @@ public class LegacyRenamer : IRenamer
             break;
         }
 
-        var xrefs = args.EpisodeInfo;
+        var xrefs = args.CrossReferences;
         if (xrefs.Count == 0)
         {
             return (null, "No xrefs");
@@ -2227,34 +2291,33 @@ public class LegacyRenamer : IRenamer
         }
 
         // find the series associated with this episode
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+        var series = xref.Series;
         if (series == null)
         {
             return (null, "Series not Found");
         }
 
         // sort the episodes by air date, so that we will move the file to the location of the latest episode
-        var allEps = series.GetAnimeEpisodes()
-            .OrderByDescending(a => a.AniDB_Episode.AirDate)
+        var allEps = series.AllEpisodes
+            .OrderByDescending(a => a.AniDBEpisode.AirDate)
             .ToList();
 
         foreach (var ep in allEps)
         {
             // check if this episode belongs to more than one anime
             // if it does we will ignore it
-            var fileEpXrefs =
-                RepoFactory.CrossRef_File_Episode.GetByEpisodeID(ep.AniDB_EpisodeID);
-            int? animeID = null;
+            var fileEpXrefs = ep.AllCrossReferences;
+            int? seriesID = null;
             var crossOver = false;
             foreach (var fileEpXref in fileEpXrefs)
             {
-                if (!animeID.HasValue)
+                if (!seriesID.HasValue)
                 {
-                    animeID = fileEpXref.AnimeID;
+                    seriesID = fileEpXref.SeriesId;
                 }
                 else
                 {
-                    if (animeID.Value != fileEpXref.AnimeID)
+                    if (seriesID.Value != fileEpXref.SeriesId)
                     {
                         crossOver = true;
                     }
@@ -2266,16 +2329,16 @@ public class LegacyRenamer : IRenamer
                 continue;
             }
 
-            foreach (var vid in ep.GetVideoLocals()
-                         .Where(a => a.Places.Any(b => b.ImportFolder.IsDropSource == 0)).ToList())
+            foreach (var vid in ep.AllVideos
+                         .Where(a => a.AllLocations.Any(b => b.ImportFolder.Type.HasFlag(ImportFolderType.Excluded))).ToList())
             {
-                if (vid.ED2KHash == args.FileInfo.Hashes.ED2K)
+                if (vid.Hashes.ED2K == args.Video.Hashes.ED2K)
                 {
                     continue;
                 }
 
-                var place = vid.Places.FirstOrDefault();
-                var thisFileName = place?.FilePath;
+                var place = vid.AllLocations.FirstOrDefault();
+                var thisFileName = place?.RelativePath;
                 if (thisFileName == null)
                 {
                     continue;
@@ -2290,33 +2353,33 @@ public class LegacyRenamer : IRenamer
                 }
 
                 // check space
-                if (!args.FileInfo.FilePath.StartsWith(Path.GetPathRoot(dstImportFolder.ImportFolderLocation)) &&
+                if (!args.VideoLocation.AbsolutePath.StartsWith(Path.GetPathRoot(dstImportFolder.Path)) &&
                     !settings.Import.SkipDiskSpaceChecks)
                 {
                     var available = 0L;
                     try
                     {
-                        available = new DriveInfo(dstImportFolder.ImportFolderLocation).AvailableFreeSpace;
+                        available = new DriveInfo(dstImportFolder.Path).AvailableFreeSpace;
                     }
                     catch (Exception e)
                     {
                         logger.Error(e);
                     }
 
-                    if (available < vid.FileSize)
+                    if (available < vid.Size)
                     {
                         continue;
                     }
                 }
 
-                if (!Directory.Exists(Path.Combine(place.ImportFolder.ImportFolderLocation, folderName)))
+                if (!Directory.Exists(Path.Combine(place.ImportFolder.Path, folderName)))
                 {
                     continue;
                 }
 
                 // ensure we aren't moving to the current directory
-                if (Path.Combine(place.ImportFolder.ImportFolderLocation, folderName).Equals(
-                        Path.GetDirectoryName(args.FileInfo.FilePath), StringComparison.InvariantCultureIgnoreCase))
+                if (Path.Combine(place.ImportFolder.Path, folderName).Equals(
+                        Path.GetDirectoryName(args.VideoLocation.AbsolutePath), StringComparison.InvariantCultureIgnoreCase))
                 {
                     continue;
                 }
@@ -2332,6 +2395,6 @@ public class LegacyRenamer : IRenamer
             return (null, "Unable to resolve a destination");
         }
 
-        return (destFolder, Utils.ReplaceInvalidFolderNameCharacters(series.GetSeriesName()));
+        return (destFolder, Utils.ReplaceInvalidFolderNameCharacters(series.PreferredTitle.Value));
     }
 }

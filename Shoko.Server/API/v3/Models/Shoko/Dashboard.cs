@@ -4,9 +4,13 @@ using Newtonsoft.Json.Converters;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.Provider;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 using Shoko.Server.API.Converters;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 
 namespace Shoko.Server.API.v3.Models.Shoko;
@@ -46,7 +50,7 @@ public static class Dashboard
         public int WatchedEpisodes { get; set; }
 
         /// <summary>
-        /// Watched Hours, rounded to one place
+        /// Watched Hours, rounded to one decimal.
         /// </summary>
         public decimal WatchedHours { get; set; }
 
@@ -129,29 +133,30 @@ public static class Dashboard
     /// </summary>
     public class EpisodeDetails
     {
-        public EpisodeDetails(AniDB_Episode episode, SVR_AniDB_Anime anime, SVR_AnimeSeries series = null,
-            SVR_VideoLocal file = null, SVR_VideoLocal_User userRecord = null)
+        public EpisodeDetails(IEpisodeMetadata episode, IShowMetadata anime, IShokoSeries series = null,
+            IShokoVideo file = null, Shoko_Video_User userRecord = null)
         {
+            var animeID = int.Parse(anime.Id);
             IDs = new EpisodeDetailsIDs()
             {
-                ID = episode.EpisodeID,
-                Series = anime.AnimeID,
-                ShokoFile = file?.VideoLocalID,
-                ShokoSeries = series?.AnimeSeriesID,
+                ID = int.Parse(episode.Id),
+                Series = animeID,
+                ShokoFile = file?.Id,
+                ShokoSeries = series?.Id,
                 ShokoEpisode = series != null
-                    ? RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(episode.EpisodeID)?.AnimeEpisodeID
+                    ? RepoFactory.Shoko_Episode.GetByAnidbEpisodeId(int.Parse(episode.Id))?.Id
                     : null
             };
-            Title = Episode.GetEpisodeTitle(episode.EpisodeID);
-            Number = episode.EpisodeNumber;
-            Type = Episode.MapAniDBEpisodeType(episode.GetEpisodeTypeEnum());
-            AirDate = episode.GetAirDateAsDate();
-            Duration = file?.DurationTimeSpan ?? new TimeSpan(0, 0, episode.LengthSeconds);
-            ResumePosition = userRecord?.ResumePositionTimeSpan;
-            Watched = userRecord?.WatchedDate;
-            SeriesTitle = series?.GetSeriesName() ?? anime.PreferredTitle;
-            SeriesPoster = Series.GetDefaultImage(anime.AnimeID, ImageSizeType.Poster) ??
-                           Series.GetAniDBPoster(anime.AnimeID);
+            Title = Episode.GetEpisodeTitle(int.Parse(episode.Id));
+            Number = episode.Number;
+            Type = Episode.MapAniDBEpisodeType(episode.Type);
+            AirDate = episode.AirDate;
+            Duration = file?.Duration ?? episode.Duration;
+            ResumePosition = userRecord?.ResumePosition;
+            Watched = userRecord?.LastWatchedAt;
+            SeriesTitle = series?.PreferredTitle ?? anime.PreferredTitle;
+            SeriesPoster = Series.GetDefaultImage(animeID, ImageSizeType.Poster) ??
+                           Series.GetAniDBPoster(animeID);
         }
 
         /// <summary>

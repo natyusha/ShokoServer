@@ -3,7 +3,7 @@ using Shoko.Server.Models;
 
 namespace Shoko.Server.Mappings;
 
-public class AnimeGroupMap : ClassMap<SVR_AnimeGroup>
+public class AnimeGroupMap : ClassMap<ShokoGroup>
 {
     public AnimeGroupMap()
     {

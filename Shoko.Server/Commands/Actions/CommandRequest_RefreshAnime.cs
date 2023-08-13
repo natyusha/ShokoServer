@@ -27,7 +27,7 @@ public class CommandRequest_RefreshAnime : CommandRequestImplementation
 
     protected override void Process()
     {
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
+        AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
     }
 
     public override void GenerateCommandID()

@@ -8,7 +8,7 @@ using Newtonsoft.Json.Converters;
 using NLog;
 using Shoko.Models.PlexAndKodi;
 using Shoko.Models.Server;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Stream = Shoko.Models.PlexAndKodi.Stream;
 
 namespace Shoko.Server.API.v2.Models.common;
@@ -102,7 +102,7 @@ public class RawFile : BaseDirectory
 
         public RecentFile() { }
 
-        public RecentFile(HttpContext ctx, SVR_VideoLocal vl, int level, int uid, AnimeEpisode e = null) : base(ctx,
+        public RecentFile(HttpContext ctx, Shoko_Video vl, int level, int uid, Shoko_Episode e = null) : base(ctx,
             vl, level, uid, e)
         {
         }
@@ -112,7 +112,7 @@ public class RawFile : BaseDirectory
     {
     }
 
-    public RawFile(HttpContext ctx, SVR_VideoLocal vl, int level, int uid, AnimeEpisode e = null)
+    public RawFile(HttpContext ctx, Shoko_Video vl, int level, int uid, Shoko_Episode e = null)
     {
         if (vl == null)
         {
@@ -130,7 +130,7 @@ public class RawFile : BaseDirectory
         updated = vl.DateTimeUpdated;
         duration = vl.Duration;
 
-        var releaseGroup = vl.ReleaseGroup;
+        var releaseGroup = vl.AniDB?.ReleaseGroup;
         if (releaseGroup != null)
         {
             group_full = releaseGroup.GroupName;
@@ -144,9 +144,9 @@ public class RawFile : BaseDirectory
 
         is_ignored = vl.IsIgnored;
         var vl_user = vl.GetUserRecord(uid);
-        offset = vl_user?.ResumePosition ?? 0;
+        offset = vl_user?.RawResumePosition ?? 0;
 
-        var place = vl.GetBestVideoLocalPlace();
+        var place = vl.GetPreferredLocation();
         if (place != null)
         {
             filename = place.FilePath;
@@ -158,7 +158,7 @@ public class RawFile : BaseDirectory
         url = APIV2Helper.ConstructVideoLocalStream(ctx, uid, vl.VideoLocalID.ToString(),
             "file" + Path.GetExtension(filename), false);
 
-        recognized = e != null || vl.EpisodeCrossRefs.Count != 0;
+        recognized = e != null || vl.GetCrossReferences(false).Count != 0;
 
         if (vl.Media?.GeneralStream == null || level < 0)
         {

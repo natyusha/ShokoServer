@@ -2,7 +2,7 @@ using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.API;
@@ -14,7 +14,7 @@ namespace Shoko.Server.API;
 public class BaseController : Controller
 {
     // Override Controller.User to be the SVR_JMMUser, since we'll almost never need HttpContext.User
-    protected new SVR_JMMUser User => HttpContext.GetUser();
+    protected new Shoko_User User => HttpContext.GetUser();
     protected readonly ISettingsProvider SettingsProvider;
     
     public BaseController(ISettingsProvider settingsProvider)

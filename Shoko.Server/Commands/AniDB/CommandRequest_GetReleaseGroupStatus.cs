@@ -43,13 +43,13 @@ public class CommandRequest_GetReleaseGroupStatus : CommandRequestImplementation
         try
         {
             // only get group status if we have an associated series
-            var series = RepoFactory.AnimeSeries.GetByAnimeID(AnimeID);
+            var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(AnimeID);
             if (series == null)
             {
                 return;
             }
 
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
             if (anime == null)
             {
                 return;
@@ -73,7 +73,7 @@ public class CommandRequest_GetReleaseGroupStatus : CommandRequestImplementation
             var maxEpisode = response.Response.Max(a => a.LastEpisodeNumber);
 
             // delete existing records
-            RepoFactory.AniDB_GroupStatus.DeleteForAnime(AnimeID);
+            RepoFactory.AniDB_Anime_ReleaseGroup_Status.DeleteForAnime(AnimeID);
 
             // save the records
             var toSave = response.Response.Select(
@@ -89,7 +89,7 @@ public class CommandRequest_GetReleaseGroupStatus : CommandRequestImplementation
                     EpisodeRange = string.Join(',', raw.ReleasedEpisodes)
                 }
             ).ToArray();
-            RepoFactory.AniDB_GroupStatus.Save(toSave);
+            RepoFactory.AniDB_Anime_ReleaseGroup_Status.Save(toSave);
 
             var settings = _settingsProvider.GetSettings();
             if (maxEpisode > 0)
@@ -130,7 +130,7 @@ public class CommandRequest_GetReleaseGroupStatus : CommandRequestImplementation
         }
     }
 
-    private bool ShouldSkip(SVR_AniDB_Anime anime)
+    private bool ShouldSkip(AniDB_Anime anime)
     {
         if (ForceRefresh)
         {
@@ -154,7 +154,7 @@ public class CommandRequest_GetReleaseGroupStatus : CommandRequestImplementation
         }
 
         // don't skip if we have never downloaded this info before
-        var grpStatuses = RepoFactory.AniDB_GroupStatus.GetByAnimeID(AnimeID);
+        var grpStatuses = RepoFactory.AniDB_Anime_ReleaseGroup_Status.GetByAnimeID(AnimeID);
         return grpStatuses is { Count: > 0 };
     }
 

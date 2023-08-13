@@ -26,9 +26,9 @@ internal class ContractExtractor
     {
         ContractExtractors.Add("AniDB_Anime", (sw, za) =>
         {
-            ExtractContracts<SVR_AniDB_Anime, CL_AniDB_AnimeDetailed>(sw, za, pb =>
+            ExtractContracts<AniDB_Anime, CL_AniDB_AnimeDetailed>(sw, za, pb =>
             {
-                pb.Select(CreateEntryNameProjection<SVR_AniDB_Anime>("AniDB_Anime\\a", a => a.AnimeID));
+                pb.Select(CreateEntryNameProjection<AniDB_Anime>("AniDB_Anime\\a", a => a.AnimeID));
                 pb.Select(s => s.ContractSize);
                 pb.Select(s => s.ContractBlob);
                 return pb;
@@ -36,9 +36,9 @@ internal class ContractExtractor
         });
         ContractExtractors.Add("AnimeGroup", (sw, za) =>
         {
-            ExtractContracts<SVR_AnimeGroup, CL_AnimeGroup_User>(sw, za, pb =>
+            ExtractContracts<ShokoGroup, CL_AnimeGroup_User>(sw, za, pb =>
             {
-                pb.Select(CreateEntryNameProjection<SVR_AnimeGroup>("AnimeGroup\\g", a => a.AnimeGroupID));
+                pb.Select(CreateEntryNameProjection<ShokoGroup>("AnimeGroup\\g", a => a.AnimeGroupID));
                 pb.Select(s => s.ContractSize);
                 pb.Select(s => s.ContractBlob);
                 return pb;
@@ -46,9 +46,9 @@ internal class ContractExtractor
         });
         ContractExtractors.Add("AnimeSeries", (sw, za) =>
         {
-            ExtractContracts<SVR_AnimeSeries, CL_AnimeSeries_User>(sw, za, pb =>
+            ExtractContracts<ShokoSeries, CL_AnimeSeries_User>(sw, za, pb =>
             {
-                pb.Select(CreateEntryNameProjection<SVR_AnimeSeries>("AnimeSeries\\g", a => a.AnimeGroupID, "_s",
+                pb.Select(CreateEntryNameProjection<ShokoSeries>("AnimeSeries\\g", a => a.AnimeGroupID, "_s",
                     a => a.AnimeSeriesID));
                 pb.Select(s => s.ContractSize);
                 pb.Select(s => s.ContractBlob);

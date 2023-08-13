@@ -6,12 +6,18 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.AniDB;
+using Shoko.Plugin.Abstractions.Models.Shoko;
 using Shoko.Server.API.Converters;
 using Shoko.Server.API.v3.Models.Common;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 
+using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+
+#nullable enable
 namespace Shoko.Server.API.v3.Models.Shoko;
 
 public class File
@@ -22,12 +28,20 @@ public class File
     public int ID { get; set; }
 
     /// <summary>
-    /// The Cross Reference Models for every episode this file belongs to, created in a reverse tree and
-    /// transformed back into a tree. Series -> Episode such that only episodes that this file is linked to are
-    /// shown. In many cases, this will have arrays of 1 item
+    /// The v1 cross-references where every episode this file belongs to is
+    /// added in a reverse tree where we go from the series then episodes.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-    public List<SeriesCrossReference> SeriesIDs { get; set; }
+    public IReadOnlyList<SeriesCrossReference>? SeriesIDs { get; set; }
+
+    /// <summary>
+    /// The v2 cross-references where everything is flat. Also contains more
+    /// cross-reference related metadata such as the ordering, percentage,
+    /// release group (if any) and source.
+    /// </summary>
+    /// <value></value>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public IReadOnlyList<FileCrossReference>? CrossReferences { get; set; }
 
     /// <summary>
     /// The Filesize in bytes
@@ -43,12 +57,12 @@ public class File
     /// The calculated hashes of the file
     /// </summary>
     /// <returns></returns>
-    public Hashes Hashes { get; set; }
+    public IHashes Hashes { get; set; }
 
     /// <summary>
     /// All of the Locations that this file exists in
     /// </summary>
-    public List<Location> Locations { get; set; }
+    public IReadOnlyList<Location> Locations { get; set; }
 
     /// <summary>
     /// Try to fit this file's resolution to something like 1080p, 480p, etc
@@ -89,81 +103,82 @@ public class File
     [JsonConverter(typeof(IsoDateTimeConverter))]
     public DateTime Updated { get; set; }
 
-    public File() { }
-
     /// <summary>
     /// The <see cref="File.AniDB"/>, if <see cref="DataSource.AniDB"/> is
     /// included in the data to add.
     /// </summary>
     [JsonProperty("AniDB", NullValueHandling = NullValueHandling.Ignore)]
-    public AniDB _AniDB { get; set; }
+    public AniDB? AniDBFile { get; set; }
 
     /// <summary>
     /// The <see cref="MediaInfo"/>, if to-be included in the response data.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-    public MediaInfo MediaInfo { get; set; }
+    public MediaInfo? MediaInfo { get; set; }
 
-    public File(HttpContext context, SVR_VideoLocal file, bool withXRefs = false, HashSet<DataSource> includeDataFrom = null, bool includeMediaInfo = false)
+    public File(HttpContext context, IShokoVideo file, IncludeVideoXRefs withXRefs = IncludeVideoXRefs.False, HashSet<DataSource>? includeDataFrom = null, bool includeMediaInfo = false) :
+        // TODO: Replace this cast once user data is added to the abstraction.
+        this((file as Shoko_Video)!.GetUserRecord(context?.GetUser()?.Id ?? 0), file, withXRefs, includeDataFrom, includeMediaInfo)
+    { }
+
+    public File(Shoko_Video_User? userRecord, IShokoVideo file, IncludeVideoXRefs withXRefs = IncludeVideoXRefs.False, HashSet<DataSource>? includeDataFrom = null, bool includeMediaInfo = false)
     {
-        var userID = context?.GetUser()?.JMMUserID ?? 0;
-        var userRecord = file.GetUserRecord(userID);
-        ID = file.VideoLocalID;
-        Size = file.FileSize;
-        IsVariation = file.IsVariation == 1;
-        Hashes = new Hashes { ED2K = file.Hash, MD5 = file.MD5, CRC32 = file.CRC32, SHA1 = file.SHA1 };
-        Resolution = FileQualityFilter.GetResolution(file);
-        Locations = file.Places.Select(a => new Location
+        var hashes = file.Hashes;
+        ID = file.Id;
+        Size = file.Size;
+        IsVariation = file.IsVariation;
+        Hashes = hashes;
+        Resolution = file.Resolution;
+        Locations = file.AllLocations
+            .Select(a => new Location(a))
+            .ToList();
+        Duration = file.Duration;
+        ResumePosition = userRecord?.ResumePosition;
+        Watched = userRecord?.LastWatchedAt;
+        Imported = file.LastImportedAt;
+        Created = file.CreatedAt;
+        Updated = file.LastUpdatedAt;
+        switch (withXRefs)
         {
-            ImportFolderID = a.ImportFolderID, RelativePath = a.FilePath, IsAccessible = a.GetFile() != null
-        }).ToList();
-        Duration = file.DurationTimeSpan;
-        ResumePosition = userRecord?.ResumePositionTimeSpan;
-        Watched = userRecord?.WatchedDate;
-        Imported = file.DateTimeImported;
-        Created = file.DateTimeCreated;
-        Updated = file.DateTimeUpdated;
-        if (withXRefs)
-        {
-            var episodes = file.GetAnimeEpisodes();
-            if (episodes.Count == 0) return;
-            SeriesIDs = episodes
-                .GroupBy(episode => episode.AnimeSeriesID, episode => new CrossReferenceIDs
+            case IncludeVideoXRefs.V1:
                 {
-                    ID = episode.AnimeEpisodeID,
-                    AniDB = episode.AniDB_EpisodeID,
-                    TvDB = episode.TvDBEpisodes.Select(b => b.Id).ToList(),
-                })
-                .Select(tuples =>
-                {
-                    var series = RepoFactory.AnimeSeries.GetByID(tuples.Key);
-                    if (series == null)
-                    {
-                        return new SeriesCrossReference
+                    var episodes = file.AllEpisodes;
+                    if (episodes.Count == 0)
+                        break;
+                    var seriesDict = file.AllSeries.ToDictionary(series => series.Id);
+                    SeriesIDs = episodes
+                        .GroupBy(episode => episode.SeriesId, episode => new EpisodeIDs(episode))
+                        .Select(tuples =>
                         {
-                            EpisodeIDs = tuples.ToList(),
-                        };
-                    }
+                            if (seriesDict.TryGetValue(tuples.Key, out var series))
+                            {
+                                return new SeriesCrossReference
+                                {
+                                    SeriesID = new(series),
+                                    EpisodeIDs = tuples.ToList(),
+                                };
+                            }
 
-                    return new SeriesCrossReference
-                    {
-                        SeriesID = new CrossReferenceIDs
-                        {
-                            ID = series.AnimeSeriesID,
-                            AniDB = series.AniDB_ID,
-                            TvDB = series.GetTvDBSeries().Select(b => b.SeriesID).ToList(),
-                        },
-                        EpisodeIDs = tuples.ToList(),
-                    };
-                })
-                .ToList();
+                            return new SeriesCrossReference
+                            {
+                                EpisodeIDs = tuples.ToList(),
+                            };
+                        })
+                        .ToList();
+                    break;
+                }
+            case IncludeVideoXRefs.V2:
+                CrossReferences = file.AllCrossReferences
+                    .Select(xref => new FileCrossReference(xref))
+                    .ToList();
+                break;
         }
 
         if (includeDataFrom?.Contains(DataSource.AniDB) ?? false)
         {
-            var anidbFile = file.GetAniDBFile();
+            var anidbFile = file.AnidbFile;
             if (anidbFile != null)
-                this._AniDB = new File.AniDB(anidbFile);
+                this.AniDBFile = new File.AniDB(anidbFile);
         }
 
         if (includeMediaInfo)
@@ -171,27 +186,46 @@ public class File
             var mediaContainer = file?.Media;
             if (mediaContainer == null)
                 throw new Exception("Unable to find media container for File");
-            MediaInfo = new MediaInfo(file, mediaContainer);
+            MediaInfo = new MediaInfo(mediaContainer);
         }
     }
 
     public class Location
     {
         /// <summary>
-        /// The Import Folder that this file resides in 
+        /// Shoko file location id.
         /// </summary>
-        public int ImportFolderID { get; set; }
+        public int ID { get; }
 
         /// <summary>
-        /// The relative path from the import folder's path on the server. The Filename can be easily extracted from this. Using the ImportFolder, you can get the full server path of the file or map it if the client has remote access to the filesystem. 
+        /// Shoko file id.
         /// </summary>
-        public string RelativePath { get; set; }
+        public int FileID { get; }
+
+        /// <summary>
+        /// The Import Folder that this file resides in.
+        /// </summary>
+        public int ImportFolderID { get; }
+
+        /// <summary>
+        /// The relative path from the import folder's path on the server.
+        /// </summary>
+        public string RelativePath { get; }
 
         /// <summary>
         /// Can the server access the file right now
         /// </summary>
         [JsonRequired]
-        public bool IsAccessible { get; set; }
+        public bool IsAccessible { get; }
+
+        public Location(IShokoVideoLocation location)
+        {
+            ID = location.Id;
+            FileID = location.VideoId;
+            ImportFolderID = location.ImportFolderId;
+            RelativePath = location.RelativePath;
+            IsAccessible = location.IsAccessible;
+        }
     }
 
     /// <summary>
@@ -199,29 +233,6 @@ public class File
     /// </summary>
     public class AniDB
     {
-        public AniDB(SVR_AniDB_File anidb)
-        {
-            ID = anidb.FileID;
-            Source = ParseFileSource(anidb.File_Source);
-            ReleaseGroup = new AniDBReleaseGroup
-            {
-                ID = anidb.GroupID, Name = anidb.Anime_GroupName, ShortName = anidb.Anime_GroupNameShort
-            };
-            ReleaseDate = anidb.File_ReleaseDate == 0
-                ? null
-                : Commons.Utils.AniDB.GetAniDBDateAsDate(anidb.File_ReleaseDate);
-            Version = anidb.FileVersion;
-            IsDeprecated = anidb.IsDeprecated;
-            IsCensored = anidb.IsCensored ?? false;
-            Chaptered = anidb.IsChaptered;
-            OriginalFileName = anidb.FileName;
-            FileSize = anidb.FileSize;
-            Description = anidb.File_Description;
-            Updated = anidb.DateTimeUpdated;
-            AudioLanguages = anidb.Languages.Select(a => a.LanguageName).ToList();
-            SubLanguages = anidb.Subtitles.Select(a => a.LanguageName).ToList();
-        }
-
         /// <summary>
         /// The AniDB File ID
         /// </summary>
@@ -235,7 +246,7 @@ public class File
         /// <summary>
         /// The Release Group. This is usually set, but sometimes is set as "raw/unknown"
         /// </summary>
-        public AniDBReleaseGroup ReleaseGroup { get; set; }
+        public ReleaseGroup? ReleaseGroup { get; set; }
 
         /// <summary>
         /// The file's release date. This is probably not filled in
@@ -259,6 +270,12 @@ public class File
         public bool? IsCensored { get; set; }
 
         /// <summary>
+        /// Does the file have chapters. This may be wrong, since it was only
+        /// added in AVDump2 (a more recent version at that).
+        /// </summary>
+        public bool IsChaptered { get; set; }
+
+        /// <summary>
         /// The original FileName. Useful for when you obtained from a shady source or when you renamed it without thinking. 
         /// </summary>
         public string OriginalFileName { get; set; }
@@ -279,19 +296,14 @@ public class File
         public string Description { get; set; }
 
         /// <summary>
-        /// The audio languages
+        /// Audio languages.
         /// </summary>
-        public List<string> AudioLanguages { get; set; }
+        public IReadOnlyList<TextLanguage> AudioLanguages { get; set; }
 
         /// <summary>
-        /// Sub languages
+        /// Subtitle languages.
         /// </summary>
-        public List<string> SubLanguages { get; set; }
-
-        /// <summary>
-        /// Does the file have chapters. This may be wrong, since it was only added in AVDump2 (a more recent version at that)
-        /// </summary>
-        public bool Chaptered { get; set; }
+        public IReadOnlyList<TextLanguage> SubLanguages { get; set; }
 
         /// <summary>
         /// When we last got data on this file
@@ -299,41 +311,25 @@ public class File
         [JsonConverter(typeof(IsoDateTimeConverter))]
         public DateTime Updated { get; set; }
 
-        public class AniDBReleaseGroup
+        public AniDB(IAniDBFile anidb)
         {
-            /// <summary>
-            /// The Release Group's Name (Unlimited Translation Works)
-            /// </summary>
-            public string Name { get; set; }
-
-            /// <summary>
-            /// The Release Group's Name (UTW)
-            /// </summary>
-            public string ShortName { get; set; }
-
-            /// <summary>
-            /// AniDB ID
-            /// </summary>
-            public int ID { get; set; }
+            var releaseGroup = anidb.ReleaseGroup;
+            var mediaInfo = anidb.Media;
+            ID = anidb.Id;
+            Source = anidb.Source;
+            ReleaseGroup = releaseGroup != null ? new ReleaseGroup(releaseGroup) : null;
+            ReleaseDate = anidb.ReleasedAt;
+            Version = anidb.FileVersion;
+            IsDeprecated = anidb.IsDeprecated;
+            IsCensored = anidb.IsCensored;
+            IsChaptered = anidb.IsChaptered;
+            OriginalFileName = anidb.OriginalFileName;
+            FileSize = anidb.FileSize;
+            Description = anidb.Comment;
+            Updated = anidb.LastUpdatedAt;
+            AudioLanguages = mediaInfo?.AudioLanguages ?? new List<TextLanguage>();
+            SubLanguages = mediaInfo?.SubtitleLanguages ?? new List<TextLanguage>();
         }
-    }
-
-    public class CrossReferenceIDs
-    {
-        /// <summary>
-        /// The Shoko ID
-        /// /// </summary>
-        public int ID { get; set; }
-
-        /// <summary>
-        /// Any AniDB ID linked to this object
-        /// </summary>
-        public int AniDB { get; set; }
-
-        /// <summary>
-        /// Any TvDB IDs linked to this object
-        /// </summary>
-        public List<int> TvDB { get; set; }
     }
 
     public class SeriesCrossReference
@@ -341,12 +337,85 @@ public class File
         /// <summary>
         /// The Series IDs
         /// </summary>
-        public CrossReferenceIDs SeriesID { get; set; }
+        public SeriesIDs? SeriesID { get; set; }
 
         /// <summary>
         /// The Episode IDs
         /// </summary>
-        public List<CrossReferenceIDs> EpisodeIDs { get; set; }
+        public List<EpisodeIDs>? EpisodeIDs { get; set; }
+    }
+
+    public class FileCrossReference
+    {
+        /// <summary>
+        /// File/episode cross-reference id.
+        /// </summary>
+        public int ID { get; }
+
+        /// <summary>
+        /// The shoko video id.
+        /// </summary>
+        public int FileID { get; }
+
+        /// <summary>
+        /// The shoko episode id.
+        /// </summary>
+        public int EpisodeID { get; }
+
+        /// <summary>
+        /// The anidb episode id.
+        /// </summary>
+        public int AniDBEpisodeID { get; }
+
+        /// <summary>
+        /// The shoko series id.
+        /// </summary>
+        public int SeriesID { get; }
+
+        /// <summary>
+        /// The anidb anime id.
+        /// </summary>
+        public int AniDBAnimeID { get; }
+
+        /// <summary>
+        /// The ordering index for this cross-reference relative to the other
+        /// cross-references linked to the file.
+        /// </summary>
+        /// <value></value>
+        public int Order { get; }
+
+        /// <summary>
+        /// If the file is linked to multiple episodes, then this percentage
+        /// tells us how muc
+        /// </summary>
+        public decimal Percentage { get; }
+
+        /// <summary>
+        /// The release group assosiated with this cross-reference.
+        /// </summary>
+        /// <value></value>
+        public ReleaseGroup? ReleaseGroup { get; }
+
+        /// <summary>
+        /// The source of the cross-reference.
+        /// </summary>
+        public DataSource Source { get; }
+
+        public FileCrossReference(IShokoVideoCrossReference xref)
+        {
+            var releaseGroup = xref.ReleaseGroup;
+
+            ID = xref.Id;
+            FileID = xref.VideoId;
+            EpisodeID = xref.EpisodeId;
+            AniDBEpisodeID = xref.AnidbEpisodeId;
+            SeriesID = xref.SeriesId;
+            AniDBAnimeID = xref.AnidbAnimeId;
+            Order = xref.Order;
+            Percentage = xref.Percentage;
+            ReleaseGroup = releaseGroup is not null ? new ReleaseGroup(releaseGroup) : null;
+            Source = (DataSource)xref.DataSource;
+        }
     }
 
     /// <summary>
@@ -362,33 +431,23 @@ public class File
             LastUpdatedAt = DateTime.Now;
         }
 
-        public FileUserStats(SVR_VideoLocal_User userStats)
+        public FileUserStats(Shoko_Video_User userStats)
         {
-            ResumePosition = userStats.ResumePositionTimeSpan;
+            ResumePosition = userStats.ResumePosition;
             WatchedCount = userStats.WatchedCount;
-            LastWatchedAt = userStats.WatchedDate;
-            LastUpdatedAt = userStats.LastUpdated;
+            LastWatchedAt = userStats.LastWatchedAt;
+            LastUpdatedAt = userStats.LastUpdatedAt;
         }
 
-        public FileUserStats MergeWithExisting(SVR_VideoLocal_User existing, SVR_VideoLocal file = null)
+        public FileUserStats MergeWithExisting(Shoko_Video_User existing, Shoko_Video file)
         {
-            // Get the file assosiated with the user entry.
-            if (file == null)
-            {
-                file = existing.GetVideoLocal();
-            }
-
-            // Update the last updated field. It's needed for calculating the correct series user stats after setting the watch state.
-            existing.LastUpdated = LastUpdatedAt;
-            RepoFactory.VideoLocalUser.Save(existing);
-
             // Sync the watch date and aggregate the data up to the episode if needed.
-            file.ToggleWatchedStatus(LastWatchedAt.HasValue, true, LastWatchedAt, true, existing.JMMUserID, true, true);
+            file.ToggleWatchedStatus(LastWatchedAt.HasValue, true, LastWatchedAt, true, existing.UserId, true, true, LastUpdatedAt);
 
             // Update the rest of the data. The watch count have been bumped when toggling the watch state, so set it to it's intended value.
             existing.WatchedCount = WatchedCount;
-            existing.ResumePositionTimeSpan = ResumePosition;
-            RepoFactory.VideoLocalUser.Save(existing);
+            existing.ResumePosition = ResumePosition;
+            RepoFactory.Shoko_Video_User.Save(existing);
 
             // Return a new representation
             return new FileUserStats(existing);
@@ -433,7 +492,7 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public int[] episodeIDs { get; set; }
+            public int[] episodeIDs { get; set; } = new int[] { };
         }
 
         /// <summary>
@@ -446,7 +505,7 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public int[] fileIDs { get; set; }
+            public int[] fileIDs { get; set; } = new int[] { };
 
             /// <summary>
             /// The episode identifier.
@@ -473,14 +532,14 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public string rangeStart { get; set; }
+            public string rangeStart { get; set; } = string.Empty;
 
             /// <summary>
             /// The end of the range of episodes to link to the file. The prefix used should be the same as in <see cref="rangeStart"/>.
             /// </summary>
             /// <value></value>
             [Required]
-            public string rangeEnd { get; set; }
+            public string rangeEnd { get; set; } = string.Empty;
         }
 
         /// <summary>
@@ -493,7 +552,7 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public int[] fileIDs { get; set; }
+            public int[] fileIDs { get; set; } = new int[] { };
 
             /// <summary>
             /// The series identifier.
@@ -507,7 +566,7 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public string rangeStart { get; set; }
+            public string rangeStart { get; set; } = string.Empty;
 
             /// <summary>
             /// If true then files will be linked to a single episode instead of a range spanning the amount of files to add.
@@ -527,7 +586,7 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public int[] episodeIDs { get; set; }
+            public int[] episodeIDs { get; set; } = new int[] { };
         }
 
         /// <summary>
@@ -540,50 +599,91 @@ public class File
             /// </summary>
             /// <value></value>
             [Required]
-            public int[] fileIDs { get; set; }
+            public int[] fileIDs { get; set; } = new int[] { };
         }
     }
-
-    public static FileSource ParseFileSource(string source)
+    public enum FileSortCriteria
     {
-        if (string.IsNullOrEmpty(source))
+        None = 0,
+        ImportFolderName = 1,
+        ImportFolderID = 2,
+        AbsolutePath = 3,
+        RelativePath = 4,
+        FileSize = 5,
+        DuplicateCount = 6,
+        CreatedAt = 7,
+        ImportedAt = 8,
+        ViewedAt = 9,
+        WatchedAt = 10,
+        ED2K = 11,
+        MD5 = 12,
+        SHA1 = 13,
+        CRC32 = 14,
+        FileName = 15,
+        FileID = 16,
+    }
+
+#pragma warning disable 8603
+    private static Func<(IShokoVideo Video, IShokoVideoLocation Location, IReadOnlyList<IShokoVideoLocation> Locations, Shoko_Video_User? UserRecord), object?> GetOrderFunction(FileSortCriteria criteria, bool isInverted) =>
+        criteria switch
         {
-            return FileSource.Unknown;
+            FileSortCriteria.ImportFolderName => (tuple) => tuple.Location?.ImportFolder?.Name ?? string.Empty,
+            FileSortCriteria.ImportFolderID => (tuple) => tuple.Location?.ImportFolderId,
+            FileSortCriteria.AbsolutePath => (tuple) => tuple.Location?.AbsolutePath,
+            FileSortCriteria.RelativePath => (tuple) => tuple.Location?.RelativePath,
+            FileSortCriteria.FileSize => (tuple) => tuple.Video.Size,
+            FileSortCriteria.FileName => (tuple) => tuple.Location?.FileName,
+            FileSortCriteria.FileID => (tuple) => tuple.Video.Id,
+            FileSortCriteria.DuplicateCount => (tuple) => tuple.Locations.Count,
+            FileSortCriteria.CreatedAt => (tuple) => tuple.Video.CreatedAt,
+            FileSortCriteria.ImportedAt => isInverted ? (tuple) => tuple.Video.LastImportedAt ?? DateTime.MinValue : (tuple) => tuple.Video.LastImportedAt ?? DateTime.MaxValue,
+            FileSortCriteria.ViewedAt => isInverted ? (tuple) => tuple.UserRecord?.LastUpdatedAt ?? DateTime.MinValue : (tuple) => tuple.UserRecord?.LastUpdatedAt ?? DateTime.MaxValue,
+            FileSortCriteria.WatchedAt => isInverted ? (tuple) => tuple.UserRecord?.LastWatchedAt ?? DateTime.MinValue : (tuple) => tuple.UserRecord?.LastWatchedAt ?? DateTime.MaxValue,
+            FileSortCriteria.ED2K => (tuple) => tuple.Video.Hashes.ED2K,
+            FileSortCriteria.MD5 => (tuple) => tuple.Video.Hashes.MD5,
+            FileSortCriteria.SHA1 => (tuple) => tuple.Video.Hashes.SHA1,
+            FileSortCriteria.CRC32 => (tuple) => tuple.Video.Hashes.CRC32,
+            _ => null,
+        };
+#pragma warning restore 8603
+
+    public static IEnumerable<(IShokoVideo, IShokoVideoLocation, IReadOnlyList<IShokoVideoLocation>, Shoko_Video_User?)> OrderBy(IEnumerable<(IShokoVideo, IShokoVideoLocation, IReadOnlyList<IShokoVideoLocation>, Shoko_Video_User?)> enumerable, List<string> sortCriterias)
+    {
+        bool first = true;
+        return sortCriterias.Aggregate(enumerable, (current, rawSortCriteria) =>
+        {
+            // Any unrecognised criterias are ignored.
+            var (sortCriteria, isInverted) = ParseSortCriteria(rawSortCriteria);
+            var orderFunc = GetOrderFunction(sortCriteria, isInverted);
+            if (orderFunc == null)
+                return current;
+
+            // First criteria in the list.
+            if (first)
+            {
+                first = false;
+                return isInverted ? enumerable.OrderByDescending(orderFunc) : enumerable.OrderBy(orderFunc);
+            }
+
+            // All other criterias in the list.
+            var ordered = (current as IOrderedEnumerable<(IShokoVideo, IShokoVideoLocation, IReadOnlyList<IShokoVideoLocation>, Shoko_Video_User?)>)!;
+            return isInverted ? ordered.ThenByDescending(orderFunc) : ordered.ThenBy(orderFunc);
+        });
+    }
+
+    private static (FileSortCriteria criteria, bool isInverted) ParseSortCriteria(string input)
+    {
+        var isInverted = false;
+        if (input[0] == '-')
+        {
+            isInverted = true;
+            input = input[1..];
         }
 
-        return source.Replace("-", "").ToLower() switch
-        {
-            "tv" => FileSource.TV,
-            "dtv" => FileSource.TV,
-            "hdtv" => FileSource.TV,
-            "dvd" => FileSource.DVD,
-            "hkdvd" => FileSource.DVD,
-            "hddvd" => FileSource.DVD,
-            "bluray" => FileSource.BluRay,
-            "www" => FileSource.Web,
-            "web" => FileSource.Web,
-            "vhs" => FileSource.VHS,
-            "vcd" => FileSource.VCD,
-            "svcd" => FileSource.VCD,
-            "ld" => FileSource.LaserDisc,
-            "laserdisc" => FileSource.LaserDisc,
-            "camcorder" => FileSource.Camera,
-            _ => FileSource.Unknown
-        };
+        if (!Enum.TryParse<FileSortCriteria>(input, ignoreCase: true, out var sortCriteria))
+            sortCriteria = FileSortCriteria.None;
+
+        return (sortCriteria, isInverted);
     }
 }
 
-[JsonConverter(typeof(StringEnumConverter))]
-public enum FileSource
-{
-    Unknown = 0,
-    Other = 1,
-    TV = 2,
-    DVD = 3,
-    BluRay = 4,
-    Web = 5,
-    VHS = 6,
-    VCD = 7,
-    LaserDisc = 8,
-    Camera = 9
-}

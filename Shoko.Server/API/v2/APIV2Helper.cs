@@ -126,7 +126,7 @@ public class APIV2Helper
 
     #endregion
 
-    public static Filter FilterFromGroupFilter(HttpContext ctx, SVR_GroupFilter gg, int uid)
+    public static Filter FilterFromGroupFilter(HttpContext ctx, GroupFilter gg, int uid)
     {
         var ob = new Filter
         {
@@ -142,7 +142,7 @@ public class APIV2Helper
 
                 foreach (var grp in groups)
                 {
-                    var ag = RepoFactory.AnimeGroup.GetByID(grp);
+                    var ag = RepoFactory.Shoko_Group.GetByID(grp);
                     var v = ag.GetPlexContract(uid);
                     if (v?.Art != null && v.Thumb != null)
                     {
@@ -157,7 +157,7 @@ public class APIV2Helper
         return ob;
     }
 
-    public static Filter FilterFromAnimeGroup(HttpContext ctx, SVR_AnimeGroup grp, int uid)
+    public static Filter FilterFromAnimeGroup(HttpContext ctx, ShokoGroup grp, int uid)
     {
         var ob = new Filter
         {
@@ -167,7 +167,7 @@ public class APIV2Helper
             size = -1,
             viewed = -1
         };
-        foreach (var ser in grp.GetSeries().Randomize())
+        foreach (var ser in grp.Series.Randomize())
         {
             var anim = ser.GetAnime();
             if (anim != null)

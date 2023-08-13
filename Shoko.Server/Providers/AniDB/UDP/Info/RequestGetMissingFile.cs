@@ -261,7 +261,7 @@ public class RequestGetMissingFile : UDPRequest<ResponseGetFile>
     {
         // Putting this here for no chance of error. It is ALWAYS created or updated when AniDB is called!
         var file = new AniDB_FileUpdate { FileSize = fileSize, Hash = hash, HasResponse = hasResponse, UpdatedAt = DateTime.Now };
-        RepoFactory.AniDB_FileUpdate.Save(file);
+        RepoFactory.AniDB_File_Update.Save(file);
     }
 
     private static GetFile_Quality ParseQuality(string qualityString)

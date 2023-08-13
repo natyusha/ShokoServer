@@ -66,7 +66,7 @@ public class ImageDownloadRequest
             AniDB_Seiyuu creator => creator.GetPosterPath(),
             MovieDB_Fanart image => image.GetFullImagePath(),
             MovieDB_Poster image => image.GetFullImagePath(),
-            SVR_AniDB_Anime anime => anime.PosterPath,
+            AniDB_Anime anime => anime.PosterPath,
             TvDB_Episode episode => episode.GetFullImagePath(),
             TvDB_ImageFanart image => image.GetFullImagePath(),
             TvDB_ImagePoster image => image.GetFullImagePath(),
@@ -83,7 +83,7 @@ public class ImageDownloadRequest
             AniDB_Seiyuu creator => string.Format(ImageServerUrl, creator.PicName),
             MovieDB_Fanart movieFanart => string.Format(Constants.URLS.MovieDB_Images, movieFanart.URL),
             MovieDB_Poster moviePoster => string.Format(Constants.URLS.MovieDB_Images, moviePoster.URL),
-            SVR_AniDB_Anime anime => string.Format(ImageServerUrl, anime.Picname),
+            AniDB_Anime anime => string.Format(ImageServerUrl, anime.Picname),
             TvDB_Episode ep => string.Format(Constants.URLS.TvDB_Episode_Images, ep.Filename),
             TvDB_ImageFanart fanart => string.Format(Constants.URLS.TvDB_Images, fanart.BannerPath),
             TvDB_ImagePoster poster => string.Format(Constants.URLS.TvDB_Images, poster.BannerPath),
@@ -99,7 +99,7 @@ public class ImageDownloadRequest
         {
             AniDB_Character => true,
             AniDB_Seiyuu => true,
-            SVR_AniDB_Anime => true,
+            AniDB_Anime => true,
             _ => false,
         };
 
@@ -203,19 +203,19 @@ public class ImageDownloadRequest
         switch (ImageData)
         {
             case MovieDB_Fanart movieFanart:
-                Repositories.RepoFactory.MovieDB_Fanart.Delete(movieFanart);
+                Repositories.RepoFactory.TMDB_Fanart.Delete(movieFanart);
                 return true;
             case MovieDB_Poster moviePoster:
-                Repositories.RepoFactory.MovieDB_Poster.Delete(moviePoster);
+                Repositories.RepoFactory.TMDB_Movie_Poster.Delete(moviePoster);
                 return true;
             case TvDB_ImageFanart tvdbFanart:
-                Repositories.RepoFactory.TvDB_ImageFanart.Delete(tvdbFanart);
+                Repositories.RepoFactory.TvDB_Fanart.Delete(tvdbFanart);
                 return true;
             case TvDB_ImagePoster tvdbPoster:
-                Repositories.RepoFactory.TvDB_ImagePoster.Delete(tvdbPoster);
+                Repositories.RepoFactory.TvDB_Poster.Delete(tvdbPoster);
                 return true;
             case TvDB_ImageWideBanner tvdbWideBanner:
-                Repositories.RepoFactory.TvDB_ImageWideBanner.Delete(tvdbWideBanner);
+                Repositories.RepoFactory.TvDB_Banner.Delete(tvdbWideBanner);
                 return true;
         }
 

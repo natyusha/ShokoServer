@@ -281,7 +281,7 @@ public class Core : BaseController
     {
         try
         {
-            var allAnime = RepoFactory.AniDB_Anime.GetAll().Select(a => a.AnimeID).OrderBy(a => a).ToList();
+            var allAnime = RepoFactory.AniDB_Anime.GetAll().Select(a => a.AnimeId).OrderBy(a => a).ToList();
             logger.Info($"Starting the check for {allAnime.Count} anime XML files");
             var updatedAnime = 0;
             for (var i = 0; i < allAnime.Count; i++)
@@ -414,8 +414,8 @@ public class Core : BaseController
     {
         try
         {
-            RepoFactory.CrossRef_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
-            RepoFactory.AnimeSeries.GetAll().ToList().AsParallel().ForAll(animeseries =>
+            RepoFactory.CR_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
+            RepoFactory.Shoko_Series.GetAll().ToList().AsParallel().ForAll(animeseries =>
                 TvDBLinkingHelper.GenerateTvDBEpisodeMatches(animeseries.AniDB_ID, true));
         }
         catch (Exception e)
@@ -529,19 +529,19 @@ public class Core : BaseController
         try
         {
             // This is for testing changes in the algorithm. It will be slow.
-            var list = RepoFactory.AnimeSeries.GetAll().Select(a => a.GetAnime())
+            var list = RepoFactory.Shoko_Series.GetAll().Select(a => a.GetAnime())
                 .Where(a => !string.IsNullOrEmpty(a?.MainTitle)).OrderBy(a => a.MainTitle).ToList();
             var result = new List<EpisodeMatchComparison>();
             foreach (var animeseries in list)
             {
                 var tvxrefs =
-                    RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(animeseries.AnimeID);
+                    RepoFactory.CR_AniDB_TvDB.GetByAnimeID(animeseries.AnimeId);
                 var tvdbID = tvxrefs.FirstOrDefault()?.TvDBID ?? 0;
-                var matches = TvDBLinkingHelper.GetTvDBEpisodeMatches(animeseries.AnimeID, tvdbID).Select(a => (
+                var matches = TvDBLinkingHelper.GetTvDBEpisodeMatches(animeseries.AnimeId, tvdbID).Select(a => (
                     AniDB: new AniEpSummary
                     {
-                        AniDBEpisodeType = a.AniDB.EpisodeType,
-                        AniDBEpisodeNumber = a.AniDB.EpisodeNumber,
+                        AniDBEpisodeType = a.AniDB.Type,
+                        AniDBEpisodeNumber = a.AniDB.Number,
                         AniDBEpisodeName = a.AniDB.GetEnglishTitle()
                     },
                     TvDB: a.TvDB == null
@@ -552,16 +552,16 @@ public class Core : BaseController
                             TvDBEpisodeNumber = a.TvDB.EpisodeNumber,
                             TvDBEpisodeName = a.TvDB.EpisodeName
                         })).OrderBy(a => a.AniDB.AniDBEpisodeType).ThenBy(a => a.AniDB.AniDBEpisodeNumber).ToList();
-                var currentMatches = RepoFactory.CrossRef_AniDB_TvDB_Episode.GetByAnimeID(animeseries.AnimeID)
+                var currentMatches = RepoFactory.CR_AniDB_TvDB_Episode.GetByAnimeID(animeseries.AnimeId)
                     .Select(a =>
                     {
-                        var AniDB = RepoFactory.AniDB_Episode.GetByEpisodeID(a.AniDBEpisodeID);
-                        var TvDB = RepoFactory.TvDB_Episode.GetByTvDBID(a.TvDBEpisodeID);
+                        var AniDB = RepoFactory.AniDB_Episode.GetByAnidbEpisodeId(a.AnidbEpisodeId);
+                        var TvDB = RepoFactory.TvDB_Episode.GetByTvDBID(a.TvdbEpisodeId);
                         return (
                             AniDB: new AniEpSummary
                             {
-                                AniDBEpisodeType = AniDB.EpisodeType,
-                                AniDBEpisodeNumber = AniDB.EpisodeNumber,
+                                AniDBEpisodeType = AniDB.Type,
+                                AniDBEpisodeNumber = AniDB.Number,
                                 AniDBEpisodeName = AniDB.GetEnglishTitle()
                             },
                             TvDB: TvDB == null
@@ -578,7 +578,7 @@ public class Core : BaseController
                     result.Add(new EpisodeMatchComparison
                     {
                         Anime = animeseries.MainTitle,
-                        AnimeID = animeseries.AnimeID,
+                        AnimeID = animeseries.AnimeId,
                         Current = currentMatches,
                         Calculated = matches
                     });
@@ -605,7 +605,7 @@ public class Core : BaseController
     [HttpGet("moviedb/update")]
     public ActionResult ScanMovieDB()
     {
-        Importer.RunImport_ScanMovieDB();
+        Importer.RunImport_ScanTMDB();
         return APIStatus.OK();
     }
 
@@ -630,7 +630,7 @@ public class Core : BaseController
     /// <returns></returns>
     [Authorize("admin")]
     [HttpPost("user/create")]
-    public ActionResult CreateUser(JMMUser user)
+    public ActionResult CreateUser(CL_JMMUser user)
     {
         user.Password = Digest.Hash(user.Password);
         user.HideCategories = string.Empty;
@@ -645,7 +645,7 @@ public class Core : BaseController
     /// </summary>
     /// <returns></returns>
     [HttpPost("user/password")]
-    public ActionResult ChangePassword(JMMUser user)
+    public ActionResult ChangePassword(CL_JMMUser user)
     {
         return _service.ChangePassword(user.JMMUserID, user.Password) == string.Empty
             ? APIStatus.OK()
@@ -658,7 +658,7 @@ public class Core : BaseController
     /// <returns></returns>
     [HttpPost("user/password/{uid}")]
     [Authorize("admin")]
-    public ActionResult ChangePassword(int uid, JMMUser user)
+    public ActionResult ChangePassword(int uid, CL_JMMUser user)
     {
         return _service.ChangePassword(uid, user.Password) == string.Empty
             ? APIStatus.OK()
@@ -671,7 +671,7 @@ public class Core : BaseController
     /// <returns></returns>
     [HttpPost("user/delete")]
     [Authorize("admin")]
-    public ActionResult DeleteUser(JMMUser user)
+    public ActionResult DeleteUser(CL_JMMUser user)
     {
         return _service.DeleteUser(user.JMMUserID) == string.Empty
             ? APIStatus.OK()

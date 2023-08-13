@@ -4,8 +4,9 @@ using NLog;
 using Shoko.Models.Enums;
 using Shoko.Models.Metro;
 using Shoko.Models.Server;
-using Shoko.Models.TvDB;
-using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.TMDB;
+using Shoko.Server.Models.TvDB;
 using Shoko.Server.Providers.MovieDB;
 using Shoko.Server.Providers.TraktTV.Contracts;
 using Shoko.Server.Repositories;
@@ -30,11 +31,11 @@ public static class ModelProviders
 
     public static void Populate(this MovieDB_Movie m, MovieDB_Movie_Result result)
     {
-        m.MovieId = result.MovieID;
+        m.MovieId = result.MovieId;
         m.MovieName = result.MovieName;
         m.OriginalName = result.OriginalName;
         m.Overview = result.Overview;
-        m.Rating = (int)Math.Round(result.Rating * 10D);
+        m.Rating = result.Rating;
     }
 
     public static void Populate(this MovieDB_Poster m, MovieDB_Image_Result result, int movieID)
@@ -51,10 +52,10 @@ public static class ModelProviders
 
     public static void Populate(this Trakt_Show show, TraktV2ShowExtended tvshow)
     {
-        show.Overview = tvshow.overview;
-        show.Title = tvshow.title;
-        show.TraktID = tvshow.ids.slug;
-        show.TvDB_ID = tvshow.ids.tvdb;
+        show.MainOverview = tvshow.overview;
+        show.MainTitle = tvshow.title;
+        show.TraktShowID = tvshow.ids.slug;
+        show.TvdbShowId = tvshow.ids.tvdb;
         show.URL = tvshow.ShowURL;
         show.Year = tvshow.year.ToString();
     }
@@ -63,7 +64,7 @@ public static class ModelProviders
     {
         episode.Id = apiEpisode.Id;
         episode.SeriesID = apiEpisode.SeriesId;
-        episode.SeasonID = 0;
+        episode.SeasonID = apiEpisode.AiredSeasonID ?? 0;
         episode.SeasonNumber = apiEpisode.AiredSeason ?? 0;
         episode.EpisodeNumber = apiEpisode.AiredEpisodeNumber ?? 0;
 
@@ -158,20 +159,20 @@ public static class ModelProviders
         }
     }
 
-    public static void PopulateFromSeriesInfo(this TvDB_Series series, Series apiSeries)
+    public static void PopulateFromSeriesInfo(this TvDB_Show series, Series apiSeries)
     {
-        series.SeriesID = 0;
-        series.Overview = string.Empty;
-        series.SeriesName = string.Empty;
+        series.Id = 0;
+        series.MainOverview = string.Empty;
+        series.MainTitle = string.Empty;
         series.Status = string.Empty;
         series.Banner = string.Empty;
         series.Fanart = string.Empty;
         series.Lastupdated = string.Empty;
         series.Poster = string.Empty;
 
-        series.SeriesID = apiSeries.Id;
-        series.SeriesName = apiSeries.SeriesName;
-        series.Overview = apiSeries.Overview;
+        series.Id = apiSeries.Id;
+        series.MainTitle = apiSeries.SeriesName;
+        series.MainOverview = apiSeries.Overview;
         series.Banner = apiSeries.Banner;
         series.Status = apiSeries.Status;
         series.Lastupdated = apiSeries.LastUpdated.ToString();
@@ -217,12 +218,12 @@ public static class ModelProviders
         return contract;
     }
 
-    public static void Populate(this SVR_AnimeGroup agroup, SVR_AnimeSeries series)
+    public static void Populate(this ShokoGroup agroup, ShokoSeries series)
     {
         agroup.Populate(series, DateTime.Now);
     }
 
-    public static void Populate(this SVR_AnimeGroup agroup, SVR_AnimeSeries series, DateTime now)
+    public static void Populate(this ShokoGroup agroup, ShokoSeries series, DateTime now)
     {
         var anime = series.GetAnime();
 
@@ -235,7 +236,7 @@ public static class ModelProviders
         agroup.DateTimeCreated = now;
     }
 
-    public static void Populate(this SVR_AnimeGroup agroup, SVR_AniDB_Anime anime, DateTime now)
+    public static void Populate(this ShokoGroup agroup, AniDB_Anime anime, DateTime now)
     {
         agroup.Description = anime.Description;
         var name = anime.PreferredTitle;
@@ -246,9 +247,9 @@ public static class ModelProviders
         agroup.DateTimeCreated = now;
     }
 
-    public static void Populate(this SVR_AnimeEpisode animeep, AniDB_Episode anidbEp)
+    public static void Populate(this ShokoEpisode animeep, AniDB_Episode anidbEp)
     {
-        animeep.AniDB_EpisodeID = anidbEp.EpisodeID;
+        animeep.AniDB_EpisodeID = anidbEp.EpisodeId;
         animeep.DateTimeUpdated = DateTime.Now;
         animeep.DateTimeCreated = DateTime.Now;
     }

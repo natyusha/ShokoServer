@@ -78,7 +78,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_TvDBPosters };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
                 Logger.LogInformation(ScanForType, "TvDB posters");
-                var posters = RepoFactory.TvDB_ImagePoster.GetAll()
+                var posters = RepoFactory.TvDB_Poster.GetAll()
                     .Where(poster => !Misc.IsImageValid(poster.GetFullImagePath()))
                     .ToList();
 
@@ -104,7 +104,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_TvDBFanarts };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
                 Logger.LogInformation(ScanForType, "TvDB fanart");
-                var fanartList = RepoFactory.TvDB_ImageFanart.GetAll()
+                var fanartList = RepoFactory.TvDB_Fanart.GetAll()
                     .Where(fanart => !Misc.IsImageValid(fanart.GetFullImagePath()))
                     .ToList();
 
@@ -130,7 +130,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 Logger.LogInformation(ScanForType, "TvDB wide-banners");
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_TvDBBanners };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
-                var wideBanners = RepoFactory.TvDB_ImageWideBanner.GetAll()
+                var wideBanners = RepoFactory.TvDB_Banner.GetAll()
                     .Where(wideBanner => !Misc.IsImageValid(wideBanner.GetFullImagePath()))
                     .ToList();
 
@@ -151,13 +151,13 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 }
             }
 
-            if (_settings.MovieDb.AutoPosters)
+            if (_settings.TMDB.AutoPosters)
             {
                 count = 0;
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_MovieDBPosters };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
                 Logger.LogInformation(ScanForType, "TMDB posters");
-                var posters = RepoFactory.MovieDB_Poster.GetAll()
+                var posters = RepoFactory.TMDB_Movie_Poster.GetAll()
                     .Where(poster => !Misc.IsImageValid(poster.GetFullImagePath()))
                     .ToList();
 
@@ -177,13 +177,13 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 }
             }
 
-            if (_settings.MovieDb.AutoFanart)
+            if (_settings.TMDB.AutoFanart)
             {
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_MovieDBFanarts };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
                 count = 0;
                 Logger.LogInformation(ScanForType, "TMDB fanart");
-                var fanartList = RepoFactory.MovieDB_Fanart.GetAll()
+                var fanartList = RepoFactory.TMDB_Fanart.GetAll()
                     .Where(fanart => !Misc.IsImageValid(fanart.GetFullImagePath()))
                     .ToList();
 
@@ -214,7 +214,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, animeList.Count, animeList.Count == 1 ? "AniDB poster" : "AniDB posters");
             foreach (var anime in animeList)
             {
-                RemoveImageAndQueueRedownload(ImageEntityType.AniDB_Cover, anime.AnimeID, anime);
+                RemoveImageAndQueueRedownload(ImageEntityType.AniDB_Cover, anime.AnimeId, anime);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, animeList.Count);
@@ -259,7 +259,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
                 queueState.extraParams = new[] { Resources.Command_ValidateAllImages_AniDBSeiyuus };
                 ShokoService.CmdProcessorImages.QueueState = queueState;
                 Logger.LogInformation(ScanForType, "AniDB voice actors");
-                var staff = RepoFactory.AniDB_Seiyuu.GetAll()
+                var staff = RepoFactory.AniDB_Creator.GetAll()
                     .Where(va => !Misc.IsImageValid(va.GetPosterPath()))
                     .ToList();
 
@@ -295,7 +295,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             AniDB_Seiyuu creator => creator.GetPosterPath(),
             MovieDB_Fanart image => image.GetFullImagePath(),
             MovieDB_Poster image => image.GetFullImagePath(),
-            SVR_AniDB_Anime anime => anime.PosterPath,
+            AniDB_Anime anime => anime.PosterPath,
             TvDB_Episode episode => episode.GetFullImagePath(),
             TvDB_ImageFanart image => image.GetFullImagePath(),
             TvDB_ImagePoster image => image.GetFullImagePath(),

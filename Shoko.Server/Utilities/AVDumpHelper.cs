@@ -158,13 +158,13 @@ public static class AVDumpHelper
 
     public static string DumpFile(int vid)
     {
-        var vl = RepoFactory.VideoLocal.GetByID(vid);
+        var vl = RepoFactory.Shoko_Video.GetByID(vid);
         if (vl == null)
         {
             return "Unable to get videoloocal with id: " + vid;
         }
 
-        var file = vl.GetBestVideoLocalPlace(true)?.FullServerPath;
+        var file = vl.GetPreferredLocation(true)?.FullServerPath;
         if (string.IsNullOrEmpty(file))
         {
             return "Unable to get file: " + vid;

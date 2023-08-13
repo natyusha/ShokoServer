@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Shoko.Models;
 using Shoko.Models.Enums;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.Settings;
 
@@ -17,7 +18,7 @@ public interface IServerSettings
     AniDbSettings AniDb { get; set; }
     WebCacheSettings WebCache { get; set; }
     TvDBSettings TvDB { get; set; }
-    MovieDbSettings MovieDb { get; set; }
+    TMDBSettings TMDB { get; set; }
     ImportSettings Import { get; set; }
     PlexSettings Plex { get; set; }
     PluginSettings Plugins { get; set; }
@@ -25,16 +26,15 @@ public interface IServerSettings
     LinuxSettings Linux { get; set; }
     FileQualityPreferences FileQualityPreferences { get; set; }
     bool AutoGroupSeries { get; set; }
-    string AutoGroupSeriesRelationExclusions { get; set; }
+    List<string> AutoGroupSeriesRelationExclusions { get; set; }
     bool AutoGroupSeriesUseScoreAlgorithm { get; set; }
     bool FileQualityFilterEnabled { get; set; }
     List<string> LanguagePreference { get; set; }
     List<string> EpisodeLanguagePreference { get; set; }
     bool LanguageUseSynonyms { get; set; }
-    int CloudWatcherTime { get; set; }
-    DataSourceType EpisodeTitleSource { get; set; }
-    DataSourceType SeriesDescriptionSource { get; set; }
-    DataSourceType SeriesNameSource { get; set; }
+    DataSource EpisodeTitleSource { get; set; }
+    DataSource SeriesDescriptionSource { get; set; }
+    DataSource SeriesNameSource { get; set; }
     /// <summary>
     /// Path where the images are stored. If set to <c>null</c> then it will use
     /// the default location.

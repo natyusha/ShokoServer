@@ -8,7 +8,7 @@ using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Repositories;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.Commands;
@@ -20,9 +20,7 @@ public class CommandRequest_TraktHistoryEpisode : CommandRequestImplementation
     private readonly ISettingsProvider _settingsProvider;
     private readonly TraktTVHelper _helper;
     public int AnimeEpisodeID { get; set; }
-    public int Action { get; set; }
-
-    public TraktSyncAction ActionEnum => (TraktSyncAction)Action;
+    public TraktSyncAction Action { get; set; }
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority9;
 
@@ -47,11 +45,11 @@ public class CommandRequest_TraktHistoryEpisode : CommandRequestImplementation
                 return;
             }
 
-            var ep = RepoFactory.AnimeEpisode.GetByID(AnimeEpisodeID);
+            var ep = RepoFactory.Shoko_Episode.GetByID(AnimeEpisodeID);
             if (ep != null)
             {
                 var syncType = TraktSyncType.HistoryAdd;
-                if (ActionEnum == TraktSyncAction.Remove)
+                if (Action == TraktSyncAction.Remove)
                 {
                     syncType = TraktSyncType.HistoryRemove;
                 }
@@ -91,7 +89,7 @@ public class CommandRequest_TraktHistoryEpisode : CommandRequestImplementation
         // populate the fields
         AnimeEpisodeID =
             int.Parse(TryGetProperty(docCreator, "CommandRequest_TraktHistoryEpisode", "AnimeEpisodeID"));
-        Action = int.Parse(TryGetProperty(docCreator, "CommandRequest_TraktHistoryEpisode", "Action"));
+        Action = (TraktSyncAction) int.Parse(TryGetProperty(docCreator, "CommandRequest_TraktHistoryEpisode", "Action"));
 
         return true;
     }

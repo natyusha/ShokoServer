@@ -36,8 +36,10 @@ public class CommandRequest_LinkAniDBTvDB : CommandRequestImplementation
 
         try
         {
-            _helper.LinkAniDBTvDB(AnimeID, TvDBID, AdditiveLink);
-            SVR_AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
+            if (!AdditiveLink)
+                _helper.RemoveShowLinks(AnimeID);
+            _helper.AddShowLink(AnimeID, TvDBID);
+            AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
         }
         catch (Exception ex)
         {

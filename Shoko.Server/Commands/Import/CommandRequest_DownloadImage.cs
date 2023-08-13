@@ -89,7 +89,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.TvDB_FanArt:
-                    var fanart = RepoFactory.TvDB_ImageFanart.GetByID(EntityID);
+                    var fanart = RepoFactory.TvDB_Fanart.GetByID(EntityID);
                     if (string.IsNullOrEmpty(fanart?.BannerPath))
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "TvDB fanart", EntityID);
@@ -101,7 +101,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.TvDB_Cover:
-                    var poster = RepoFactory.TvDB_ImagePoster.GetByID(EntityID);
+                    var poster = RepoFactory.TvDB_Poster.GetByID(EntityID);
                     if (string.IsNullOrEmpty(poster?.BannerPath))
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "TvDB poster", EntityID);
@@ -113,7 +113,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.TvDB_Banner:
-                    var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(EntityID);
+                    var wideBanner = RepoFactory.TvDB_Banner.GetByID(EntityID);
                     if (string.IsNullOrEmpty(wideBanner?.BannerPath))
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "TvDB banner", EntityID);
@@ -125,7 +125,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.MovieDB_Poster:
-                    var moviePoster = RepoFactory.MovieDB_Poster.GetByID(EntityID);
+                    var moviePoster = RepoFactory.TMDB_Movie_Poster.GetByID(EntityID);
                     if (string.IsNullOrEmpty(moviePoster?.URL))
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "TMDB poster", EntityID);
@@ -137,7 +137,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.MovieDB_FanArt:
-                    var movieFanart = RepoFactory.MovieDB_Fanart.GetByID(EntityID);
+                    var movieFanart = RepoFactory.TMDB_Fanart.GetByID(EntityID);
                     if (string.IsNullOrEmpty(movieFanart?.URL))
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "TMDB fanart", EntityID);
@@ -149,7 +149,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.AniDB_Cover:
-                    var anime = RepoFactory.AniDB_Anime.GetByAnimeID(EntityID);
+                    var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(EntityID);
                     if (anime == null)
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "AniDB anime poster", EntityID);
@@ -171,7 +171,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     break;
 
                 case ImageEntityType.AniDB_Creator:
-                    var va = RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(EntityID);
+                    var va = RepoFactory.AniDB_Creator.GetBySeiyuuID(EntityID);
                     if (va == null)
                     {
                         Logger.LogWarning(FailedToDownloadNoID, "AniDB Seiyuu", EntityID);
@@ -233,43 +233,43 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
         switch (EntityTypeEnum)
         {
             case ImageEntityType.TvDB_FanArt:
-                var fanart = RepoFactory.TvDB_ImageFanart.GetByID(EntityID);
+                var fanart = RepoFactory.TvDB_Fanart.GetByID(EntityID);
                 if (fanart == null)
                     return;
 
-                RepoFactory.TvDB_ImageFanart.Delete(fanart);
+                RepoFactory.TvDB_Fanart.Delete(fanart);
                 break;
 
             case ImageEntityType.TvDB_Cover:
-                var poster = RepoFactory.TvDB_ImagePoster.GetByID(EntityID);
+                var poster = RepoFactory.TvDB_Poster.GetByID(EntityID);
                 if (poster == null)
                     return;
 
-                RepoFactory.TvDB_ImagePoster.Delete(poster);
+                RepoFactory.TvDB_Poster.Delete(poster);
                 break;
 
             case ImageEntityType.TvDB_Banner:
-                var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(EntityID);
+                var wideBanner = RepoFactory.TvDB_Banner.GetByID(EntityID);
                 if (wideBanner == null)
                     return;
 
-                RepoFactory.TvDB_ImageWideBanner.Delete(wideBanner);
+                RepoFactory.TvDB_Banner.Delete(wideBanner);
                 break;
 
             case ImageEntityType.MovieDB_Poster:
-                var moviePoster = RepoFactory.MovieDB_Poster.GetByID(EntityID);
+                var moviePoster = RepoFactory.TMDB_Movie_Poster.GetByID(EntityID);
                 if (moviePoster == null)
                     return;
 
-                RepoFactory.MovieDB_Poster.Delete(moviePoster);
+                RepoFactory.TMDB_Movie_Poster.Delete(moviePoster);
                 break;
 
             case ImageEntityType.MovieDB_FanArt:
-                var movieFanart = RepoFactory.MovieDB_Fanart.GetByID(EntityID);
+                var movieFanart = RepoFactory.TMDB_Fanart.GetByID(EntityID);
                 if (movieFanart == null)
                     return;
 
-                RepoFactory.MovieDB_Fanart.Delete(movieFanart);
+                RepoFactory.TMDB_Fanart.Delete(movieFanart);
                 break;
         }
     }

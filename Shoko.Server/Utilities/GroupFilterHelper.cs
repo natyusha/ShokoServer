@@ -5,6 +5,7 @@ using System.Linq;
 using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 
 namespace Shoko.Server;
 
@@ -175,7 +176,7 @@ public class GroupFilterHelper
         return aDate.ToString("dd MMM yyyy", CultureInfo.CurrentCulture);
     }
 
-    public static IEnumerable<CL_AnimeGroup_User> Sort(IEnumerable<CL_AnimeGroup_User> groups, SVR_GroupFilter gf)
+    public static IEnumerable<CL_AnimeGroup_User> Sort(IEnumerable<CL_AnimeGroup_User> groups, ShokoGroup_Filter gf)
     {
         var isfirst = true;
         var query = groups;

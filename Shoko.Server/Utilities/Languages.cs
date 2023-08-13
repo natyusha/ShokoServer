@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.Utilities;
 
 public static class Languages
 {
     public static List<NamingLanguage> AllNamingLanguages =>
-        Enum.GetValues<TitleLanguage>().Select(l => new NamingLanguage(l)).ToList();
+        Enum.GetValues<TextLanguage>().Select(l => new NamingLanguage(l)).ToList();
 
     private static List<NamingLanguage> _preferredNamingLanguages;
 
@@ -22,7 +22,7 @@ public static class Languages
             var preference = Utils.SettingsProvider.GetSettings().LanguagePreference ?? new();
             return _preferredNamingLanguages = preference
                 .Select(l => new NamingLanguage(l))
-                .Where(l => l.Language != TitleLanguage.Unknown)
+                .Where(l => l.Language != TextLanguage.Unknown)
                 .ToList();
         }
         set => _preferredNamingLanguages = value;
@@ -40,7 +40,7 @@ public static class Languages
             var preference = Utils.SettingsProvider.GetSettings().EpisodeLanguagePreference ?? new();
             return _preferredEpisodeNamingLanguages = preference
                 .Select(l => new NamingLanguage(l))
-                .Where(l => l.Language != TitleLanguage.Unknown)
+                .Where(l => l.Language != TextLanguage.Unknown)
                 .ToList();
         }
         set => _preferredEpisodeNamingLanguages = value;

@@ -10,7 +10,7 @@ using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.AniDB.UDP.User;
-using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 
 namespace Shoko.Server.Commands.AniDB;
 

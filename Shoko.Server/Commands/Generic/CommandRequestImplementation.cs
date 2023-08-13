@@ -14,6 +14,7 @@ using Shoko.Server.Commands.Interfaces;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.Direct;
 using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using ILoggerFactory = Microsoft.Extensions.Logging.ILoggerFactory;
 
 namespace Shoko.Server.Commands.Generic;

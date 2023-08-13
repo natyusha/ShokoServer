@@ -31,7 +31,7 @@ public class FileEventSignalRModel
     {
         RelativePath = eventArgs.RelativePath;
         FileID = eventArgs.Video.Id;
-        FileLocationID = eventArgs.FileLocation.Id;
+        FileLocationID = eventArgs.VidoLocation.Id;
         ImportFolderID = eventArgs.ImportFolder.Id;
     }
 }

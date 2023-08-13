@@ -5,6 +5,8 @@ using Newtonsoft.Json.Serialization;
 
 namespace Shoko.Server.API.v3.Models.Common;
 
+// For those reading the source code; yes, using the numerical values is
+// possible, but that's not the preferred way to use this type.
 [JsonConverter(typeof(StringEnumConverter), typeof(CamelCaseNamingStrategy))]
 public enum IncludeOnlyFilter
 {

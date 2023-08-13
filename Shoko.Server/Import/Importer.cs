@@ -16,6 +16,7 @@ using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.FileHelper;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.MovieDB;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Providers.TvDB;
@@ -41,12 +42,12 @@ public static class Importer
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         // files which have not been hashed yet
         // or files which do not have a VideoInfo record
-        var filesToHash = RepoFactory.VideoLocal.GetVideosWithoutHash();
-        var dictFilesToHash = new Dictionary<int, SVR_VideoLocal>();
+        var filesToHash = RepoFactory.Shoko_Video.GetVideosWithoutHash();
+        var dictFilesToHash = new Dictionary<int, Shoko_Video>();
         foreach (var vl in filesToHash)
         {
-            dictFilesToHash[vl.VideoLocalID] = vl;
-            var p = vl.GetBestVideoLocalPlace(true);
+            dictFilesToHash[vl.Id] = vl;
+            var p = vl.GetPreferredLocation(true);
             if (p == null)
             {
                 continue;
@@ -66,7 +67,7 @@ public static class Importer
 
             try
             {
-                var p = vl.GetBestVideoLocalPlace(true);
+                var p = vl.GetPreferredLocation(true);
                 if (p != null)
                 {
                     var cmd = commandFactory.Create<CommandRequest_HashFile>(c => c.FileName = p.FullServerPath);
@@ -82,12 +83,12 @@ public static class Importer
 
         // files which have been hashed, but don't have an associated episode
         var settings = Utils.SettingsProvider.GetSettings();
-        var filesWithoutEpisode = RepoFactory.VideoLocal.GetVideosWithoutEpisode();
+        var filesWithoutEpisode = RepoFactory.Shoko_Video.GetVideosWithoutEpisode();
         foreach (var vl in filesWithoutEpisode)
         {
             if (settings.Import.MaxAutoScanAttemptsPerFile != 0)
             {
-                var matchAttempts = RepoFactory.AniDB_FileUpdate.GetByFileSizeAndHash(vl.FileSize, vl.Hash).Count;
+                var matchAttempts = RepoFactory.AniDB_File_Update.GetByFileSizeAndHash(vl.FileSize, vl.Hash).Count;
                 if (matchAttempts > settings.Import.MaxAutoScanAttemptsPerFile)
                     continue;
             }
@@ -104,7 +105,7 @@ public static class Importer
 
 
         // check that all the episode data is populated
-        foreach (var vl in RepoFactory.VideoLocal.GetAll().Where(a => !string.IsNullOrEmpty(a.Hash)))
+        foreach (var vl in RepoFactory.Shoko_Video.GetAll().Where(a => !string.IsNullOrEmpty(a.Hash)))
         {
             // if the file is not manually associated, then check for AniDB_File info
             var aniFile = RepoFactory.AniDB_File.GetByHash(vl.Hash);
@@ -159,8 +160,8 @@ public static class Importer
 
         try
         {
-            var fldr = RepoFactory.ImportFolder.GetByID(importFolderID);
-            if (fldr == null)
+            var importFolder = RepoFactory.ImportFolder.GetByID(importFolderID);
+            if (importFolder == null)
             {
                 return;
             }
@@ -168,30 +169,21 @@ public static class Importer
             // first build a list of files that we already know about, as we don't want to process them again
 
 
-            var filesAll =
-                RepoFactory.VideoLocalPlace.GetByImportFolder(fldr.ImportFolderID);
-            var dictFilesExisting =
-                new Dictionary<string, SVR_VideoLocal_Place>();
-            foreach (var vl in filesAll)
-            {
-                try
-                {
-                    dictFilesExisting[vl.FullServerPath] = vl;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex, $"Error RunImport_ScanFolder XREF: {vl.FullServerPath}");
-                }
-            }
+            var allResolvedFiles = RepoFactory.Shoko_Video_Location.GetByImportFolderId(importFolder.Id, true);
+            var dictFilesExisting = allResolvedFiles.ToDictionary(location => location.AbsolutePath);
 
 
-            Logger.Debug("ImportFolder: {0} || {1}", fldr.ImportFolderName, fldr.ImportFolderLocation);
-            Utils.GetFilesForImportFolder(fldr.BaseDirectory, ref fileList);
+            Logger.Debug("ImportFolder: {0} || {1}", importFolder.Name, importFolder.Path);
+            Utils.GetFilesForImportFolder(importFolder.GetDirectoryInfo(), ref fileList);
 
             // Get Ignored Files and remove them from the scan listing
-            var ignoredFiles = RepoFactory.VideoLocal.GetIgnoredVideos().SelectMany(a => a.Places)
-                .Select(a => a.FullServerPath).Where(a => !string.IsNullOrEmpty(a)).ToList();
-            fileList = fileList.Except(ignoredFiles, StringComparer.InvariantCultureIgnoreCase).ToList();
+            var ignoredFiles = RepoFactory.Shoko_Video.GetIgnoredVideos()
+                .SelectMany(a => a.GetLocations(true))
+                .Select(a => a.AbsolutePath)
+                .ToList();
+            fileList = fileList
+                .Except(ignoredFiles, StringComparer.InvariantCultureIgnoreCase)
+                .ToList();
 
             // get a list of all files in the share
             foreach (var fileName in fileList)
@@ -200,7 +192,7 @@ public static class Importer
 
                 if (dictFilesExisting.ContainsKey(fileName))
                 {
-                    if (fldr.IsDropSource == 1)
+                    if (importFolder.IsDropSource)
                     {
                         dictFilesExisting[fileName].RenameAndMoveAsRequired();
                     }
@@ -248,18 +240,21 @@ public static class Importer
         var fileList = new List<string>();
         foreach (var share in RepoFactory.ImportFolder.GetAll())
         {
-            if (!share.FolderIsDropSource)
+            if (!share.IsDropSource)
             {
                 continue;
             }
 
-            Logger.Debug("ImportFolder: {0} || {1}", share.ImportFolderName, share.ImportFolderLocation);
-            Utils.GetFilesForImportFolder(share.BaseDirectory, ref fileList);
+            Logger.Debug("ImportFolder: {0} || {1}", share.Name, share.Path);
+            Utils.GetFilesForImportFolder(share.GetDirectoryInfo(), ref fileList);
         }
 
         // Get Ignored Files and remove them from the scan listing
-        var ignoredFiles = RepoFactory.VideoLocal.GetIgnoredVideos().SelectMany(a => a.Places)
-            .Select(a => a.FullServerPath).Where(a => !string.IsNullOrEmpty(a)).ToList();
+        var ignoredFiles = RepoFactory.Shoko_Video.GetIgnoredVideos()
+            .SelectMany(a => a.Locations)
+            .Select(a => a.AbsolutePath)
+            .Where(a => !string.IsNullOrEmpty(a))
+            .ToList();
         fileList = fileList.Except(ignoredFiles, StringComparer.InvariantCultureIgnoreCase).ToList();
 
         // get a list of all the shares we are looking at
@@ -300,7 +295,7 @@ public static class Importer
         var settings = Utils.SettingsProvider.GetSettings();
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         // first build a list of files that we already know about, as we don't want to process them again
-        var filesAll = RepoFactory.VideoLocalPlace.GetAll();
+        var filesAll = RepoFactory.Shoko_Video_Location.GetAll();
         var dictFilesExisting = new Dictionary<string, SVR_VideoLocal_Place>();
         foreach (var vl in filesAll)
         {
@@ -335,10 +330,10 @@ public static class Importer
         var fileList = new List<string>();
         foreach (var share in RepoFactory.ImportFolder.GetAll())
         {
-            Logger.Debug("ImportFolder: {0} || {1}", share.ImportFolderName, share.ImportFolderLocation);
+            Logger.Debug("ImportFolder: {0} || {1}", share.Name, share.Path);
             try
             {
-                Utils.GetFilesForImportFolder(share.BaseDirectory, ref fileList);
+                Utils.GetFilesForImportFolder(share.GetDirectoryInfo(), ref fileList);
             }
             catch (Exception ex)
             {
@@ -380,7 +375,7 @@ public static class Importer
 
             videosFound++;
 
-            var tup = VideoLocal_PlaceRepository.GetFromFullPath(fileName);
+            var tup = RepoFactory.ImportFolder.GetFromAbsolutePath(fileName);
             ShokoEventHandler.Instance.OnFileDetected(tup.Item1, new FileInfo(fileName));
 
             var cr_hashfile = commandFactory.Create<CommandRequest_HashFile>(c => c.FileName = fileName);
@@ -409,7 +404,7 @@ public static class Importer
                 continue;
             }
 
-            var cmd = commandFactory.Create<CommandRequest_DownloadAniDBImages>(c => c.AnimeID = anime.AnimeID);
+            var cmd = commandFactory.Create<CommandRequest_DownloadAniDBImages>(c => c.AnimeID = anime.AnimeId);
             cmd.Save();
         }
 
@@ -419,7 +414,7 @@ public static class Importer
             var postersCount = new Dictionary<int, int>();
 
             // build a dictionary of series and how many images exist
-            var allPosters = RepoFactory.TvDB_ImagePoster.GetAll();
+            var allPosters = RepoFactory.TvDB_Poster.GetAll();
             foreach (var tvPoster in allPosters)
             {
                 if (string.IsNullOrEmpty(tvPoster.GetFullImagePath()))
@@ -488,7 +483,7 @@ public static class Importer
         if (settings.TvDB.AutoFanart)
         {
             var fanartCount = new Dictionary<int, int>();
-            var allFanart = RepoFactory.TvDB_ImageFanart.GetAll();
+            var allFanart = RepoFactory.TvDB_Fanart.GetAll();
             foreach (var tvFanart in allFanart)
             {
                 // build a dictionary of series and how many images exist
@@ -560,7 +555,7 @@ public static class Importer
             var fanartCount = new Dictionary<int, int>();
 
             // build a dictionary of series and how many images exist
-            var allBanners = RepoFactory.TvDB_ImageWideBanner.GetAll();
+            var allBanners = RepoFactory.TvDB_Banner.GetAll();
             foreach (var tvBanner in allBanners)
             {
                 if (string.IsNullOrEmpty(tvBanner.GetFullImagePath()))
@@ -651,12 +646,12 @@ public static class Importer
         }
 
         // MovieDB Posters
-        if (settings.MovieDb.AutoPosters)
+        if (settings.TMDB.AutoPosters)
         {
             var postersCount = new Dictionary<int, int>();
 
             // build a dictionary of series and how many images exist
-            var allPosters = RepoFactory.MovieDB_Poster.GetAll();
+            var allPosters = RepoFactory.TMDB_Movie_Poster.GetAll();
             foreach (var moviePoster in allPosters)
             {
                 if (string.IsNullOrEmpty(moviePoster.GetFullImagePath()))
@@ -696,7 +691,7 @@ public static class Importer
                     postersAvailable = postersCount[moviePoster.MovieId];
                 }
 
-                if (fileExists || postersAvailable >= settings.MovieDb.AutoPostersAmount)
+                if (fileExists || postersAvailable >= settings.TMDB.AutoPostersAmount)
                 {
                     continue;
                 }
@@ -722,12 +717,12 @@ public static class Importer
         }
 
         // MovieDB Fanart
-        if (settings.MovieDb.AutoFanart)
+        if (settings.TMDB.AutoFanart)
         {
             var fanartCount = new Dictionary<int, int>();
 
             // build a dictionary of series and how many images exist
-            var allFanarts = RepoFactory.MovieDB_Fanart.GetAll();
+            var allFanarts = RepoFactory.TMDB_Fanart.GetAll();
             foreach (var movieFanart in allFanarts)
             {
                 if (string.IsNullOrEmpty(movieFanart.GetFullImagePath()))
@@ -752,7 +747,7 @@ public static class Importer
                 }
             }
 
-            foreach (var movieFanart in RepoFactory.MovieDB_Fanart.GetAll())
+            foreach (var movieFanart in RepoFactory.TMDB_Fanart.GetAll())
             {
                 if (string.IsNullOrEmpty(movieFanart.GetFullImagePath()))
                 {
@@ -767,7 +762,7 @@ public static class Importer
                     fanartAvailable = fanartCount[movieFanart.MovieId];
                 }
 
-                if (fileExists || fanartAvailable >= settings.MovieDb.AutoFanartAmount)
+                if (fileExists || fanartAvailable >= settings.TMDB.AutoFanartAmount)
                 {
                     continue;
                 }
@@ -823,7 +818,7 @@ public static class Importer
         // AniDB Creators
         if (settings.AniDb.DownloadCreators)
         {
-            foreach (var seiyuu in RepoFactory.AniDB_Seiyuu.GetAll())
+            foreach (var seiyuu in RepoFactory.AniDB_Creator.GetAll())
             {
                 if (string.IsNullOrEmpty(seiyuu.GetPosterPath()))
                 {
@@ -836,7 +831,7 @@ public static class Importer
                     continue;
                 }
 
-                var chr = RepoFactory.AniDB_Character_Seiyuu.GetBySeiyuuID(seiyuu.SeiyuuID).FirstOrDefault();
+                var chr = RepoFactory.AniDB_Character_Creator.GetBySeiyuuID(seiyuu.SeiyuuID).FirstOrDefault();
                 if (chr == null)
                 {
                     continue;
@@ -881,10 +876,10 @@ public static class Importer
         traktHelper.ScanForMatches();
     }
 
-    public static void RunImport_ScanMovieDB()
+    public static void RunImport_ScanTMDB()
     {
         var movieDBHelper = Utils.ServiceContainer.GetRequiredService<MovieDBHelper>();
-        movieDBHelper.ScanForMatches();
+        movieDBHelper.ScanForMovieMatches();
     }
 
     public static void RunImport_UpdateTvDB(bool forced)
@@ -902,7 +897,7 @@ public static class Importer
             var cmd = commandFactory.Create<CommandRequest_GetAnimeHTTP>(
                 c =>
                 {
-                    c.AnimeID = anime.AnimeID;
+                    c.AnimeID = anime.AnimeId;
                     c.ForceRefresh = true;
                 }
             );
@@ -914,11 +909,11 @@ public static class Importer
     {
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         Logger.Info("Remove Missing Files: Start");
-        var seriesToUpdate = new HashSet<SVR_AnimeSeries>();
+        var seriesToUpdate = new HashSet<ShokoSeries>();
         using (var session = DatabaseFactory.SessionFactory.OpenSession())
         {
             // remove missing files in valid import folders
-            var filesAll = RepoFactory.VideoLocalPlace.GetAll()
+            var filesAll = RepoFactory.Shoko_Video_Location.GetAll()
                 .Where(a => a.ImportFolder != null)
                 .GroupBy(a => a.ImportFolder)
                 .ToDictionary(a => a.Key, a => a.ToList());
@@ -937,14 +932,14 @@ public static class Importer
                 }
             }
 
-            var videoLocalsAll = RepoFactory.VideoLocal.GetAll().ToList();
+            var videoLocalsAll = RepoFactory.Shoko_Video.GetAll().ToList();
             // remove empty videolocals
             lock (BaseRepository.GlobalDBLock)
             {
                 using var transaction = session.BeginTransaction();
                 foreach (var remove in videoLocalsAll.Where(a => a.IsEmpty()).ToList())
                 {
-                    RepoFactory.VideoLocal.DeleteWithOpenTransaction(session, remove);
+                    RepoFactory.Shoko_Video.DeleteWithOpenTransaction(session, remove);
                 }
 
                 transaction.Commit();
@@ -955,7 +950,7 @@ public static class Importer
                 .Where(a => !string.IsNullOrWhiteSpace(a.Hash))
                 .GroupBy(a => a.Hash)
                 .ToDictionary(g => g.Key, g => g.ToList());
-            var toRemove = new List<SVR_VideoLocal>();
+            var toRemove = new List<Shoko_Video>();
             var comparer = new VideoLocalComparer();
 
             foreach (var hash in locals.Keys)
@@ -972,7 +967,7 @@ public static class Importer
                         foreach (var place in places)
                         {
                             place.VideoLocalID = to.VideoLocalID;
-                            RepoFactory.VideoLocalPlace.SaveWithOpenTransaction(session, place);
+                            RepoFactory.Shoko_Video_Location.SaveWithOpenTransaction(session, place);
                         }
 
                         transaction.Commit();
@@ -987,7 +982,7 @@ public static class Importer
                 using var transaction = session.BeginTransaction();
                 foreach (var remove in toRemove)
                 {
-                    RepoFactory.VideoLocal.DeleteWithOpenTransaction(session, remove);
+                    RepoFactory.Shoko_Video.DeleteWithOpenTransaction(session, remove);
                 }
 
                 transaction.Commit();
@@ -996,18 +991,18 @@ public static class Importer
             // Remove files in invalid import folders
             foreach (var v in videoLocalsAll)
             {
-                var places = v.Places;
-                if (v.Places?.Count > 0)
+                var places = v.Locations;
+                if (v.Locations?.Count > 0)
                 {
                     lock (BaseRepository.GlobalDBLock)
                     {
                         using var transaction = session.BeginTransaction();
-                        foreach (var place in places.Where(place => string.IsNullOrWhiteSpace(place?.FullServerPath)))
+                        foreach (var location in places.Where(place => string.IsNullOrWhiteSpace(place?.AbsolutePath)))
                         {
                             Logger.Info("RemoveRecordsWithOrphanedImportFolder : {0}", v.FileName);
-                            seriesToUpdate.UnionWith(v.GetAnimeEpisodes().Select(a => a.GetAnimeSeries())
-                                .DistinctBy(a => a.AnimeSeriesID));
-                            RepoFactory.VideoLocalPlace.DeleteWithOpenTransaction(session, place);
+                            seriesToUpdate.UnionWith(v.GetEpisodes().Select(a => a.Series)
+                                .DistinctBy(a => a.Id));
+                            RepoFactory.Shoko_Video_Location.DeleteWithOpenTransaction(session, location);
                         }
 
                         transaction.Commit();
@@ -1015,7 +1010,7 @@ public static class Importer
                 }
 
                 // Remove duplicate places
-                places = v.Places;
+                places = v.Locations;
                 if (places?.Count == 1)
                 {
                     continue;
@@ -1024,30 +1019,30 @@ public static class Importer
                 if (places?.Count > 0)
                 {
                     places = places.DistinctBy(a => a.FullServerPath).ToList();
-                    places = v.Places?.Except(places).ToList();
+                    places = v.Locations?.Except(places).ToList();
                     foreach (var place in places)
                     {
                         lock (BaseRepository.GlobalDBLock)
                         {
                             using var transaction = session.BeginTransaction();
-                            RepoFactory.VideoLocalPlace.DeleteWithOpenTransaction(session, place);
+                            RepoFactory.Shoko_Video_Location.DeleteWithOpenTransaction(session, place);
                             transaction.Commit();
                         }
                     }
                 }
 
-                if (v.Places?.Count > 0) continue;
+                if (v.Locations?.Count > 0) continue;
 
                 // delete video local record
                 Logger.Info("RemoveOrphanedVideoLocal : {0}", v.FileName);
-                seriesToUpdate.UnionWith(v.GetAnimeEpisodes().Select(a => a.GetAnimeSeries())
+                seriesToUpdate.UnionWith(v.GetEpisodes().Select(a => a.Series)
                     .DistinctBy(a => a.AnimeSeriesID));
 
                 if (removeMyList)
                 {
                     if (RepoFactory.AniDB_File.GetByHash(v.Hash) == null)
                     {
-                        var xrefs = RepoFactory.CrossRef_File_Episode.GetByHash(v.Hash);
+                        var xrefs = RepoFactory.CR_Video_Episode.GetByHash(v.Hash);
                         foreach (var xref in xrefs)
                         {
                             var ep = RepoFactory.AniDB_Episode.GetByEpisodeID(xref.EpisodeID);
@@ -1081,7 +1076,7 @@ public static class Importer
                 lock (BaseRepository.GlobalDBLock)
                 {
                     using var transaction = session.BeginTransaction();
-                    RepoFactory.VideoLocal.DeleteWithOpenTransaction(session, v);
+                    RepoFactory.Shoko_Video.DeleteWithOpenTransaction(session, v);
                     transaction.Commit();
                 }
             }
@@ -1090,18 +1085,31 @@ public static class Importer
             lock (BaseRepository.GlobalDBLock)
             {
                 using var transaction = session.BeginTransaction();
-                var list = RepoFactory.VideoLocal.GetAll()
-                    .SelectMany(a => RepoFactory.CrossRef_File_Episode.GetByHash(a.Hash))
+                var list = RepoFactory.Shoko_Video.GetAll()
+                    .SelectMany(a => RepoFactory.CR_Video_Episode.GetByHash(a.Hash))
                     .Where(a => RepoFactory.AniDB_Anime.GetByAnimeID(a.AnimeID) == null ||
                                 a.GetEpisode() == null).ToArray();
                 foreach (var xref in list)
                 {
                     // We don't need to update anything since they don't exist
-                    RepoFactory.CrossRef_File_Episode.DeleteWithOpenTransaction(session, xref);
+                    RepoFactory.CR_Video_Episode.DeleteWithOpenTransaction(session, xref);
                 }
 
                 transaction.Commit();
             }
+
+            // clean up orphaned video local places
+            var placesToRemove = RepoFactory.Shoko_Video_Location.GetAll().Where(a => a.Video == null).ToList();
+            lock (BaseRepository.GlobalDBLock)
+            {
+                using var transaction = session.BeginTransaction();
+                foreach (var place in placesToRemove)
+                {
+                    // We don't need to update anything since they don't exist
+                    RepoFactory.Shoko_Video_Location.DeleteWithOpenTransaction(session, place);
+                }
+                transaction.Commit();
+            });
 
             // update everything we modified
             foreach (var ser in seriesToUpdate)
@@ -1123,8 +1131,8 @@ public static class Importer
                 return "Could not find Import Folder ID: " + importFolderID;
             }
 
-            var affectedSeries = new HashSet<SVR_AnimeSeries>();
-            var vids = RepoFactory.VideoLocalPlace.GetByImportFolder(importFolderID);
+            var affectedSeries = new HashSet<ShokoSeries>();
+            var vids = RepoFactory.Shoko_Video_Location.GetByImportFolderId(importFolderID);
             Logger.Info($"Deleting {vids.Count} video local records");
             using var session = DatabaseFactory.SessionFactory.OpenSession();
             vids.ForEach(vid =>
@@ -1154,12 +1162,12 @@ public static class Importer
     public static void UpdateAllStats()
     {
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
-        foreach (var ser in RepoFactory.AnimeSeries.GetAll())
+        foreach (var ser in RepoFactory.Shoko_Series.GetAll())
         {
             ser.QueueUpdateStats();
         }
 
-        foreach (var gf in RepoFactory.GroupFilter.GetAll())
+        foreach (var gf in RepoFactory.Shoko_Group_Filter.GetAll())
         {
             gf.QueueUpdate();
         }
@@ -1177,7 +1185,7 @@ public static class Importer
         var groupsToUpdate = new HashSet<int>();
         if (outOfDate)
         {
-            var files = RepoFactory.VideoLocal.GetByInternalVersion(1);
+            var files = RepoFactory.Shoko_Video.GetByInternalVersion(1);
 
             foreach (var file in files)
             {
@@ -1195,7 +1203,7 @@ public static class Importer
 
             var missingFiles = RepoFactory.AniDB_File.GetAll()
                 .Where(a => a.GroupID == 0)
-                .Select(a => RepoFactory.VideoLocal.GetByHash(a.Hash))
+                .Select(a => RepoFactory.Shoko_Video.GetByHash(a.Hash))
                 .Where(f => f != null)
                 .Select(a => a.VideoLocalID)
                 .ToList();
@@ -1241,7 +1249,7 @@ public static class Importer
             GroupFilterConditionType.EpisodeWatchedDate,
             GroupFilterConditionType.EpisodeAddedDate
         };
-        var evalfilters = RepoFactory.GroupFilter.GetWithConditionsTypes(conditions)
+        var evalfilters = RepoFactory.Shoko_Group_Filter.GetWithConditionsTypes(conditions)
             .Where(
                 a => a.Conditions.Any(b => conditions.Contains(b.GetConditionTypeEnum()) &&
                                            b.GetConditionOperatorEnum() == GroupFilterOperator.LastXDays))
@@ -1251,7 +1259,7 @@ public static class Importer
             g.CalculateGroupsAndSeries();
         }
 
-        RepoFactory.GroupFilter.Save(evalfilters);
+        RepoFactory.Shoko_Group_Filter.Save(evalfilters);
 
         if (sched == null)
         {
@@ -1577,12 +1585,12 @@ public static class Importer
         }
 
         // files which have been hashed, but don't have an associated episode
-        var filesWithoutEpisode = RepoFactory.VideoLocal.GetVideosWithoutEpisode();
+        var filesWithoutEpisode = RepoFactory.Shoko_Video.GetVideosWithoutEpisode();
         foreach (var vl in filesWithoutEpisode)
         {
             if (settings.Import.MaxAutoScanAttemptsPerFile != 0)
             {
-                var matchAttempts = RepoFactory.AniDB_FileUpdate.GetByFileSizeAndHash(vl.FileSize, vl.Hash).Count;
+                var matchAttempts = RepoFactory.AniDB_File_Update.GetByFileSizeAndHash(vl.FileSize, vl.Hash).Count;
                 if (matchAttempts > settings.Import.MaxAutoScanAttemptsPerFile)
                     continue;
             }
@@ -1616,8 +1624,8 @@ public static class Importer
     {
         try
         {
-            var filesAll = RepoFactory.VideoLocal.GetAll();
-            IReadOnlyList<SVR_VideoLocal> filesIgnored = RepoFactory.VideoLocal.GetIgnoredVideos();
+            var filesAll = RepoFactory.Shoko_Video.GetAll();
+            var filesIgnored = RepoFactory.Shoko_Video.GetIgnoredVideos();
 
             foreach (var vl in filesAll)
             {
@@ -1630,7 +1638,7 @@ public static class Importer
                     if (resultVideoLocalsIgnored.Any())
                     {
                         vl.IsIgnored = 1;
-                        RepoFactory.VideoLocal.Save(vl, false);
+                        RepoFactory.Shoko_Video.Save(vl, false);
                     }
                 }
             }

@@ -239,7 +239,7 @@ public class CommandRequest_DeleteFileFromMyList : CommandRequestImplementation
             if (int.TryParse(TryGetProperty(docCreator, "CommandRequest_DeleteFileFromMyList", "MyListID"),
                     out var mylistID) && mylistID != 0)
             {
-                var vid = RepoFactory.VideoLocal.GetByMyListID(mylistID);
+                var vid = RepoFactory.Shoko_Video.GetByAnidbMylistId(mylistID);
                 if (vid == null) return false;
 
                 Hash = vid.Hash;

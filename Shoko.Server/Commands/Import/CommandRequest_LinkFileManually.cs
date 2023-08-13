@@ -10,8 +10,11 @@ using Shoko.Server.Commands.AniDB;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Models;
+using Shoko.Server.Models.CrossReferences;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.Commands;
@@ -22,12 +25,13 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
 {
     private readonly ICommandRequestFactory _commandFactory;
     private readonly IServerSettings _settings;
-    public int VideoLocalID { get; set; }
-    public int EpisodeID { get; set; }
+    public int VideoId { get; set; }
+    public int EpisodeId { get; set; }
     public int Percentage { get; set; }
 
-    private SVR_AnimeEpisode _episode;
-    private SVR_VideoLocal _vlocal;
+    private Shoko_Episode Episode;
+
+    private Shoko_Video Video;
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority3;
 
@@ -35,13 +39,13 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
     {
         get
         {
-            if (_vlocal != null && _episode != null)
+            if (Video != null && Episode != null)
             {
                 return new QueueStateStruct
                 {
                     message = "Linking File: {0} to Episode: {1}",
                     queueState = QueueStateEnum.LinkFileManually,
-                    extraParams = new[] { _vlocal.FileName, _episode.Title }
+                    extraParams = new[] { Video.FileName, Episode.Title }
                 };
             }
 
@@ -49,38 +53,38 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
             {
                 message = "Linking File: {0} to Episode: {1}",
                 queueState = QueueStateEnum.LinkFileManually,
-                extraParams = new[] { VideoLocalID.ToString(), EpisodeID.ToString() }
+                extraParams = new[] { VideoId.ToString(), EpisodeId.ToString() }
             };
         }
     }
 
     protected override void Process()
     {
-        var xref = new CrossRef_File_Episode
+        var xref = new CR_Video_Episode
         {
-            Hash = _vlocal.ED2KHash,
-            FileName = _vlocal.FileName,
-            FileSize = _vlocal.FileSize,
+            Hash = Video.ED2KHash,
+            FileName = Video.FileName,
+            FileSize = Video.FileSize,
             CrossRefSource = (int)CrossRefSource.User,
-            AnimeID = _episode.AniDB_Episode.AnimeID,
-            EpisodeID = _episode.AniDB_EpisodeID,
+            AnimeID = Episode.AniDB_Episode.AnimeID,
+            EpisodeID = Episode.AniDB_EpisodeID,
             Percentage = Percentage is > 0 and <= 100 ? Percentage : 100,
             EpisodeOrder = 1
         };
 
-        RepoFactory.CrossRef_File_Episode.Save(xref);
+        RepoFactory.CR_Video_Episode.Save(xref);
 
         ProcessFileQualityFilter();
 
-        _vlocal.Places.ForEach(a => { a.RenameAndMoveAsRequired(); });
+        Video.Places.ForEach(a => { a.RenameAndMoveAsRequired(); });
 
         // Set the import date.
-        _vlocal.DateTimeImported = DateTime.Now;
-        RepoFactory.VideoLocal.Save(_vlocal);
+        Video.DateTimeImported = DateTime.Now;
+        RepoFactory.Shoko_Video.Save(Video);
 
-        var ser = _episode.GetAnimeSeries();
+        var ser = Episode.GetAnimeSeries();
         ser.EpisodeAddedDate = DateTime.Now;
-        RepoFactory.AnimeSeries.Save(ser, false, true);
+        RepoFactory.Shoko_Series.Save(ser, false, true);
 
         //Update will re-save
         ser.QueueUpdateStats();
@@ -88,14 +92,14 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
         foreach (var grp in ser.AllGroupsAbove)
         {
             grp.EpisodeAddedDate = DateTime.Now;
-            RepoFactory.AnimeGroup.Save(grp, false, false);
+            RepoFactory.Shoko_Group.Save(grp, false, false);
         }
 
-        ShokoEventHandler.Instance.OnFileMatched(_vlocal.GetBestVideoLocalPlace(), _vlocal);
+        ShokoEventHandler.Instance.OnFileMatched(Video.GetPreferredLocation());
 
         if (_settings.AniDb.MyList_AddFiles)
         {
-            var cmdAddFile = _commandFactory.Create<CommandRequest_AddFileToMyList>(c => c.Hash = _vlocal.Hash);
+            var cmdAddFile = _commandFactory.Create<CommandRequest_AddFileToMyList>(c => c.Hash = Video.Hash);
             cmdAddFile.Save();
         }
     }
@@ -104,16 +108,16 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
     {
         if (!_settings.FileQualityFilterEnabled) return;
 
-        var videoLocals = _episode.GetVideoLocals();
+        var videoLocals = Episode.GetVideos().ToList();
         if (videoLocals == null) return;
 
         videoLocals.Sort(FileQualityFilter.CompareTo);
-        var keep = videoLocals.Take(FileQualityFilter.Settings.MaxNumberOfFilesToKeep).ToList();
+        var keep = videoLocals.Take(_settings.FileQualityPreferences.MaxNumberOfFilesToKeep).ToList();
         foreach (var vl2 in keep) videoLocals.Remove(vl2);
 
-        if (videoLocals.Contains(_vlocal)) videoLocals.Remove(_vlocal);
+        if (videoLocals.Contains(Video)) videoLocals.Remove(Video);
 
-        videoLocals = videoLocals.Where(FileQualityFilter.CheckFileKeep).ToList();
+        videoLocals = videoLocals.Where(FileQualityFilter.ShouldRemoveVideo).ToList();
 
         foreach (var toDelete in videoLocals) toDelete.Places.ForEach(a => a.RemoveRecordAndDeletePhysicalFile());
     }
@@ -124,7 +128,7 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
     /// </summary>
     public override void GenerateCommandID()
     {
-        CommandID = $"CommandRequest_LinkFileManually_{VideoLocalID}_{EpisodeID}";
+        CommandID = $"CommandRequest_LinkFileManually_{VideoId}_{EpisodeId}";
     }
 
     public override bool LoadFromDBCommand(CommandRequest cq)
@@ -142,20 +146,20 @@ public class CommandRequest_LinkFileManually : CommandRequestImplementation
         docCreator.LoadXml(CommandDetails);
 
         // populate the fields
-        VideoLocalID = int.Parse(TryGetProperty(docCreator, "CommandRequest_LinkFileManually", "VideoLocalID"));
-        EpisodeID = int.Parse(TryGetProperty(docCreator, "CommandRequest_LinkFileManually", "EpisodeID"));
+        VideoId = int.Parse(TryGetProperty(docCreator, "CommandRequest_LinkFileManually", "VideoId"));
+        EpisodeId = int.Parse(TryGetProperty(docCreator, "CommandRequest_LinkFileManually", "EpisodeId"));
         Percentage = int.Parse(TryGetProperty(docCreator, "CommandRequest_LinkFileManually", "Percentage"));
-        _vlocal = RepoFactory.VideoLocal.GetByID(VideoLocalID);
-        if (_vlocal == null)
+        Video = RepoFactory.Shoko_Video.GetByID(VideoId);
+        if (Video == null)
         {
-            Logger.LogWarning("VideoLocal object {VideoLocalID} not found", VideoLocalID);
+            Logger.LogWarning("VideoLocal object {VideoLocalID} not found", VideoId);
             return false;
         }
 
-        _episode = RepoFactory.AnimeEpisode.GetByID(EpisodeID);
-        if (_episode?.GetAnimeSeries() == null)
+        Episode = RepoFactory.Shoko_Episode.GetByID(EpisodeId);
+        if (Episode?.Series == null)
         {
-            Logger.LogWarning("Local Episode or Series object {EpisodeID} not found", EpisodeID);
+            Logger.LogWarning("Local Episode or Series object {EpisodeID} not found", EpisodeId);
             return false;
         }
 

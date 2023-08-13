@@ -8,11 +8,12 @@ using Shoko.Commons.Queue;
 using Shoko.Models.Enums;
 using Shoko.Models.Queue;
 using Shoko.Models.Server;
-using Shoko.Models.TvDB;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Models;
+using Shoko.Server.Models.CrossReferences;
+using Shoko.Server.Models.TvDB;
 using Shoko.Server.Providers.TvDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
@@ -52,17 +53,17 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
 
             // try to pull a link from a prequel/sequel
             var relations = RepoFactory.AniDB_Anime_Relation.GetFullLinearRelationTree(AnimeID);
-            var tvDBID = relations.SelectMany(a => RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(a))
+            var tvDBID = relations.SelectMany(a => RepoFactory.CR_AniDB_TvDB.GetByAnimeID(a))
                 .FirstOrDefault(a => a != null)?.TvDBID;
 
             if (tvDBID != null)
             {
-                _helper.LinkAniDBTvDB(AnimeID, tvDBID.Value, true, true);
+                _helper.AddShowLink(AnimeID, tvDBID.Value, true);
                 return;
             }
 
             // search TvDB
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
             if (anime == null)
             {
                 return;
@@ -92,12 +93,12 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
                     continue;
                 }
 
-                if (title.Language != TitleLanguage.English && title.Language != TitleLanguage.Romaji)
+                if (title.Language != TextLanguage.English && title.Language != TextLanguage.Romaji)
                 {
                     continue;
                 }
 
-                var cleanTitle = CleanTitle(title.Title);
+                var cleanTitle = CleanTitle(title.Value);
 
                 if (searchCriteria.Equals(cleanTitle, StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -131,7 +132,7 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
 
     private bool ProcessSearchResults(List<TVDB_Series_Search_Response> results, string searchCriteria)
     {
-        TvDB_Series tvser;
+        TvDB_Show tvser;
         switch (results.Count)
         {
             case 1:
@@ -140,11 +141,11 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
                     results[0].SeriesName,
                     results[0].SeriesID);
                 tvser = _helper.GetSeriesInfoOnline(results[0].SeriesID, false);
-                _helper.LinkAniDBTvDB(AnimeID, results[0].SeriesID, true, true);
+                _helper.AddShowLink(AnimeID, results[0].SeriesID, true);
 
                 // add links for multiple seasons (for long shows)
                 AddCrossRef_AniDB_TvDBV2(AnimeID, results[0].SeriesID, CrossRefSource.Automatic);
-                SVR_AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
+                AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
                 return true;
             case 0:
                 return false;
@@ -158,12 +159,12 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
                     Logger.LogTrace("Found english result for search on {0} --- Linked to {1} ({2})", searchCriteria,
                         sres.SeriesName,
                         sres.SeriesID);
-                    tvser = _helper.GetSeriesInfoOnline(results[0].SeriesID, false);
-                    _helper.LinkAniDBTvDB(AnimeID, sres.SeriesID, true, true);
+                    tvser = _helper.GetSeriesInfoOnline(sres.SeriesID, false);
+                    _helper.AddShowLink(AnimeID, sres.SeriesID, true);
 
                     // add links for multiple seasons (for long shows)
-                    AddCrossRef_AniDB_TvDBV2(AnimeID, results[0].SeriesID, CrossRefSource.Automatic);
-                    SVR_AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
+                    AddCrossRef_AniDB_TvDBV2(AnimeID, sres.SeriesID, CrossRefSource.Automatic);
+                    AniDB_Anime.UpdateStatsByAnimeID(AnimeID);
                     return true;
                 }
 
@@ -176,14 +177,14 @@ public class CommandRequest_TvDBSearchAnime : CommandRequestImplementation
     private static void AddCrossRef_AniDB_TvDBV2(int animeID, int tvdbID, CrossRefSource source)
     {
         var xref =
-            RepoFactory.CrossRef_AniDB_TvDB.GetByAniDBAndTvDBID(animeID, tvdbID);
+            RepoFactory.CR_AniDB_TvDB.GetByAnidbAndTvdbIds(animeID, tvdbID);
         if (xref != null)
         {
             return;
         }
 
-        xref = new CrossRef_AniDB_TvDB { AniDBID = animeID, TvDBID = tvdbID, CrossRefSource = source };
-        RepoFactory.CrossRef_AniDB_TvDB.Save(xref);
+        xref = new CR_AniDB_TvDB { AnidbAnimeId = animeID, TvdbShowId = tvdbID, Source = source };
+        RepoFactory.CR_AniDB_TvDB.Save(xref);
     }
 
     private static readonly Regex RemoveYear = new(@"(^.*)( \([0-9]+\)$)", RegexOptions.Compiled);

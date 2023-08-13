@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Plugin.Abstractions.Events;
 
@@ -52,7 +52,7 @@ public class FileMatchedCrossReference
     [JsonConverter(typeof(StringEnumConverter))]
     public DataSource DataSource { get; }
 
-    public FileMatchedCrossReference(IVideoEpisodeCrossReference xref, int groupID)
+    public FileMatchedCrossReference(IShokoVideoCrossReference xref, int groupID)
     {
         EpisodeID = xref.EpisodeId;
         SeriesID = xref.SeriesId;

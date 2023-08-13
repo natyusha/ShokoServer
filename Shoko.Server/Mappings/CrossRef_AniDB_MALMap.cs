@@ -8,13 +8,10 @@ public class CrossRef_AniDB_MALMap : ClassMap<CrossRef_AniDB_MAL>
     public CrossRef_AniDB_MALMap()
     {
         Not.LazyLoad();
-        Id(x => x.CrossRef_AniDB_MALID);
+        Id(x => x.Id);
 
-        Map(x => x.AnimeID).Not.Nullable();
-        Map(x => x.CrossRefSource).Not.Nullable();
-        Map(x => x.MALID).Not.Nullable();
-        Map(x => x.MALTitle);
-        Map(x => x.StartEpisodeType).Not.Nullable();
-        Map(x => x.StartEpisodeNumber).Not.Nullable();
+        Map(x => x.AnidbAnimeId).Not.Nullable();
+        Map(x => x.Source).Not.Nullable();
+        Map(x => x.MalAnimeId).Not.Nullable();
     }
 }

@@ -10,10 +10,9 @@ using Shoko.Commons.Notification;
 using Shoko.Commons.Queue;
 using Shoko.Models.Enums;
 using Shoko.Models.Queue;
-using Shoko.Models.Server;
 using Shoko.Server.Databases;
 using Shoko.Server.FileHelper;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 
@@ -50,7 +49,7 @@ public class Scanner : INotifyPropertyChangedExt
     public void Init()
     {
         Utils.MainThreadDispatch(() => { RepoFactory.Scan.GetAll().ForEach(a => Scans.Add(a)); });
-        var runscan = Scans.FirstOrDefault(a => a.GetScanStatus() == ScanStatus.Running);
+        var runscan = Scans.FirstOrDefault(a => a.Status == ScanStatus.Running);
         if (runscan != null)
         {
             ActiveScan = runscan;
@@ -82,7 +81,7 @@ public class Scanner : INotifyPropertyChangedExt
             CancelScan();
         }
 
-        RepoFactory.ScanFile.Delete(RepoFactory.ScanFile.GetByScanID(ActiveScan.ScanID));
+        RepoFactory.ScanFile.Delete(RepoFactory.ScanFile.GetByScanID(ActiveScan.Id));
         RepoFactory.Scan.Delete(ActiveScan);
         Utils.MainThreadDispatch(() => { Scans.Remove(ActiveScan); });
         ActiveScan = null;
@@ -109,16 +108,17 @@ public class Scanner : INotifyPropertyChangedExt
         }
     }
 
-    public bool Finished => (ActiveScan != null && ActiveScan.GetScanStatus() == ScanStatus.Finish) ||
+    public bool Finished => (ActiveScan != null && ActiveScan.Status == ScanStatus.Finish) ||
                             ActiveScan == null;
 
-    public string QueueState => ActiveScan != null ? ActiveScan.GetStatusText() : string.Empty;
-    public bool QueuePaused => ActiveScan != null && ActiveScan.GetScanStatus() == ScanStatus.Standby;
-    public bool QueueRunning => ActiveScan != null && ActiveScan.GetScanStatus() == ScanStatus.Running;
+    public string QueueState => ActiveScan != null ? ActiveScan.StatusText : string.Empty;
+    public bool QueuePaused => ActiveScan != null && ActiveScan.Status == ScanStatus.Standby;
+    public bool QueueRunning => ActiveScan != null && ActiveScan.Status == ScanStatus.Running;
     public bool Exists => ActiveScan != null;
-    private SVR_Scan activeScan;
 
-    public SVR_Scan ActiveScan
+    private Scan activeScan;
+
+    public Scan ActiveScan
     {
         get => activeScan;
         set
@@ -132,7 +132,7 @@ public class Scanner : INotifyPropertyChangedExt
                     ActiveErrorFiles.Clear();
                     if (value != null)
                     {
-                        RepoFactory.ScanFile.GetWithError(value.ScanID).ForEach(a => ActiveErrorFiles.Add(a));
+                        RepoFactory.ScanFile.GetWithError(value.Id).ForEach(a => ActiveErrorFiles.Add(a));
                     }
                 });
             }
@@ -145,11 +145,11 @@ public class Scanner : INotifyPropertyChangedExt
             () => QueueRunning);
         if (activeScan != null)
         {
-            QueueCount = RepoFactory.ScanFile.GetWaitingCount(activeScan.ScanID);
+            QueueCount = RepoFactory.ScanFile.GetWaitingCount(activeScan.Id);
         }
     }
 
-    public ObservableCollection<SVR_Scan> Scans { get; set; } = new();
+    public ObservableCollection<Scan> Scans { get; set; } = new();
 
     public ObservableCollection<ScanFile> ActiveErrorFiles { get; set; } = new();
 
@@ -159,7 +159,7 @@ public class Scanner : INotifyPropertyChangedExt
     {
         Utils.MainThreadDispatch(() =>
         {
-            if (ActiveScan != null && ActiveScan.ScanID == file.ScanID)
+            if (ActiveScan != null && ActiveScan.Id == file.ScanId)
             {
                 ActiveErrorFiles.Add(file);
             }
@@ -175,13 +175,13 @@ public class Scanner : INotifyPropertyChangedExt
 
         var files = ActiveErrorFiles.ToList();
         ActiveErrorFiles.Clear();
-        var episodesToUpdate = new HashSet<SVR_AnimeEpisode>();
-        var seriesToUpdate = new HashSet<SVR_AnimeSeries>();
+        var episodesToUpdate = new HashSet<Shoko_Episode>();
+        var seriesToUpdate = new HashSet<ShokoSeries>();
         using (var session = DatabaseFactory.SessionFactory.OpenSession())
         {
             files.ForEach(file =>
             {
-                var place = RepoFactory.VideoLocalPlace.GetByID(file.VideoLocal_Place_ID);
+                var place = file.GetVideoLocation();
                 place.RemoveAndDeleteFileWithOpenTransaction(session, seriesToUpdate);
             });
             // update everything we modified
@@ -195,7 +195,8 @@ public class Scanner : INotifyPropertyChangedExt
     }
 
     private bool cancelIntegrityCheck;
-    internal SVR_Scan RunScan;
+
+    internal Scan RunScan;
 
     public static int OnHashProgress(string fileName, int percentComplete)
     {
@@ -204,30 +205,30 @@ public class Scanner : INotifyPropertyChangedExt
 
     private void WorkerIntegrityScanner_DoWork(object sender, DoWorkEventArgs e)
     {
-        if (RunScan != null && RunScan.GetScanStatus() != ScanStatus.Finish)
+        if (RunScan != null && RunScan.Status != ScanStatus.Finish)
         {
             var paused = ShokoService.CmdProcessorHasher.Paused;
             ShokoService.CmdProcessorHasher.Paused = true;
             var s = RunScan;
-            s.Status = (int)ScanStatus.Running;
+            s.Status = ScanStatus.Running;
             RepoFactory.Scan.Save(s);
             Refresh();
-            var files = RepoFactory.ScanFile.GetWaiting(s.ScanID);
+            var files = RepoFactory.ScanFile.GetWaiting(s.Id);
             var cnt = 0;
             foreach (var sf in files)
             {
                 try
                 {
-                    if (!File.Exists(sf.FullName))
+                    if (!File.Exists(sf.AbsolutePath))
                     {
-                        sf.Status = (int)ScanFileStatus.ErrorFileNotFound;
+                        sf.Status = ScanFileStatus.ErrorFileNotFound;
                     }
                     else
                     {
-                        var f = new FileInfo(sf.FullName);
+                        var f = new FileInfo(sf.AbsolutePath);
                         if (sf.FileSize != f.Length)
                         {
-                            sf.Status = (int)ScanFileStatus.ErrorInvalidSize;
+                            sf.Status = ScanFileStatus.ErrorInvalidSize;
                         }
                         else
                         {
@@ -235,24 +236,24 @@ public class Scanner : INotifyPropertyChangedExt
                             {
                                 message = "Hashing File: {0}",
                                 queueState = QueueStateEnum.HashingFile,
-                                extraParams = new[] { sf.FullName }
+                                extraParams = new[] { sf.AbsolutePath }
                             };
                             var hashes =
-                                FileHashHelper.GetHashInfo(sf.FullName, true, OnHashProgress, false, false, false);
+                                FileHashHelper.GetHashInfo(sf.AbsolutePath, true, OnHashProgress, false, false, false);
                             if (string.IsNullOrEmpty(hashes.ED2K))
                             {
-                                sf.Status = (int)ScanFileStatus.ErrorMissingHash;
+                                sf.Status = ScanFileStatus.ErrorMissingHash;
                             }
                             else
                             {
-                                sf.HashResult = hashes.ED2K;
-                                if (!sf.Hash.Equals(sf.HashResult, StringComparison.InvariantCultureIgnoreCase))
+                                sf.CheckedED2K = hashes.ED2K;
+                                if (sf.IsFaulty)
                                 {
-                                    sf.Status = (int)ScanFileStatus.ErrorInvalidHash;
+                                    sf.Status = ScanFileStatus.ErrorInvalidHash;
                                 }
                                 else
                                 {
-                                    sf.Status = (int)ScanFileStatus.ProcessedOK;
+                                    sf.Status = ScanFileStatus.ProcessedOK;
                                 }
                             }
                         }
@@ -260,15 +261,15 @@ public class Scanner : INotifyPropertyChangedExt
                 }
                 catch (Exception)
                 {
-                    sf.Status = (int)ScanFileStatus.ErrorIOError;
+                    sf.Status = ScanFileStatus.ErrorIOError;
                 }
 
                 cnt++;
-                sf.CheckDate = DateTime.Now;
+                sf.CheckedAt = DateTime.Now;
                 RepoFactory.ScanFile.Save(sf);
-                if (sf.Status > (int)ScanFileStatus.ProcessedOK)
+                if (sf.Status > ScanFileStatus.ProcessedOK)
                 {
-                    Instance.AddErrorScan(sf);
+                    AddErrorScan(sf);
                 }
 
                 Refresh();
@@ -279,13 +280,13 @@ public class Scanner : INotifyPropertyChangedExt
                 }
             }
 
-            if (files.Any(a => a.GetScanFileStatus() == ScanFileStatus.Waiting))
+            if (files.Any(a => a.Status == ScanFileStatus.Waiting))
             {
-                s.Status = (int)ScanStatus.Standby;
+                s.Status = ScanStatus.Standby;
             }
             else
             {
-                s.Status = (int)ScanStatus.Finish;
+                s.Status = ScanStatus.Finish;
             }
 
             RepoFactory.Scan.Save(s);

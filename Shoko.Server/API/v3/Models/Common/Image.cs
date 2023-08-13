@@ -11,6 +11,7 @@ using Shoko.Models.Enums;
 using Shoko.Server.Extensions;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
 
@@ -255,7 +256,7 @@ public class Image
         {
             // 1
             case ImageEntityType.AniDB_Cover:
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(id);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(id);
                 if (anime == null)
                 {
                     return null;
@@ -274,7 +275,7 @@ public class Image
                 break;
             // 4
             case ImageEntityType.TvDB_Banner:
-                var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(id);
+                var wideBanner = RepoFactory.TvDB_Banner.GetByID(id);
                 if (wideBanner == null)
                 {
                     return null;
@@ -294,7 +295,7 @@ public class Image
 
             // 5
             case ImageEntityType.TvDB_Cover:
-                var poster = RepoFactory.TvDB_ImagePoster.GetByID(id);
+                var poster = RepoFactory.TvDB_Poster.GetByID(id);
                 if (poster == null)
                 {
                     return null;
@@ -334,7 +335,7 @@ public class Image
 
             // 7
             case ImageEntityType.TvDB_FanArt:
-                var fanart = RepoFactory.TvDB_ImageFanart.GetByID(id);
+                var fanart = RepoFactory.TvDB_Fanart.GetByID(id);
                 if (fanart == null)
                 {
                     return null;
@@ -351,13 +352,13 @@ public class Image
 
             // 8
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetByID(id);
+                var mFanart = RepoFactory.TMDB_Fanart.GetByID(id);
                 if (mFanart == null)
                 {
                     return null;
                 }
 
-                mFanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(mFanart.URL);
+                mFanart = RepoFactory.TMDB_Fanart.GetByOnlineID(mFanart.URL);
                 if (mFanart == null)
                 {
                     return null;
@@ -377,13 +378,13 @@ public class Image
 
             // 9
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetByID(id);
+                var mPoster = RepoFactory.TMDB_Movie_Poster.GetByID(id);
                 if (mPoster == null)
                 {
                     return null;
                 }
 
-                mPoster = RepoFactory.MovieDB_Poster.GetByOnlineID(mPoster.URL);
+                mPoster = RepoFactory.TMDB_Movie_Poster.GetByOnlineID(mPoster.URL);
                 if (mPoster == null)
                 {
                     return null;
@@ -402,7 +403,7 @@ public class Image
                 break;
 
             case ImageEntityType.Character:
-                var character = RepoFactory.AnimeCharacter.GetByID(id);
+                var character = RepoFactory.Shoko_Character.GetByID(id);
                 if (character == null)
                 {
                     return null;
@@ -421,7 +422,7 @@ public class Image
                 break;
 
             case ImageEntityType.Staff:
-                var staff = RepoFactory.AnimeStaff.GetByID(id);
+                var staff = RepoFactory.Shoko_Staff.GetByID(id);
                 if (staff == null)
                 {
                     return null;
@@ -511,84 +512,84 @@ public class Image
             ImageEntityType.AniDB_Creator => RepoFactory.AniDB_Anime.GetAll()
                 .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                 .SelectMany(a => a.GetAnimeCharacters())
-                .SelectMany(a => RepoFactory.AniDB_Character_Seiyuu.GetByCharID(a.CharID))
-                .Select(a => RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(a.SeiyuuID)).Where(a => a != null)
+                .SelectMany(a => RepoFactory.AniDB_Character_Creator.GetByCharID(a.CharID))
+                .Select(a => RepoFactory.AniDB_Creator.GetBySeiyuuID(a.SeiyuuID)).Where(a => a != null)
                 .GetRandomElement()?.AniDB_SeiyuuID,
             // TvDB doesn't allow H content, so we get to skip the check!
-            ImageEntityType.TvDB_Banner => RepoFactory.TvDB_ImageWideBanner.GetAll()
+            ImageEntityType.TvDB_Banner => RepoFactory.TvDB_Banner.GetAll()
                 .GetRandomElement()?.TvDB_ImageWideBannerID,
             // TvDB doesn't allow H content, so we get to skip the check!
-            ImageEntityType.TvDB_Cover => RepoFactory.TvDB_ImagePoster.GetAll()
+            ImageEntityType.TvDB_Cover => RepoFactory.TvDB_Poster.GetAll()
                 .GetRandomElement()?.TvDB_ImagePosterID,
             // TvDB doesn't allow H content, so we get to skip the check!
             ImageEntityType.TvDB_Episode => RepoFactory.TvDB_Episode.GetAll()
                 .GetRandomElement()?.Id,
             // TvDB doesn't allow H content, so we get to skip the check!
-            ImageEntityType.TvDB_FanArt => RepoFactory.TvDB_ImageFanart.GetAll()
+            ImageEntityType.TvDB_FanArt => RepoFactory.TvDB_Fanart.GetAll()
                 .GetRandomElement()?.TvDB_ImageFanartID,
-            ImageEntityType.MovieDB_FanArt => RepoFactory.MovieDB_Fanart.GetAll()
+            ImageEntityType.MovieDB_FanArt => RepoFactory.TMDB_Fanart.GetAll()
                 .GetRandomElement()?.MovieDB_FanartID,
-            ImageEntityType.MovieDB_Poster => RepoFactory.MovieDB_Poster.GetAll()
+            ImageEntityType.MovieDB_Poster => RepoFactory.TMDB_Movie_Poster.GetAll()
                 .GetRandomElement()?.MovieDB_PosterID,
             ImageEntityType.Character => RepoFactory.AniDB_Anime.GetAll()
                 .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
-                .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))
+                .SelectMany(a => RepoFactory.CR_ShokoSeries_ShokoStaff.GetByAnimeID(a.AnimeID))
                 .Where(a => a.RoleType == (int)StaffRoleType.Seiyuu && a.RoleID.HasValue)
-                .Select(a => RepoFactory.AnimeCharacter.GetByID(a.RoleID!.Value))
+                .Select(a => RepoFactory.Shoko_Character.GetByID(a.RoleID!.Value))
                 .GetRandomElement()?.CharacterID,
             ImageEntityType.Staff => RepoFactory.AniDB_Anime.GetAll()
                 .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
-                .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))
-                .Select(a => RepoFactory.AnimeStaff.GetByID(a.StaffID))
+                .SelectMany(a => RepoFactory.CR_ShokoSeries_ShokoStaff.GetByAnimeID(a.AnimeID))
+                .Select(a => RepoFactory.Shoko_Staff.GetByID(a.StaffID))
                 .GetRandomElement()?.StaffID,
             _ => null
         };
     }
 
-    internal static SVR_AnimeSeries? GetFirstSeriesForImage(ImageEntityType imageType, int imageID)
+    internal static ShokoSeries? GetFirstSeriesForImage(ImageEntityType imageType, int imageID)
     {
         switch (imageType)
         {
             case ImageEntityType.AniDB_Cover:
-                return RepoFactory.AnimeSeries.GetByAnimeID(imageID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(imageID);
             case ImageEntityType.TvDB_Banner:
             {
-                var tvdbWideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
+                var tvdbWideBanner = RepoFactory.TvDB_Banner.GetByID(imageID);
                 if (tvdbWideBanner == null)
                     return null;
 
-                var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(tvdbWideBanner.SeriesID)
+                var xref = RepoFactory.CR_AniDB_TvDB.GetByTvDBId(tvdbWideBanner.SeriesID)
                     .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AniDBID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AniDBID);
             }
             case ImageEntityType.TvDB_Cover:
             {
-                var tvdbPoster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
+                var tvdbPoster = RepoFactory.TvDB_Poster.GetByID(imageID);
                 if (tvdbPoster == null)
                     return null;
 
-                var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(tvdbPoster.SeriesID)
+                var xref = RepoFactory.CR_AniDB_TvDB.GetByTvDBId(tvdbPoster.SeriesID)
                     .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AniDBID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AniDBID);
             }
             case ImageEntityType.TvDB_FanArt:
             {
-                var tvdbFanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
+                var tvdbFanart = RepoFactory.TvDB_Fanart.GetByID(imageID);
                 if (tvdbFanart == null)
                     return null;
 
-                var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(tvdbFanart.SeriesID)
+                var xref = RepoFactory.CR_AniDB_TvDB.GetByTvDBId(tvdbFanart.SeriesID)
                     .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AniDBID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AniDBID);
             }
             case ImageEntityType.TvDB_Episode:
             {
@@ -596,40 +597,40 @@ public class Image
                 if (tvdbEpisode == null)
                     return null;
                 
-                var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(tvdbEpisode.SeriesID)
+                var xref = RepoFactory.CR_AniDB_TvDB.GetByTvDBId(tvdbEpisode.SeriesID)
                     .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AniDBID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AniDBID);
             }
             case ImageEntityType.MovieDB_FanArt:
             {
-                var tmdbFanart = RepoFactory.MovieDB_Fanart.GetByID(imageID);
+                var tmdbFanart = RepoFactory.TMDB_Fanart.GetByID(imageID);
                 if (tmdbFanart == null)
                     return null;
                 
                 // This will be slow as HELL. Why don't we have a lookup?
-                var xref = RepoFactory.CrossRef_AniDB_Other.GetAll()
+                var xref = RepoFactory.CR_AniDB_Other.GetAll()
                     .FirstOrDefault(xref => xref.CrossRefType == (int)CrossRefType.MovieDB && int.Parse(xref.CrossRefID) == tmdbFanart.MovieId);
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AnimeID);
             }
             case ImageEntityType.MovieDB_Poster:
             {
-                var tmdbPoster = RepoFactory.MovieDB_Poster.GetByID(imageID);
+                var tmdbPoster = RepoFactory.TMDB_Movie_Poster.GetByID(imageID);
                 if (tmdbPoster == null)
                     return null;
                 
                 // This will be slow as HELL. Why don't we have a lookup?
-                var xref = RepoFactory.CrossRef_AniDB_Other.GetAll()
+                var xref = RepoFactory.CR_AniDB_Other.GetAll()
                     .FirstOrDefault(xref => xref.CrossRefType == (int)CrossRefType.MovieDB && int.Parse(xref.CrossRefID) == tmdbPoster.MovieId);
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                return RepoFactory.Shoko_Series.GetByAnidbAnimeId(xref.AnimeID);
             }
             default:
                 return null;

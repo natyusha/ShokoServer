@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using NLog;
 using Shoko.Models.Interfaces;
 using Shoko.Server.API.Annotations;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
 using Mime = MimeMapping.MimeUtility;
@@ -147,7 +147,7 @@ public class ShokoServiceImplementationStream : Controller, IShokoServerStream, 
                 outstream.CrossPositionCrossed +=
                     a =>
                     {
-                        Task.Factory.StartNew(() => { r.VideoLocal.ToggleWatchedStatus(true, r.User.JMMUserID); },
+                        Task.Factory.StartNew(() => { r.VideoLocal.ToggleWatchedStatus(true, r.User.Id); },
                             new CancellationToken(),
                             TaskCreationOptions.LongRunning, TaskScheduler.Default);
                     };
@@ -201,8 +201,8 @@ public class ShokoServiceImplementationStream : Controller, IShokoServerStream, 
     private class InfoResult
     {
         public FileInfo File { get; set; }
-        public SVR_VideoLocal VideoLocal { get; set; }
-        public SVR_JMMUser User { get; set; }
+        public Shoko_Video VideoLocal { get; set; }
+        public Shoko_User User { get; set; }
         public HttpStatusCode Status { get; set; }
         public string StatusDescription { get; set; }
         public string Mime { get; set; }
@@ -211,7 +211,7 @@ public class ShokoServiceImplementationStream : Controller, IShokoServerStream, 
     private InfoResult ResolveVideoLocal(int videolocalid, int? userId, bool? autowatch)
     {
         var r = new InfoResult();
-        var loc = RepoFactory.VideoLocal.GetByID(videolocalid);
+        var loc = RepoFactory.Shoko_Video.GetByID(videolocalid);
         if (loc == null)
         {
             r.Status = HttpStatusCode.BadRequest;
@@ -220,7 +220,7 @@ public class ShokoServiceImplementationStream : Controller, IShokoServerStream, 
         }
 
         r.VideoLocal = loc;
-        r.File = loc.GetBestFileLink();
+        r.File = loc.GetPreferredFileInfo();
         return FinishResolve(r, userId, autowatch);
     }
 
@@ -244,7 +244,7 @@ public class ShokoServiceImplementationStream : Controller, IShokoServerStream, 
 
         if (userId.HasValue && autowatch.HasValue && userId.Value != 0)
         {
-            r.User = RepoFactory.JMMUser.GetByID(userId.Value);
+            r.User = RepoFactory.Shoko_User.GetByID(userId.Value);
             if (r.User == null)
             {
                 r.Status = HttpStatusCode.NotFound;

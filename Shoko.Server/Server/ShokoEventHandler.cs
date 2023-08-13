@@ -3,29 +3,46 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using Shoko.Plugin.Abstractions;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
+using Shoko.Plugin.Abstractions.Events;
+using Shoko.Plugin.Abstractions.Models.Provider;
 
 namespace Shoko.Server;
 
 public class ShokoEventHandler : IShokoEventHandler
 {
     public event EventHandler<FileDeletedEventArgs> FileDeleted;
+
     public event EventHandler<FileDetectedEventArgs> FileDetected;
+
     public event EventHandler<FileHashedEventArgs> FileHashed;
+
     public event EventHandler<FileNotMatchedEventArgs> FileNotMatched;
+
     public event EventHandler<FileMatchedEventArgs> FileMatched;
+
     public event EventHandler<FileRenamedEventArgs> FileRenamed;
+
     public event EventHandler<FileMovedEventArgs> FileMoved;
+
     public event EventHandler<AniDBBannedEventArgs> AniDBBanned;
-    public event EventHandler<SeriesInfoUpdatedEventArgs> SeriesUpdated;
-    public event EventHandler<EpisodeInfoUpdatedEventArgs> EpisodeUpdated;
+
+    public event EventHandler<ShowUpdatedEventArgs> ShowUpdated;
+
+    public event EventHandler<SeasonUpdatedEventArgs> SeasonUpdated;
+
+    public event EventHandler<EpisodeUpdatedEventArgs> EpisodeUpdated;
+
+    public event EventHandler<MovieUpdatedEventArgs> MovieUpdated;
+
     public event EventHandler<SettingsSavedEventArgs> SettingsSaved;
 
     public event EventHandler Start;
-    public event EventHandler<CancelEventArgs> Shutdown;
 
+    public event EventHandler<CancelEventArgs> Shutdown;
 
     private static ShokoEventHandler _instance;
 
@@ -43,96 +60,70 @@ public class ShokoEventHandler : IShokoEventHandler
         }
     }
 
-    public void OnFileDetected(SVR_ImportFolder folder, FileInfo file)
+    public void OnFileDetected(ImportFolder folder, FileInfo file)
     {
-        var path = file.FullName.Replace(folder.ImportFolderLocation, "");
+        var path = file.FullName.Replace(folder.Path, "");
         if (!path.StartsWith("/"))
         {
             path = "/" + path;
         }
 
-        FileDetected?.Invoke(null,
-            new FileDetectedEventArgs { FileInfo = file, ImportFolder = folder, RelativePath = path });
+        FileDetected?.Invoke(null, new FileDetectedEventArgs(file, path, folder));
     }
 
-    public void OnFileHashed(SVR_ImportFolder folder, SVR_VideoLocal_Place vlp)
+    public void OnFileHashed(ImportFolder folder, Shoko_Video_Location vlp)
     {
-        var path = vlp.FilePath;
-        FileHashed?.Invoke(null,
-            new FileHashedEventArgs { FileInfo = vlp, ImportFolder = folder, RelativePath = path });
+        FileHashed?.Invoke(null, new FileHashedEventArgs(vlp, vlp.RelativePath, folder));
     }
 
-    public void OnFileDeleted(SVR_ImportFolder folder, SVR_VideoLocal_Place vlp)
+    public void OnFileDeleted(ImportFolder folder, Shoko_Video_Location vlp, Shoko_Video video)
     {
-        var path = vlp.FilePath;
-        FileDeleted?.Invoke(null,
-            new FileDeletedEventArgs { FileInfo = vlp, ImportFolder = folder, RelativePath = path });
+        FileDeleted?.Invoke(null, new FileDeletedEventArgs(vlp, vlp.RelativePath, folder));
     }
 
-    public void OnFileMatched(SVR_VideoLocal_Place vlp, SVR_VideoLocal vl)
+    public void OnFileMatched(Shoko_Video_Location vlp)
     {
-        var episodes = vl.GetAnimeEpisodes()
-            .ToList();
-        var series = episodes
-            .DistinctBy(e => e.AnimeSeriesID)
-            .Select(e => e.GetAnimeSeries())
-            .ToList();
-        FileMatched?.Invoke(
-            null,
-            new FileMatchedEventArgs
-            {
-                RelativePath = vlp.FilePath,
-                FileInfo = vlp,
-                ImportFolder = vlp.ImportFolder,
-                AnimeInfo = series.Select(a => a.GetAnime()).Cast<IAnime>().ToList(),
-                EpisodeInfo = episodes.Cast<IEpisode>().ToList(),
-                GroupInfo = series.DistinctBy(a => a.AnimeGroupID).Select(a => a.AnimeGroup).Cast<IGroup>().ToList()
-            }
-        );
+        FileMatched?.Invoke(null, new FileMatchedEventArgs(vlp));
     }
 
-    public void OnFileNotMatched(SVR_VideoLocal_Place vlp, SVR_VideoLocal vl, int autoMatchAttempts, bool hasXRefs, bool isUDPBanned)
+    public void OnFileNotMatched(Shoko_Video_Location vlp, int autoMatchAttempts, bool hasXRefs, bool isUDPBanned)
     {
-        FileNotMatched?.Invoke(
-            null,
-            new FileNotMatchedEventArgs
-            {
-                RelativePath = vlp.FilePath,
-                FileInfo = vlp,
-                ImportFolder = vlp.ImportFolder,
-                AutoMatchAttempts = autoMatchAttempts,
-                HasCrossReferences = hasXRefs,
-                IsUDPBanned = isUDPBanned,
-            }
-        );
+        FileNotMatched?.Invoke(null, new FileNotMatchedEventArgs(vlp, autoMatchAttempts, hasXRefs, isUDPBanned));
     }
 
-    public void OnFileMoved(SVR_ImportFolder oldFolder, SVR_ImportFolder newFolder, string oldPath, string newPath, SVR_VideoLocal_Place vlp)
+    public void OnFileMoved(ImportFolder oldFolder, ImportFolder newFolder, string oldPath, string newPath, Shoko_Video_Location vlp)
     {
-        FileMoved?.Invoke(null,
-            new FileMovedEventArgs { FileInfo = vlp, NewImportFolder = newFolder, OldImportFolder = oldFolder, NewRelativePath = newPath, OldRelativePath = oldPath});
+        FileMoved?.Invoke(null, new FileMovedEventArgs(vlp, newPath, newFolder, oldPath, oldFolder));
     }
 
-    public void OnFileRenamed(SVR_ImportFolder folder, string oldName, string newName, SVR_VideoLocal_Place vlp)
+    public void OnFileRenamed(ImportFolder folder, string oldName, string newName, Shoko_Video_Location vlp)
     {
-        FileRenamed?.Invoke(null,
-            new FileRenamedEventArgs { FileInfo = vlp, ImportFolder = folder, OldFileName = oldName, NewFileName = newName, RelativePath = vlp.FilePath});
+        FileRenamed?.Invoke(null, new FileRenamedEventArgs(vlp, folder, newName, oldName));
     }
 
     public void OnAniDBBanned(AniDBBanType type, DateTime time, DateTime resumeTime)
     {
-        AniDBBanned?.Invoke(null, new AniDBBannedEventArgs { Type = type, Time = time, ResumeTime = resumeTime });
+        AniDBBanned?.Invoke(null, new AniDBBannedEventArgs(type, time, resumeTime));
     }
 
-    public void OnSeriesUpdated(DataSourceEnum source, SVR_AniDB_Anime anime)
+    public void OnShowUpdated(IShowMetadata show)
     {
-        SeriesUpdated?.Invoke(null, new SeriesInfoUpdatedEventArgs { Type = source, AnimeInfo = anime });
+        ShowUpdated?.Invoke(null, new ShowUpdatedEventArgs(show));
     }
 
-    public void OnEpisodeUpdated(DataSourceEnum source, SVR_AniDB_Anime anime, SVR_AnimeEpisode episode)
+    public void OnSeasonUpdated(ISeasonMetadata show)
     {
-        EpisodeUpdated?.Invoke(null,
-            new EpisodeInfoUpdatedEventArgs { Type = source, AnimeInfo = anime, EpisodeInfo = episode });
+        SeasonUpdated?.Invoke(null, new SeasonUpdatedEventArgs(show));
+    }
+
+    public void OnEpisodeUpdated(IEpisodeMetadata show)
+    {
+        EpisodeUpdated?.Invoke(null, new EpisodeUpdatedEventArgs(show));
+    }
+
+    public void OnMovieUpdated(IMovieMetadata show)
+    {
+        MovieUpdated?.Invoke(null, new MovieUpdatedEventArgs(show));
     }
 
     public void OnSettingsSaved()

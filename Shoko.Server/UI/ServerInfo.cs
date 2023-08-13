@@ -7,7 +7,7 @@ using Shoko.Commons.Notification;
 using Shoko.Commons.Properties;
 using Shoko.Models.Azure;
 using Shoko.Server.Commands;
-using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Repositories;
@@ -43,7 +43,7 @@ public class ServerInfo : INotifyPropertyChangedExt
 
     private ServerInfo()
     {
-        ImportFolders = new AsyncObservableCollection<SVR_ImportFolder>();
+        ImportFolders = new AsyncObservableCollection<ImportFolder>();
         AdminMessages = new AsyncObservableCollection<Azure_AdminMessage>();
 
         ShokoService.CmdProcessorGeneral.OnQueueCountChangedEvent += CmdProcessorGeneral_OnQueueCountChangedEvent;
@@ -443,7 +443,7 @@ public class ServerInfo : INotifyPropertyChangedExt
         set => this.SetField(() => hasExtendedPause, value);
     }
 
-    public AsyncObservableCollection<SVR_ImportFolder> ImportFolders { get; set; }
+    public AsyncObservableCollection<ImportFolder> ImportFolders { get; set; }
 
     public void RefreshImportFolders()
     {

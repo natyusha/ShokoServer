@@ -1,7 +1,7 @@
-﻿using Shoko.Server.Models;
+﻿using Shoko.Server.Models.Internal;
 
 namespace Shoko.Server.Repositories.Direct;
 
-public class ScanRepository : BaseDirectRepository<SVR_Scan, int>
+public class ScanRepository : BaseDirectRepository<Scan, int>
 {
 }

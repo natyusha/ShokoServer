@@ -121,7 +121,7 @@ public class CommandRequest_GetUpdated : CommandRequestImplementation
         foreach (var animeID in animeIDsToUpdate)
         {
             // update the anime from HTTP
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(animeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(animeID);
             if (anime == null)
             {
                 Logger.LogTrace("No local record found for Anime ID: {AnimeID}, so skipping...", animeID);
@@ -129,7 +129,7 @@ public class CommandRequest_GetUpdated : CommandRequestImplementation
             }
 
             Logger.LogInformation("Updating CommandRequest_GetUpdated: {AnimeID} ", animeID);
-            var update = RepoFactory.AniDB_AnimeUpdate.GetByAnimeID(animeID);
+            var update = RepoFactory.AniDB_Anime_Update.GetByAnimeID(animeID);
 
             // but only if it hasn't been recently updated
             var ts = DateTime.Now - (update?.UpdatedAt ?? DateTime.UnixEpoch);
@@ -150,7 +150,7 @@ public class CommandRequest_GetUpdated : CommandRequestImplementation
             // update the group status
             // this will allow us to determine which anime has missing episodes
             // so we only get by an anime where we also have an associated series
-            var ser = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
+            var ser = RepoFactory.Shoko_Series.GetByAnidbAnimeId(animeID);
             if (ser == null) continue;
 
             var cmdStatus = _commandFactory.Create<CommandRequest_GetReleaseGroupStatus>(c =>

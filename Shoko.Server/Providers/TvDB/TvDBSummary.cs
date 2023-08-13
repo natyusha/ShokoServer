@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using NLog;
 using Shoko.Models.Server;
+using Shoko.Server.Models.CrossReferences;
 using Shoko.Server.Repositories;
 
 namespace Shoko.Models.TvDB;
@@ -16,9 +17,9 @@ public class TvDBSummary
     public Dictionary<int, TvDBDetails> TvDetails = new();
 
     // All the TvDB cross refs for this anime
-    private List<CrossRef_AniDB_TvDB> crossRefTvDB;
+    private List<CR_AniDB_TvDB> crossRefTvDB;
 
-    public List<CrossRef_AniDB_TvDB> CrossRefTvDB
+    public List<CR_AniDB_TvDB> CrossRefTvDB
     {
         get
         {
@@ -35,7 +36,7 @@ public class TvDBSummary
     {
         try
         {
-            crossRefTvDB = RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(AnimeID);
+            crossRefTvDB = RepoFactory.CR_AniDB_TvDB.GetByAnimeID(AnimeID);
         }
         catch (Exception ex)
         {
@@ -127,7 +128,7 @@ public class TvDBSummary
     {
         try
         {
-            crossRefTvDBEpisodes = RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAnimeID(AnimeID);
+            crossRefTvDBEpisodes = RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAnimeID(AnimeID);
         }
         catch (Exception ex)
         {

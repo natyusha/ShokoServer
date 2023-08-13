@@ -28,18 +28,18 @@ public class CommandRequest_RefreshGroupFilter : CommandRequestImplementation
     {
         if (GroupFilterID == 0)
         {
-            RepoFactory.GroupFilter.CreateOrVerifyLockedFilters();
+            RepoFactory.Shoko_Group_Filter.CreateOrVerifyLockedFilters();
             return;
         }
 
-        var gf = RepoFactory.GroupFilter.GetByID(GroupFilterID);
+        var gf = RepoFactory.Shoko_Group_Filter.GetByID(GroupFilterID);
         if (gf == null)
         {
             return;
         }
 
         gf.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(gf);
+        RepoFactory.Shoko_Group_Filter.Save(gf);
     }
 
     public override void GenerateCommandID()

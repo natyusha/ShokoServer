@@ -7,6 +7,7 @@ using Newtonsoft.Json.Converters;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 
 namespace Shoko.Server.API.v3.Models.Shoko;
@@ -47,13 +48,13 @@ public class User
         /// </summary>
         public string Password { get; set; }
 
-        public SVR_JMMUser GetServerModel()
+        public Shoko_User GetServerModel()
         {
             var tags = RestrictedTags
                 .Select(tagID => RepoFactory.AniDB_Tag.GetByTagID(tagID))
                 .Where(tag => tag != null)
                 .Select(tag => tag.TagName);
-            var user = new SVR_JMMUser
+            var user = new Shoko_User
             {
                 Username = Username,
                 JMMUserID = ID,
@@ -70,7 +71,7 @@ public class User
 
     public User() { }
 
-    public User(SVR_JMMUser user)
+    public User(Shoko_User user)
     {
         ID = user.JMMUserID;
         Username = user.Username;
@@ -98,13 +99,13 @@ public class User
             .ToList();
     }
 
-    public SVR_JMMUser MergeServerModel(SVR_JMMUser existing)
+    public Shoko_User MergeServerModel(Shoko_User existing)
     {
         var tags = RestrictedTags
             .Select(tagID => RepoFactory.AniDB_Tag.GetByTagID(tagID))
             .Where(tag => tag != null)
             .Select(tag => tag.TagName);
-        var user = new SVR_JMMUser
+        var user = new Shoko_User
         {
             Username = Username,
             JMMUserID = ID,

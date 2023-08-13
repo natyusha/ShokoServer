@@ -21,7 +21,7 @@ public class WebUI
 {
     public class WebUIGroupExtra
     {
-        public WebUIGroupExtra(SVR_AnimeGroup group, SVR_AnimeSeries series, SVR_AniDB_Anime anime,
+        public WebUIGroupExtra(ShokoGroup group, ShokoSeries series, AniDB_Anime anime,
             TagFilter.Filter filter = TagFilter.Filter.None, bool orderByName = false, int tagLimit = 30)
         {
             ID = group.AnimeGroupID;
@@ -111,7 +111,7 @@ public class WebUI
         /// </summary>
         public string SourceMaterial { get; set; }
 
-        public WebUISeriesExtra(HttpContext ctx, SVR_AnimeSeries series)
+        public WebUISeriesExtra(HttpContext ctx, ShokoSeries series)
         {
             var anime = series.GetAnime();
             var cast = Series.GetCast(anime.AnimeID, new () { Role.CreatorRoleType.Studio, Role.CreatorRoleType.Producer });
@@ -129,7 +129,7 @@ public class WebUI
                 .FirstOrDefault()?.Name ?? "Original Work";
         }
 
-        private Filter GetFirstAiringSeasonGroupFilter(HttpContext ctx, SVR_AniDB_Anime anime)
+        private Filter GetFirstAiringSeasonGroupFilter(HttpContext ctx, AniDB_Anime anime)
         {
             var type = (AnimeType)anime.AnimeType;
             if (type != AnimeType.TVSeries && type != AnimeType.Web)
@@ -141,9 +141,9 @@ public class WebUI
                 return null;
 
             var seasonName = $"{season} {year}";
-            var seasonsFilterID = RepoFactory.GroupFilter.GetTopLevel()
+            var seasonsFilterID = RepoFactory.Shoko_Group_Filter.GetTopLevel()
                 .FirstOrDefault(f => f.GroupFilterName == "Seasons").GroupFilterID;
-            var firstAirSeason = RepoFactory.GroupFilter.GetByParentID(seasonsFilterID)
+            var firstAirSeason = RepoFactory.Shoko_Group_Filter.GetByParentID(seasonsFilterID)
                 .FirstOrDefault(f => f.GroupFilterName == seasonName);
             if (firstAirSeason == null)
                 return null;
@@ -154,10 +154,10 @@ public class WebUI
 
     public class WebUISeriesFileSummary
     {
-        public WebUISeriesFileSummary(SVR_AnimeSeries series)
+        public WebUISeriesFileSummary(ShokoSeries series)
         {
-            var crossRefs = RepoFactory.CrossRef_File_Episode
-                .GetByAnimeID(series.AniDB_ID);
+            var crossRefs = RepoFactory.CR_Video_Episode
+                .GetByAnidbAnimeId(series.AniDB_ID);
             // The episodes we want to look at. We filter it down to only normal and speical episodes.
             var episodes = series.GetAnimeEpisodes()
                 .Select(shoko =>
@@ -197,19 +197,19 @@ public class WebUI
                 .Where(xref => episodes.ContainsKey(xref.EpisodeID))
                 .Select(xref =>
                 {
-                    var file = RepoFactory.VideoLocal.GetByHash(xref.Hash);
-                    var location = file?.GetBestVideoLocalPlace();
+                    var file = RepoFactory.Shoko_Video.GetByED2K(xref.Hash);
+                    var location = file?.GetPreferredLocation();
                     if (file?.Media == null || location == null)
                         return null;
 
-                    var media = new MediaInfo(file, file.Media);
+                    var media = new MediaInfo(file.Media);
                     var episode = episodes[xref.EpisodeID];
                     var isAutoLinked = (CrossRefSource)xref.CrossRefSource == CrossRefSource.AniDB;
                     var anidbFile = isAutoLinked && anidbFiles.ContainsKey(xref.Hash) ? anidbFiles[xref.Hash] : null;
                     var releaseGroup = anidbFile != null && anidbFile.GroupID != 0 && releaseGroups.ContainsKey(anidbFile.GroupID) ? releaseGroups[anidbFile.GroupID] : null;
 
                     var dirPath = System.IO.Path.GetDirectoryName(location.FullServerPath);
-                    var groupName = isAutoLinked ? file.ReleaseGroup?.GroupName ?? "Unknown" : "None";
+                    var groupName = isAutoLinked ? file.AniDB.ReleaseGroup?.Name ?? "Unknown" : "None";
                     var version = isAutoLinked ? anidbFile?.FileVersion ?? 1 : 1;
                     var source = File.ParseFileSource(anidbFile?.File_Source);
                     var videoStream = media.Video.FirstOrDefault();

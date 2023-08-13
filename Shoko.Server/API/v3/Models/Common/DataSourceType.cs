@@ -7,7 +7,7 @@ namespace Shoko.Server.API.v3.Models.Common;
 /// Available data sources to chose from.
 /// </summary>
 /// <remarks>
-/// Should be in sync with <see cref="global::Shoko.Models.Enums.DataSourceType"/>.
+/// Should be in sync with <see cref="global::Shoko.Plugin.Abstractions.Enums.DataSource"/>.
 /// </remarks>
 [JsonConverter(typeof(StringEnumConverter))]
 public enum DataSource
@@ -33,7 +33,7 @@ public enum DataSource
     TMDB = 4,
 
     /// <summary>
-    /// Trakt.
+    /// TraktTv.
     /// </summary>
     Trakt = 8,
 
@@ -58,7 +58,17 @@ public enum DataSource
     Kitsu = 128,
 
     /// <summary>
+    /// Fanart.Tv.
+    /// </summary>
+    Fanart = 256,
+
+    /// <summary>
     /// Shoko.
     /// </summary>
     Shoko = 1024,
+    
+    /// <summary>
+    /// User.
+    /// </summary>
+    User = 2048,
 }

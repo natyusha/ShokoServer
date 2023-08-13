@@ -2,9 +2,10 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Shoko.Models.Server;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.API.v3.Models.Shoko;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 
 namespace Shoko.Server.API.v3.Models.Common;
@@ -37,22 +38,22 @@ public class SeriesRelation
     [Required]
     public string Source { get; set; }
 
-    public SeriesRelation(HttpContext context, AniDB_Anime_Relation relation, AnimeSeries series = null,
-        AnimeSeries relatedSeries = null)
+    public SeriesRelation(HttpContext context, AniDB_Anime_Relation relation, ShokoSeries series = null,
+        ShokoSeries relatedSeries = null)
     {
         if (series == null)
         {
-            series = RepoFactory.AnimeSeries.GetByAnimeID(relation.AnimeID);
+            series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(relation.AnidbAnimeId);
         }
 
         if (relatedSeries == null)
         {
-            relatedSeries = RepoFactory.AnimeSeries.GetByAnimeID(relation.RelatedAnimeID);
+            relatedSeries = RepoFactory.Shoko_Series.GetByAnidbAnimeId(relation.RelatedAnidbAnimeId);
         }
 
-        IDs = new RelationIDs { AniDB = relation.AnimeID, Shoko = series?.AnimeSeriesID };
-        RelatedIDs = new RelationIDs { AniDB = relation.RelatedAnimeID, Shoko = relatedSeries?.AnimeSeriesID };
-        Type = GetRelationTypeFromAnidbRelationType(relation.RelationType);
+        IDs = new RelationIDs { AniDB = relation.AnidbAnimeId, Shoko = series?.Id };
+        RelatedIDs = new RelationIDs { AniDB = relation.RelatedAnidbAnimeId, Shoko = relatedSeries?.Id };
+        Type = relation.Type;
         Source = "AniDB";
     }
 

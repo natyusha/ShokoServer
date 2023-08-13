@@ -63,7 +63,7 @@ public class CommandRequest_DownloadAniDBImages : CommandRequestImplementation
         try
         {
             var settings = _settingsProvider.GetSettings();
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
             if (anime == null)
             {
                 Logger.LogWarning(FailedToDownloadNoID, "anime", AnimeID);
@@ -94,12 +94,12 @@ public class CommandRequest_DownloadAniDBImages : CommandRequestImplementation
             {
                 // Get all voice-actors working on this anime.
                 var voiceActors =  RepoFactory.AniDB_Anime_Character.GetByAnimeID(AnimeID)
-                    .SelectMany(xref => RepoFactory.AniDB_Character_Seiyuu.GetByCharID(xref.CharID))
-                    .Select(xref => RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(xref.SeiyuuID))
+                    .SelectMany(xref => RepoFactory.AniDB_Character_Creator.GetByCharID(xref.CharID))
+                    .Select(xref => RepoFactory.AniDB_Creator.GetBySeiyuuID(xref.SeiyuuID))
                     .Where(va => !string.IsNullOrEmpty(va?.PicName));
                 // Get all staff members working on this anime.
                 var staffMembers = RepoFactory.AniDB_Anime_Staff.GetByAnimeID(AnimeID)
-                    .Select(xref => RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(xref.CreatorID))
+                    .Select(xref => RepoFactory.AniDB_Creator.GetBySeiyuuID(xref.CreatorID))
                     .Where(staff => !string.IsNullOrEmpty(staff?.PicName));
                 // Concatenate the streams into a single list.
                 var creators = voiceActors

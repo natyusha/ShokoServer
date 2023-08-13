@@ -38,7 +38,7 @@ public class ShokoServiceImplementationPlex : IShokoServerPlex, IHttpContextAcce
     }
 
     [HttpGet("Metadata/{userId}/{type}/{id}/{historyinfo}/{filterid?}")]
-    public MediaContainer GetMetadata(string userId, int type, string id, string historyinfo, int? filterid)
+    public MediaContainer GetMetadata(int userId, JMMType type, string id, string historyinfo, int? filterid)
     {
         return _impl.GetMetadata(new PlexProvider { HttpContext = HttpContext }, userId, type, id, historyinfo,
             false, filterid);

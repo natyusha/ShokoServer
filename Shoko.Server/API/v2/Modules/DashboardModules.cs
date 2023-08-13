@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 using Shoko.Commons.Extensions;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
+using Shoko.Server.Server.Enums;
 using Shoko.Server.Settings;
 
 namespace Shoko.Server.API.v2.Modules;
@@ -28,7 +30,7 @@ public class DashboardModules : BaseController
     [HttpGet]
     public object GetStats()
     {
-        var user = HttpContext.User.Identity as SVR_JMMUser;
+        var user = HttpContext.User.Identity as Shoko_User;
 
         int series_count;
         int file_count;
@@ -42,7 +44,7 @@ public class DashboardModules : BaseController
 
         if (user != null)
         {
-            var series = RepoFactory.AnimeSeries.GetAll().Where(a =>
+            var series = RepoFactory.Shoko_Series.GetAll().Where(a =>
                 !a.GetAnime()?.GetAllTags().FindInEnumerable(user.GetHideCategories()) ?? false).ToList();
             series_count = series.Count;
 
@@ -51,12 +53,12 @@ public class DashboardModules : BaseController
             file_count = files.Count;
             size = SizeSuffix(files.Sum(a => a.FileSize));
 
-            var watched = RepoFactory.VideoLocalUser.GetByUserID(user.JMMUserID)
-                .Where(a => a.WatchedDate != null).ToList();
+            var watched = RepoFactory.Shoko_Video_User.GetByUserID(user.JMMUserID)
+                .Where(a => a.LastWatchedAt != null).ToList();
 
             watched_files = watched.Count;
 
-            watched_series = RepoFactory.AnimeSeries.GetAll().Count(a =>
+            watched_series = RepoFactory.Shoko_Series.GetAll().Count(a =>
             {
                 var contract = a.GetUserContract(user.JMMUserID);
                 if (contract?.MissingEpisodeCount > 0)
@@ -67,7 +69,7 @@ public class DashboardModules : BaseController
                 return contract?.UnwatchedEpisodeCount == 0;
             });
 
-            hours = Math.Round((decimal)watched.Select(a => RepoFactory.VideoLocal.GetByID(a.VideoLocalID))
+            hours = Math.Round((decimal)watched.Select(a => RepoFactory.Shoko_Video.GetByID(a.VideoId))
                     .Where(a => a != null)
                     .Sum(a => a.Media?.GeneralStream?.Duration ?? 0) / 3600, 1,
                 MidpointRounding.AwayFromZero); // 60s * 60m = ?h
@@ -81,10 +83,10 @@ public class DashboardModules : BaseController
         }
         else
         {
-            var series = RepoFactory.AnimeSeries.GetAll();
+            var series = RepoFactory.Shoko_Series.GetAll();
             series_count = series.Count;
 
-            var files = series.SelectMany(a => a.GetAnimeEpisodes()).SelectMany(a => a.GetVideoLocals())
+            var files = series.SelectMany(a => a.GetEpisodes()).SelectMany(a => a.GetVideoLocals())
                 .DistinctBy(a => a.VideoLocalID).ToList();
             file_count = files.Count;
             size = SizeSuffix(files.Sum(a => a.FileSize));

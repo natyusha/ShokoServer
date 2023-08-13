@@ -1,4 +1,5 @@
-﻿namespace Shoko.Server.Server;
+﻿
+namespace Shoko.Server.Server.Enums;
 
 public enum CommandRequestType
 {

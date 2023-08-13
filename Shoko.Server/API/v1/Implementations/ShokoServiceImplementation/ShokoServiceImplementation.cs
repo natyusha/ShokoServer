@@ -12,6 +12,7 @@ using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.AniDB;
@@ -60,7 +61,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
         var baList = new List<CL_BookmarkedAnime>();
         try
         {
-            return RepoFactory.BookmarkedAnime.GetAll().Select(a => a.ToClient()).ToList();
+            return RepoFactory.ShokoSeries_Bookmark.GetAll().Select(a => a.ToClient()).ToList();
         }
         catch (Exception ex)
         {
@@ -79,7 +80,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             BookmarkedAnime ba = null;
             if (contract.BookmarkedAnimeID != 0)
             {
-                ba = RepoFactory.BookmarkedAnime.GetByID(contract.BookmarkedAnimeID);
+                ba = RepoFactory.ShokoSeries_Bookmark.GetByID(contract.BookmarkedAnimeID);
                 if (ba == null)
                 {
                     contractRet.ErrorMessage = "Could not find existing Bookmark with ID: " +
@@ -90,7 +91,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             else
             {
                 // if a new record, check if it is allowed
-                var baTemp = RepoFactory.BookmarkedAnime.GetByAnimeID(contract.AnimeID);
+                var baTemp = RepoFactory.ShokoSeries_Bookmark.GetByAnimeID(contract.AnimeID);
                 if (baTemp != null)
                 {
                     contractRet.ErrorMessage = "A bookmark with the AnimeID already exists: " +
@@ -106,7 +107,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             ba.Notes = contract.Notes;
             ba.Downloading = contract.Downloading;
 
-            RepoFactory.BookmarkedAnime.Save(ba);
+            RepoFactory.ShokoSeries_Bookmark.Save(ba);
 
             contractRet.Result = ba.ToClient();
         }
@@ -125,13 +126,13 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            var ba = RepoFactory.BookmarkedAnime.GetByID(bookmarkedAnimeID);
+            var ba = RepoFactory.ShokoSeries_Bookmark.GetByID(bookmarkedAnimeID);
             if (ba == null)
             {
                 return "Bookmarked not found";
             }
 
-            RepoFactory.BookmarkedAnime.Delete(bookmarkedAnimeID);
+            RepoFactory.ShokoSeries_Bookmark.Delete(bookmarkedAnimeID);
             return string.Empty;
         }
         catch (Exception ex)
@@ -146,7 +147,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            return RepoFactory.BookmarkedAnime.GetByID(bookmarkedAnimeID).ToClient();
+            return RepoFactory.ShokoSeries_Bookmark.GetByID(bookmarkedAnimeID).ToClient();
         }
         catch (Exception ex)
         {
@@ -168,16 +169,16 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             var changes = ChangeTracker<int>.GetChainedChanges(
                 new List<ChangeTracker<int>>
                 {
-                    RepoFactory.GroupFilter.GetChangeTracker(),
-                    RepoFactory.AnimeGroup.GetChangeTracker(),
-                    RepoFactory.AnimeGroup_User.GetChangeTracker(userID),
-                    RepoFactory.AnimeSeries.GetChangeTracker(),
-                    RepoFactory.AnimeSeries_User.GetChangeTracker(userID)
+                    RepoFactory.Shoko_Group_Filter.GetChangeTracker(),
+                    RepoFactory.Shoko_Group.GetChangeTracker(),
+                    RepoFactory.Shoko_Group_User.GetChangeTracker(userID),
+                    RepoFactory.Shoko_Series.GetChangeTracker(),
+                    RepoFactory.Shoko_Series_User.GetChangeTracker(userID)
                 }, date);
             c.Filters = new CL_Changes<CL_GroupFilter>
             {
                 ChangedItems = changes[0]
-                    .ChangedItems.Select(a => RepoFactory.GroupFilter.GetByID(a)?.ToClient())
+                    .ChangedItems.Select(a => RepoFactory.Shoko_Group_Filter.GetByID(a)?.ToClient())
                     .Where(a => a != null)
                     .ToList(),
                 RemovedItems = changes[0].RemovedItems.ToList(),
@@ -196,7 +197,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     if (!c.Filters.ChangedItems.Any(a => a.GroupFilterID == ag.ParentGroupFilterID.Value))
                     {
                         end = false;
-                        var cag = RepoFactory.GroupFilter.GetByID(ag.ParentGroupFilterID.Value)?
+                        var cag = RepoFactory.Shoko_Group_Filter.GetByID(ag.ParentGroupFilterID.Value)?
                             .ToClient();
                         if (cag != null)
                         {
@@ -215,7 +216,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             }
 
             c.Groups.ChangedItems = changes[1]
-                .ChangedItems.Select(a => RepoFactory.AnimeGroup.GetByID(a))
+                .ChangedItems.Select(a => RepoFactory.Shoko_Group.GetByID(a))
                 .Where(a => a != null)
                 .Select(a => a.GetUserContract(userID))
                 .ToList();
@@ -232,7 +233,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             }
 
             c.Series.ChangedItems = changes[3]
-                .ChangedItems.Select(a => RepoFactory.AnimeSeries.GetByID(a))
+                .ChangedItems.Select(a => RepoFactory.Shoko_Series.GetByID(a))
                 .Where(a => a != null)
                 .Select(a => a.GetUserContract(userID))
                 .ToList();
@@ -263,8 +264,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
         var c = new CL_Changes<CL_GroupFilter>();
         try
         {
-            var changes = RepoFactory.GroupFilter.GetChangeTracker().GetChanges(date);
-            c.ChangedItems = changes.ChangedItems.Select(a => RepoFactory.GroupFilter.GetByID(a).ToClient())
+            var changes = RepoFactory.Shoko_Group_Filter.GetChangeTracker().GetChanges(date);
+            c.ChangedItems = changes.ChangedItems.Select(a => RepoFactory.Shoko_Group_Filter.GetByID(a).ToClient())
                 .Where(a => a != null)
                 .ToList();
             c.RemovedItems = changes.RemovedItems.ToList();
@@ -355,7 +356,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     public List<string> GetAllYears()
     {
         var grps =
-            RepoFactory.AnimeSeries.GetAll().Select(a => a.Contract).Where(a => a != null).ToList();
+            RepoFactory.Shoko_Series.GetAll().Select(a => a.Contract).Where(a => a != null).ToList();
         var allyears = new HashSet<string>(StringComparer.Ordinal);
         foreach (var ser in grps)
         {
@@ -395,7 +396,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     public List<string> GetAllSeasons()
     {
         var grps =
-            RepoFactory.AnimeSeries.GetAll().Select(a => a.Contract).Where(a => a != null).ToList();
+            RepoFactory.Shoko_Series.GetAll().Select(a => a.Contract).Where(a => a != null).ToList();
         var allseasons = new SortedSet<string>(new SeasonComparator());
         foreach (var ser in grps)
         {
@@ -578,10 +579,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             settings.TvDB.Language = contractIn.TvDB_Language;
 
             // MovieDB
-            settings.MovieDb.AutoFanart = contractIn.MovieDB_AutoFanart;
-            settings.MovieDb.AutoFanartAmount = contractIn.MovieDB_AutoFanartAmount;
-            settings.MovieDb.AutoPosters = contractIn.MovieDB_AutoPosters;
-            settings.MovieDb.AutoPostersAmount = contractIn.MovieDB_AutoPostersAmount;
+            settings.TMDB.AutoFanart = contractIn.MovieDB_AutoFanart;
+            settings.TMDB.AutoFanartAmount = contractIn.MovieDB_AutoFanartAmount;
+            settings.TMDB.AutoPosters = contractIn.MovieDB_AutoPosters;
+            settings.TMDB.AutoPostersAmount = contractIn.MovieDB_AutoPostersAmount;
 
             // Import settings
             settings.Import.VideoExtensions = contractIn.VideoExtensions.Split(',').ToList();
@@ -599,9 +600,9 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
             settings.Import.RunOnStart = contractIn.RunImportOnStart;
             settings.Import.ScanDropFoldersOnStart = contractIn.ScanDropFoldersOnStart;
-            settings.Import.Hash_CRC32 = contractIn.Hash_CRC32;
-            settings.Import.Hash_MD5 = contractIn.Hash_MD5;
-            settings.Import.Hash_SHA1 = contractIn.Hash_SHA1;
+            settings.Import.Hasher.CRC = contractIn.Hash_CRC32;
+            settings.Import.Hasher.MD5 = contractIn.Hash_MD5;
+            settings.Import.Hasher.SHA1 = contractIn.Hash_SHA1;
             settings.Import.RenameOnImport = contractIn.Import_RenameOnImport;
             settings.Import.MoveOnImport = contractIn.Import_MoveOnImport;
             settings.Import.SkipDiskSpaceChecks = contractIn.SkipDiskSpaceChecks;
@@ -609,9 +610,9 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             // Language
             settings.LanguagePreference = contractIn.LanguagePreference.Split(',').ToList();
             settings.LanguageUseSynonyms = contractIn.LanguageUseSynonyms;
-            settings.EpisodeTitleSource = (DataSourceType)contractIn.EpisodeTitleSource;
-            settings.SeriesDescriptionSource = (DataSourceType)contractIn.SeriesDescriptionSource;
-            settings.SeriesNameSource = (DataSourceType)contractIn.SeriesNameSource;
+            settings.EpisodeTitleSource = (DataSource)contractIn.EpisodeTitleSource;
+            settings.SeriesDescriptionSource = (DataSource)contractIn.SeriesDescriptionSource;
+            settings.SeriesNameSource = (DataSource)contractIn.SeriesNameSource;
 
             // Trakt
             settings.TraktTv.Enabled = contractIn.Trakt_IsEnabled;
@@ -854,7 +855,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            return RepoFactory.CrossRef_Languages_AniDB_File.GetAll().Select(a => a.LanguageName).Distinct()
+            return RepoFactory.CR_AniDB_File_Languages.GetAll().Select(a => a.LanguageName).Distinct()
                 .OrderBy(a => a).ToList();
         }
         catch (Exception ex)
@@ -869,7 +870,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            return RepoFactory.CrossRef_Subtitles_AniDB_File.GetAll().Select(a => a.LanguageName).Distinct()
+            return RepoFactory.CR_AniDB_File_Subtitles.GetAll().Select(a => a.LanguageName).Distinct()
                 .OrderBy(a => a).ToList();
         }
         catch (Exception ex)
@@ -884,21 +885,21 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     [HttpGet("User/Plex/LoginUrl/{userID}")]
     public string LoginUrl(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
         return PlexHelper.GetForUser(user).LoginUrl;
     }
 
     [HttpGet("User/Plex/Authenticated/{userID}")]
     public bool IsPlexAuthenticated(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
         return PlexHelper.GetForUser(user).IsAuthenticated;
     }
 
     [HttpGet("User/Plex/Remove/{userID}")]
     public bool RemovePlexAuth(int userID)
     {
-        JMMUser user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
         PlexHelper.GetForUser(user).InvalidateToken();
         return true;
     }
@@ -915,7 +916,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             switch (imgType)
             {
                 case ImageEntityType.AniDB_Cover:
-                    var anime = RepoFactory.AniDB_Anime.GetByAnimeID(imageID);
+                    var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(imageID);
                     if (anime == null)
                     {
                         return "Could not find anime";
@@ -926,58 +927,58 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     break;
 
                 case ImageEntityType.TvDB_Banner:
-                    var banner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
+                    var banner = RepoFactory.TvDB_Banner.GetByID(imageID);
                     if (banner == null)
                     {
                         return "Could not find image";
                     }
 
                     banner.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImageWideBanner.Save(banner);
+                    RepoFactory.TvDB_Banner.Save(banner);
                     break;
 
                 case ImageEntityType.TvDB_Cover:
-                    var poster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
+                    var poster = RepoFactory.TvDB_Poster.GetByID(imageID);
                     if (poster == null)
                     {
                         return "Could not find image";
                     }
 
                     poster.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImagePoster.Save(poster);
+                    RepoFactory.TvDB_Poster.Save(poster);
                     break;
 
                 case ImageEntityType.TvDB_FanArt:
-                    var fanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
+                    var fanart = RepoFactory.TvDB_Fanart.GetByID(imageID);
                     if (fanart == null)
                     {
                         return "Could not find image";
                     }
 
                     fanart.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImageFanart.Save(fanart);
+                    RepoFactory.TvDB_Fanart.Save(fanart);
                     break;
 
-                case ImageEntityType.MovieDB_Poster:
-                    var moviePoster = RepoFactory.MovieDB_Poster.GetByID(imageID);
+                case ImageEntityType.TMDB_Poster:
+                    var moviePoster = RepoFactory.TMDB_Movie_Poster.GetByID(imageID);
                     if (moviePoster == null)
                     {
                         return "Could not find image";
                     }
 
                     moviePoster.Enabled = enabled ? 1 : 0;
-                    RepoFactory.MovieDB_Poster.Save(moviePoster);
+                    RepoFactory.TMDB_Movie_Poster.Save(moviePoster);
                     break;
 
-                case ImageEntityType.MovieDB_FanArt:
-                    var movieFanart = RepoFactory.MovieDB_Fanart.GetByID(imageID);
+                case ImageEntityType.TMDB_Fanart:
+                    var movieFanart = RepoFactory.TMDB_Fanart.GetByID(imageID);
                     if (movieFanart == null)
                     {
                         return "Could not find image";
                     }
 
                     movieFanart.Enabled = enabled ? 1 : 0;
-                    RepoFactory.MovieDB_Fanart.Save(movieFanart);
+                    RepoFactory.TMDB_Fanart.Save(movieFanart);
                     break;
             }
 
@@ -1002,7 +1003,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             {
                 case ImageEntityType.AniDB_Cover:
                 case ImageEntityType.TvDB_Cover:
-                case ImageEntityType.MovieDB_Poster:
+                case ImageEntityType.TMDB_Poster:
                     sizeType = ImageSizeType.Poster;
                     break;
 
@@ -1011,7 +1012,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     break;
 
                 case ImageEntityType.TvDB_FanArt:
-                case ImageEntityType.MovieDB_FanArt:
+                case ImageEntityType.TMDB_Fanart:
                     sizeType = ImageSizeType.Fanart;
                     break;
             }
@@ -1045,8 +1046,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                 RepoFactory.AniDB_Anime_DefaultImage.Save(img);
             }
 
-            var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
-            RepoFactory.AnimeSeries.Save(series, false);
+            var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(animeID);
+            RepoFactory.Shoko_Series.Save(series, false);
 
             return string.Empty;
         }
@@ -1067,7 +1068,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var user = RepoFactory.JMMUser.GetByID(userID);
+            var user = RepoFactory.Shoko_User.GetByID(userID);
             if (user == null)
             {
                 return animeList;
@@ -1105,7 +1106,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var user = RepoFactory.JMMUser.GetByID(userID);
+            var user = RepoFactory.Shoko_User.GetByID(userID);
             if (user == null)
             {
                 return animeList;
@@ -1193,7 +1194,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var juser = RepoFactory.JMMUser.GetByID(userID);
+            var juser = RepoFactory.Shoko_User.GetByID(userID);
             if (juser == null)
             {
                 return recs;
@@ -1211,7 +1212,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     break;
             }
 
-            var ignored = RepoFactory.IgnoreAnime.GetByUserAndType(userID, ignoreType);
+            var ignored = RepoFactory.ShokoSeries_Ignore.GetByUserAndType(userID, ignoreType);
             var dictIgnored = new Dictionary<int, IgnoreAnime>();
             foreach (var ign in ignored)
             {
@@ -1246,7 +1247,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                 }
 
                 // check if the user has this anime
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(vote.EntityID);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(vote.EntityID);
                 if (anime == null)
                 {
                     continue;
@@ -1281,7 +1282,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     }
 
                     // don't recommend to watch series that the user doesn't have
-                    var ser = RepoFactory.AnimeSeries.GetByAnimeID(link.SimilarAnimeID);
+                    var ser = RepoFactory.Shoko_Series.GetByAnimeID(link.SimilarAnimeID);
                     if (ser == null && recommendationType == 1)
                     {
                         continue;
@@ -1291,7 +1292,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                     if (ser != null)
                     {
                         // don't recommend to watch series that the user has already started watching
-                        AnimeSeries_User userRecord = ser.GetUserRecord(userID);
+                        ShokoSeries_User userRecord = ser.GetUserRecord(userID);
                         if (userRecord != null)
                         {
                             if (userRecord.WatchedEpisodeCount > 0 && recommendationType == 1)
@@ -1309,7 +1310,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     var rec = new CL_Recommendation
                     {
-                        BasedOnAnimeID = anime.AnimeID, RecommendedAnimeID = link.SimilarAnimeID
+                        BasedOnAnimeID = anime.AnimeId, RecommendedAnimeID = link.SimilarAnimeID
                     };
 
                     // if we don't have the anime locally. lets assume the anime has a high rating
@@ -1349,7 +1350,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         rec.Recommended_AnimeSeries = ser.GetUserContract(userID);
                     }
 
-                    var serBasedOn = RepoFactory.AnimeSeries.GetByAnimeID(anime.AnimeID);
+                    var serBasedOn = RepoFactory.Shoko_Series.GetByAnidbAnimeId(anime.AnimeId);
                     if (serBasedOn == null)
                     {
                         continue;
@@ -1460,7 +1461,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
+            var series = RepoFactory.Shoko_Series.GetByAnidbAnimeId(animeID);
             if (series == null)
             {
                 return relGroups;
@@ -1469,14 +1470,14 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             // get a list of all the release groups the user is collecting
             //List<int> userReleaseGroups = new List<int>();
             var userReleaseGroups = new Dictionary<int, int>();
-            foreach (var ep in series.GetAnimeEpisodes())
+            foreach (var ep in series.GetEpisodes())
             {
                 var vids = ep.GetVideoLocals();
                 var hashes = vids.Where(a => !string.IsNullOrEmpty(a.Hash)).Select(a => a.Hash).ToList();
                 foreach (var h in hashes)
                 {
                     var vid = vids.First(a => a.Hash == h);
-                    AniDB_File anifile = vid.GetAniDBFile();
+                    var anifile = vid.GetAniDBFile();
                     if (anifile != null)
                     {
                         if (!userReleaseGroups.ContainsKey(anifile.GroupID))
@@ -1490,7 +1491,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             }
 
             // get all the release groups for this series
-            var grpStatuses = RepoFactory.AniDB_GroupStatus.GetByAnimeID(animeID);
+            var grpStatuses = RepoFactory.AniDB_Anime_ReleaseGroup_Status.GetByAnimeID(animeID);
             foreach (var gs in grpStatuses)
             {
                 var cl = gs.ToClient();
@@ -1523,7 +1524,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(animeID);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(animeID);
             return anime.GetCharactersContract();
         }
         catch (Exception ex)
@@ -1541,13 +1542,13 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
         try
         {
-            var seiyuu = RepoFactory.AniDB_Seiyuu.GetByID(seiyuuID);
+            var seiyuu = RepoFactory.AniDB_Creator.GetByID(seiyuuID);
             if (seiyuu == null)
             {
                 return chars;
             }
 
-            var links = RepoFactory.AniDB_Character_Seiyuu.GetBySeiyuuID(seiyuu.SeiyuuID);
+            var links = RepoFactory.AniDB_Character_Creator.GetBySeiyuuID(seiyuu.SeiyuuID);
 
             foreach (var chrSei in links)
             {
@@ -1558,7 +1559,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         RepoFactory.AniDB_Anime_Character.GetByCharID(chr.CharID);
                     if (aniChars.Count > 0)
                     {
-                        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(aniChars[0].AnimeID);
+                        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(aniChars[0].AnimeID);
                         if (anime != null)
                         {
                             var cl = chr.ToClient(aniChars[0].CharType);
@@ -1581,7 +1582,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            return RepoFactory.AniDB_Seiyuu.GetByID(seiyuuID);
+            return RepoFactory.AniDB_Creator.GetByID(seiyuuID);
         }
         catch (Exception ex)
         {

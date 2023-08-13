@@ -84,7 +84,7 @@ public class Init : BaseController
 
         version = new ComponentVersion
         {
-            version = Assembly.GetAssembly(typeof(AniDB_Anime)).GetName().Version.ToString(),
+            version = Assembly.GetAssembly(typeof(CL_AniDB_Anime)).GetName().Version.ToString(),
             name = "models"
         };
         list.Add(version);

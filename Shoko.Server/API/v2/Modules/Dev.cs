@@ -39,19 +39,19 @@ public class Dev : BaseController
     [HttpGet("relationtree")]
     private List<Relation> GetRelationTreeForAll()
     {
-        var series = RepoFactory.AnimeSeries.GetAll().Select(a => a.AniDB_ID).OrderBy(a => a).ToArray();
+        var series = RepoFactory.Shoko_Series.GetAll().Select(a => a.AniDB_ID).OrderBy(a => a).ToArray();
         var result = new List<Relation>(series.Length);
         foreach (var i in series)
         {
             var relations = RepoFactory.AniDB_Anime_Relation.GetFullLinearRelationTree(i);
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(i);
+            var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(i);
             result.Add(new Relation
             {
                 AnimeID = i,
                 MainTitle = anime?.MainTitle,
                 Relations = relations.Select(a => new Relation
                 {
-                    AnimeID = a, MainTitle = RepoFactory.AniDB_Anime.GetByAnimeID(a)?.MainTitle
+                    AnimeID = a, MainTitle = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(a)?.MainTitle
                 }).ToList()
             });
         }
@@ -62,7 +62,7 @@ public class Dev : BaseController
     [HttpGet("relationtree/{id}")]
     private Relation GetRelationTreeForAnime(int id)
     {
-        var anime = RepoFactory.AniDB_Anime.GetByAnimeID(id);
+        var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(id);
         if (anime == null)
         {
             return null;
@@ -76,7 +76,7 @@ public class Dev : BaseController
             MainTitle = anime?.MainTitle,
             Relations = relations.Select(a => new Relation
             {
-                AnimeID = a, MainTitle = RepoFactory.AniDB_Anime.GetByAnimeID(a)?.MainTitle
+                AnimeID = a, MainTitle = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(a)?.MainTitle
             }).ToList()
         };
     }
@@ -84,7 +84,7 @@ public class Dev : BaseController
     [HttpGet("Media/{id}")]
     public ActionResult<Media> GetLegacyConverted(int id)
     {
-        var video = RepoFactory.VideoLocal.GetByID(id);
+        var video = RepoFactory.Shoko_Video.GetByID(id);
         if (video == null)
         {
             return BadRequest("Not found");

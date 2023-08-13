@@ -90,7 +90,7 @@ public class PlexWebhook : BaseController
             return;
         }
 
-        var vl = RepoFactory.VideoLocal.GetByAniDBEpisodeID(episode.AniDB_EpisodeID).FirstOrDefault();
+        var vl = RepoFactory.Shoko_Video.GetByAniDBEpisodeID(episode.AniDB_EpisodeID).FirstOrDefault();
 
         var per = 100 *
                   (metadata.ViewOffset /
@@ -117,7 +117,7 @@ public class PlexWebhook : BaseController
 
         _logger.LogTrace($"Got anime: {anime}, ep: {episode.AniDB_Episode.EpisodeNumber}");
 
-        var user = RepoFactory.JMMUser.GetAll().FirstOrDefault(u => data.Account.Title.FindIn(u.GetPlexUsers()));
+        var user = RepoFactory.Shoko_User.GetAll().FirstOrDefault(u => data.Account.Title.FindIn(u.GetPlexUsers()));
         if (user == null)
         {
             _logger.LogInformation(
@@ -134,7 +134,7 @@ public class PlexWebhook : BaseController
     #endregion
 
     [NonAction]
-    private (SVR_AnimeEpisode, SVR_AnimeSeries) GetEpisode(PlexEvent.PlexMetadata metadata)
+    private (ShokoEpisode, ShokoSeries) GetEpisode(PlexEvent.PlexMetadata metadata)
     {
         var guid = new Uri(metadata.Guid);
         if (guid.Scheme != "com.plexapp.agents.shoko")
@@ -154,7 +154,7 @@ public class PlexWebhook : BaseController
         //int animeId = int.Parse(parts[1]);
         //int series = int.Parse(parts[2]);
 
-        var anime = RepoFactory.AnimeSeries.GetByID(animeId);
+        var anime = RepoFactory.Shoko_Series.GetByID(animeId);
 
         EpisodeType episodeType;
         switch
@@ -188,7 +188,7 @@ public class PlexWebhook : BaseController
 
 
         var animeEps = anime
-            .GetAnimeEpisodes().Where(a => a.AniDB_Episode != null)
+            .GetEpisodes().Where(a => a.AniDB_Episode != null)
             .Where(a => a.EpisodeTypeEnum == episodeType)
             .Where(a => a.AniDB_Episode.EpisodeNumber == episodeNumber);
 
@@ -199,7 +199,7 @@ public class PlexWebhook : BaseController
         }
 
         //if TvDB matched.
-        SVR_AnimeEpisode result;
+        ShokoEpisode result;
         if ((result = animeEps.FirstOrDefault(a => a?.TvDBEpisode?.SeasonNumber == series)) != null)
         {
             return (result, anime);
@@ -263,7 +263,7 @@ public class PlexWebhook : BaseController
     [HttpGet("sync/{id}")]
     public ActionResult SyncForUser(int uid)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         Utils.ShokoServer.SyncPlex();
         return APIStatus.OK();
     }
@@ -288,7 +288,7 @@ public class PlexWebhook : BaseController
     [NonAction]
     private T CallPlexHelper<T>(Func<PlexHelper, T> act)
     {
-        JMMUser user = HttpContext.GetUser();
+        var user = HttpContext.GetUser();
         return act(PlexHelper.GetForUser(user));
     }
 

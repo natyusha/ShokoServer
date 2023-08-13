@@ -138,8 +138,8 @@ public class SettingsProvider : ISettingsProvider
                     UpdateFrequency = legacy.TvDB_UpdateFrequency,
                     Language = legacy.TvDB_Language
                 },
-            MovieDb =
-                new MovieDbSettings
+            TMDB =
+                new TMDBSettings
                 {
                     AutoFanart = legacy.MovieDB_AutoFanart,
                     AutoFanartAmount = legacy.MovieDB_AutoFanartAmount,
@@ -150,13 +150,13 @@ public class SettingsProvider : ISettingsProvider
                 new ImportSettings
                 {
                     VideoExtensions = legacy.VideoExtensions.Split(',').ToList(),
-                    DefaultSeriesLanguage = legacy.DefaultSeriesLanguage,
-                    DefaultEpisodeLanguage = legacy.DefaultEpisodeLanguage,
                     RunOnStart = legacy.RunImportOnStart,
                     ScanDropFoldersOnStart = legacy.ScanDropFoldersOnStart,
+#pragma warning disable 0618
                     Hash_CRC32 = legacy.Hash_CRC32,
                     Hash_MD5 = legacy.Hash_MD5,
                     Hash_SHA1 = legacy.Hash_SHA1,
+#pragma warning restore 0618
                     UseExistingFileWatchedStatus = legacy.Import_UseExistingFileWatchedStatus
                 },
             Plex =
@@ -168,14 +168,13 @@ public class SettingsProvider : ISettingsProvider
                     Server = legacy.Plex_Server
                 },
             AutoGroupSeries = legacy.AutoGroupSeries,
-            AutoGroupSeriesRelationExclusions = legacy.AutoGroupSeriesRelationExclusions,
+            AutoGroupSeriesRelationExclusions = legacy.AutoGroupSeriesRelationExclusions.Split('|'),
             AutoGroupSeriesUseScoreAlgorithm = legacy.AutoGroupSeriesUseScoreAlgorithm,
             FileQualityFilterEnabled = legacy.FileQualityFilterEnabled,
             FileQualityPreferences = legacy.FileQualityFilterPreferences,
             LanguagePreference = legacy.LanguagePreference.Split(',').ToList(),
             EpisodeLanguagePreference = legacy.EpisodeLanguagePreference.Split(',').ToList(),
             LanguageUseSynonyms = legacy.LanguageUseSynonyms,
-            CloudWatcherTime = legacy.CloudWatcherTime,
             EpisodeTitleSource = legacy.EpisodeTitleSource,
             SeriesDescriptionSource = legacy.SeriesDescriptionSource,
             SeriesNameSource = legacy.SeriesNameSource,

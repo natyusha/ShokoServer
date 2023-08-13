@@ -7,6 +7,7 @@ using Shoko.Commons.Extensions;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 
@@ -26,7 +27,7 @@ public class UserController : BaseController
     [HttpGet]
     public ActionResult<List<User>> GetUsers()
     {
-        return RepoFactory.JMMUser.GetAll().Select(a => new User(a)).ToList();
+        return RepoFactory.Shoko_User.GetAll().Select(a => new User(a)).ToList();
     }
 
     /// <summary>
@@ -49,7 +50,7 @@ public class UserController : BaseController
 
         var jmmUser = user.GetServerModel();
 
-        RepoFactory.JMMUser.Save(jmmUser);
+        RepoFactory.Shoko_User.Save(jmmUser);
 
         return new User(jmmUser);
     }
@@ -69,7 +70,7 @@ public class UserController : BaseController
             return BadRequest("object is invalid.");
         }
 
-        var user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
         if (user == null)
         {
             return NotFound("User not found.");
@@ -83,10 +84,10 @@ public class UserController : BaseController
             return BadRequest(ModelState);
         }
 
-        var changedAdmin = user.IsAdminUser() != patchModel.IsAdmin;
+        var changedAdmin = user.IsAdmin != patchModel.IsAdmin;
         if (changedAdmin)
         {
-            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
+            var allAdmins = RepoFactory.Shoko_User.GetAll().Where(a => a.IsAdmin).ToList();
             allAdmins.Remove(user);
             if (allAdmins.Count < 1)
             {
@@ -95,7 +96,7 @@ public class UserController : BaseController
         }
 
         var serverModel = patchModel.MergeServerModel(user);
-        RepoFactory.JMMUser.Save(serverModel);
+        RepoFactory.Shoko_User.Save(serverModel);
 
         return Ok();
     }
@@ -113,16 +114,16 @@ public class UserController : BaseController
             return BadRequest("User ID is missing. If this is a new user then use POST.");
         }
 
-        var existing = RepoFactory.JMMUser.GetByID(user.ID);
+        var existing = RepoFactory.Shoko_User.GetByID(user.ID);
         if (existing == null)
         {
             return NotFound("User not found.");
         }
 
-        var changedAdmin = existing.IsAdminUser() != user.IsAdmin;
+        var changedAdmin = existing.IsAdmin != user.IsAdmin;
         if (changedAdmin)
         {
-            var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
+            var allAdmins = RepoFactory.Shoko_User.GetAll().Where(a => a.IsAdmin).ToList();
             allAdmins.Remove(existing);
             if (allAdmins.Count < 1)
             {
@@ -131,7 +132,7 @@ public class UserController : BaseController
         }
 
         var newUser = user.MergeServerModel(existing);
-        RepoFactory.JMMUser.Save(newUser);
+        RepoFactory.Shoko_User.Save(newUser);
 
         return Ok();
     }
@@ -166,7 +167,7 @@ public class UserController : BaseController
     [HttpGet("{userID}")]
     public ActionResult<User> GetUserByUserID([FromRoute] int userID)
     {
-        var user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
         if (user == null)
         {
             return NotFound("User not found.");
@@ -186,27 +187,27 @@ public class UserController : BaseController
     public ActionResult ChangePasswordForUserByUserID([FromRoute] int userID,
         [FromBody] User.Input.ChangePasswordBody body)
     {
-        return ChangePassword(RepoFactory.JMMUser.GetByID(userID), body);
+        return ChangePassword(RepoFactory.Shoko_User.GetByID(userID), body);
     }
 
     [NonAction]
-    private ActionResult ChangePassword(SVR_JMMUser user, User.Input.ChangePasswordBody body)
+    private ActionResult ChangePassword(Shoko_User user, User.Input.ChangePasswordBody body)
     {
         if (user == null)
         {
             return NotFound("User not found.");
         }
 
-        if (user.JMMUserID != User.JMMUserID && !User.IsAdminUser())
+        if (user.Id != User.Id && !User.IsAdmin)
         {
             return Forbid("User must be admin to change other's password.");
         }
 
         user.Password = Digest.Hash(body.Password);
-        RepoFactory.JMMUser.Save(user, false);
+        RepoFactory.Shoko_User.Save(user, false);
         if (body.RevokeAPIKeys)
         {
-            RepoFactory.AuthTokens.DeleteAllWithUserID(user.JMMUserID);
+            RepoFactory.Shoko_User_AuthToken.DeleteAllWithUserID(user.Id);
         }
 
         return Ok();
@@ -221,21 +222,17 @@ public class UserController : BaseController
     [HttpDelete("{userID}")]
     public ActionResult DeleteUser([FromRoute] int userID)
     {
-        var user = RepoFactory.JMMUser.GetByID(userID);
+        var user = RepoFactory.Shoko_User.GetByID(userID);
 
         if (user == null)
         {
             return NotFound("User not found.");
         }
 
-        var allAdmins = RepoFactory.JMMUser.GetAll().Where(a => a.IsAdminUser()).ToList();
-        allAdmins.Remove(user);
-        if (allAdmins.Count < 1)
-        {
+        var success = RepoFactory.Shoko_User.RemoveUser(userID, true);
+        if (!success)
             return BadRequest("There must be at least one admin user.");
-        }
 
-        RepoFactory.JMMUser.RemoveUser(userID, true);
         return Ok();
     }
 

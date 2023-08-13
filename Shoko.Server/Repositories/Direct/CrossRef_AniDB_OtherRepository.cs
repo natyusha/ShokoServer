@@ -12,7 +12,7 @@ namespace Shoko.Server.Repositories.Direct;
 
 public class CrossRef_AniDB_OtherRepository : BaseDirectRepository<CrossRef_AniDB_Other, int>
 {
-    public CrossRef_AniDB_Other GetByAnimeIDAndType(int animeID, CrossRefType xrefType)
+    public List<CrossRef_AniDB_Other> GetByAnimeIDAndType(int animeID, CrossRefType xrefType)
     {
         lock (GlobalDBLock)
         {
@@ -21,7 +21,8 @@ public class CrossRef_AniDB_OtherRepository : BaseDirectRepository<CrossRef_AniD
                 .CreateCriteria(typeof(CrossRef_AniDB_Other))
                 .Add(Restrictions.Eq("AnimeID", animeID))
                 .Add(Restrictions.Eq("CrossRefType", (int)xrefType))
-                .UniqueResult<CrossRef_AniDB_Other>();
+                .List<CrossRef_AniDB_Other>()
+                .ToList();
             return cr;
         }
     }

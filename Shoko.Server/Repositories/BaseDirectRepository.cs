@@ -136,7 +136,7 @@ public class BaseDirectRepository<T, S> : BaseRepository, IRepository<T, S> wher
     }
 
     //This function do not run the BeginDeleteCallback and the EndDeleteCallback
-    public void DeleteWithOpenTransaction(ISession session, List<T> objs)
+    public void DeleteWithOpenTransaction(ISession session, IReadOnlyList<T> objs)
     {
         if (objs.Count == 0) return;
 

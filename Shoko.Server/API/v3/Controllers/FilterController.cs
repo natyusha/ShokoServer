@@ -35,7 +35,7 @@ public class FilterController : BaseController
         [FromQuery] bool showHidden = false, [FromQuery] [Range(0, 100)] int pageSize = 10,
         [FromQuery] [Range(1, int.MaxValue)] int page = 1)
     {
-        return RepoFactory.GroupFilter.GetTopLevel()
+        return RepoFactory.Shoko_Group_Filter.GetTopLevel()
             .Where(filter =>
             {
                 if (!showHidden && filter.InvisibleInClients == 1)
@@ -63,10 +63,10 @@ public class FilterController : BaseController
     [HttpPost]
     public ActionResult<Filter> SaveFilter(Filter.FullFilter body)
     {
-        SVR_GroupFilter groupFilter = null;
+        GroupFilter groupFilter = null;
         if (body.IDs.ID != 0)
         {
-            groupFilter = RepoFactory.GroupFilter.GetByID(body.IDs.ID);
+            groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(body.IDs.ID);
             if (groupFilter == null)
             {
                 return NotFound(FilterNotFound);
@@ -80,7 +80,7 @@ public class FilterController : BaseController
 
         groupFilter = body.ToServerModel(groupFilter);
         groupFilter.CalculateGroupsAndSeries();
-        RepoFactory.GroupFilter.Save(groupFilter);
+        RepoFactory.Shoko_Group_Filter.Save(groupFilter);
 
         return new Filter(HttpContext, groupFilter);
     }
@@ -102,7 +102,7 @@ public class FilterController : BaseController
         }
 
         return groupIDs
-            .Select(a => RepoFactory.AnimeGroup.GetByID(a))
+            .Select(a => RepoFactory.Shoko_Group.GetByID(a))
             .Where(a => a != null)
             .OrderByGroupFilter(groupFilter)
             .Select(a => new Group(HttpContext, a))
@@ -117,7 +117,7 @@ public class FilterController : BaseController
     [HttpGet("{filterID}")]
     public ActionResult<Filter> GetFilter(int filterID)
     {
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterNotFound);
@@ -135,13 +135,13 @@ public class FilterController : BaseController
     [HttpDelete("{filterID}")]
     public ActionResult DeleteFilter(int filterID)
     {
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterNotFound);
         }
 
-        RepoFactory.GroupFilter.Delete(groupFilter);
+        RepoFactory.Shoko_Group_Filter.Delete(groupFilter);
         return NoContent();
     }
 
@@ -153,7 +153,7 @@ public class FilterController : BaseController
     [HttpGet("{filterID}/Conditions")]
     public ActionResult<Filter.FilterConditions> GetFilterConditions(int filterID)
     {
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterNotFound);
@@ -170,7 +170,7 @@ public class FilterController : BaseController
     [HttpGet("{filterID}/Sorting")]
     public ActionResult<List<Filter.SortingCriteria>> GetFilterSortingCriteria(int filterID)
     {
-        var groupFilter = RepoFactory.GroupFilter.GetByID(filterID);
+        var groupFilter = RepoFactory.Shoko_Group_Filter.GetByID(filterID);
         if (groupFilter == null)
         {
             return NotFound(FilterNotFound);

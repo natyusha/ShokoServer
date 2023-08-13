@@ -48,7 +48,7 @@ public class WebUIController : BaseController
         return body.GroupIDs
             .Select(groupID =>
             {
-                var group = RepoFactory.AnimeGroup.GetByID(groupID);
+                var group = RepoFactory.Shoko_Group.GetByID(groupID);
                 if (group == null || !user.AllowedGroup(group))
                 {
                     return null;
@@ -76,7 +76,7 @@ public class WebUIController : BaseController
     public ActionResult<WebUISeriesExtra> GetSeries([FromRoute] int seriesID)
     {
         // Retrieve extra information for the specified series if it exists and the user has permissions.
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);
@@ -99,7 +99,7 @@ public class WebUIController : BaseController
     public ActionResult<WebUISeriesFileSummary> GetSeriesFileSummary([FromRoute] int seriesID)
     {
         // Retrieve a summary of file information for the specified series if it exists and the user has permissions.
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        var series = RepoFactory.Shoko_Series.GetByID(seriesID);
         if (series == null)
         {
             return NotFound(SeriesController.SeriesNotFoundWithSeriesID);

@@ -7,19 +7,22 @@ using Microsoft.Extensions.DependencyInjection;
 using NHibernate;
 using NLog;
 using Shoko.Commons.Properties;
-using Shoko.Models.Enums;
-using Shoko.Models.Server;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.AniDB;
 using Shoko.Server.Extensions;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Models;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.AniDB.HTTP;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Tasks;
 using Shoko.Server.Utilities;
+
+using GroupFilterConditionType = Shoko.Models.Enums.GroupFilterConditionType;
+using GroupFilterOperator = Shoko.Models.Enums.GroupFilterOperator;
+using GroupFilterType = Shoko.Models.Enums.GroupFilterType;
 
 namespace Shoko.Server.Databases;
 
@@ -43,8 +46,8 @@ public class DatabaseFixes
     public static void DeleteSerieUsersWithoutSeries()
     {
         //DB Fix Series not deleting series_user
-        var list = new HashSet<int>(RepoFactory.AnimeSeries.Cache.Keys);
-        RepoFactory.AnimeSeries_User.Delete(RepoFactory.AnimeSeries_User.Cache.Values
+        var list = new HashSet<int>(RepoFactory.Shoko_Series.Cache.Keys);
+        RepoFactory.Shoko_Series_User.Delete(RepoFactory.Shoko_Series_User.Cache.Values
             .Where(a => !list.Contains(a.AnimeSeriesID))
             .ToList());
     }
@@ -53,7 +56,7 @@ public class DatabaseFixes
     {
         try
         {
-            foreach (var vid in RepoFactory.VideoLocal.GetAll())
+            foreach (var vid in RepoFactory.Shoko_Video.GetAll())
             {
                 var fixedHash = false;
                 if (vid.CRC32.Equals("00000000"))
@@ -76,7 +79,7 @@ public class DatabaseFixes
 
                 if (fixedHash)
                 {
-                    RepoFactory.VideoLocal.Save(vid, false);
+                    RepoFactory.Shoko_Video.Save(vid, false);
                     logger.Info("Fixed hashes on file: {0}", vid.FileName);
                 }
             }
@@ -111,8 +114,8 @@ public class DatabaseFixes
     {
         try
         {
-            RepoFactory.MovieDB_Fanart.Delete(RepoFactory.MovieDB_Fanart.GetAll());
-            RepoFactory.MovieDB_Poster.Delete(RepoFactory.MovieDB_Poster.GetAll());
+            RepoFactory.TMDB_Fanart.Delete(RepoFactory.TMDB_Fanart.GetAll());
+            RepoFactory.TMDB_Movie_Poster.Delete(RepoFactory.TMDB_Movie_Poster.GetAll());
         }
         catch (Exception ex)
         {
@@ -126,7 +129,7 @@ public class DatabaseFixes
         // group filters
 
         // check if it already exists
-        var lockedGFs = RepoFactory.GroupFilter.GetLockedGroupFilters();
+        var lockedGFs = RepoFactory.Shoko_Group_Filter.GetLockedGroupFilters();
 
         if (lockedGFs != null)
         {
@@ -136,7 +139,7 @@ public class DatabaseFixes
                         StringComparison.InvariantCultureIgnoreCase))
                 {
                     gf.FilterType = (int)GroupFilterType.ContinueWatching;
-                    RepoFactory.GroupFilter.Save(gf);
+                    RepoFactory.Shoko_Group_Filter.Save(gf);
                 }
             }
         }
@@ -157,7 +160,7 @@ public class DatabaseFixes
         using (var session = DatabaseFactory.SessionFactory.OpenSession())
         {
             // Clean up possibly failed migration
-            RepoFactory.CrossRef_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
+            RepoFactory.CR_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
 
             // This method doesn't need mappings, and it's simple enough to work on all DB types
             // Migrate Special's overrides
@@ -187,14 +190,14 @@ public class DatabaseFixes
                 foreach (var episodeOverride in overrides)
                 {
                     var exists =
-                        RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(
+                        RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(
                             episodeOverride.AniDBEpisodeID, episodeOverride.TvDBEpisodeID);
                     if (exists != null)
                     {
                         continue;
                     }
 
-                    RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.Save(episodeOverride);
+                    RepoFactory.CR_AniDB_TvDB_Episode_Override.Save(episodeOverride);
                 }
             }
 
@@ -225,14 +228,14 @@ public class DatabaseFixes
                 foreach (var episodeOverride in overrides)
                 {
                     var exists =
-                        RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(
+                        RepoFactory.CR_AniDB_TvDB_Episode_Override.GetByAniDBAndTvDBEpisodeIDs(
                             episodeOverride.AniDBEpisodeID, episodeOverride.TvDBEpisodeID);
                     if (exists != null)
                     {
                         continue;
                     }
 
-                    RepoFactory.CrossRef_AniDB_TvDB_Episode_Override.Save(episodeOverride);
+                    RepoFactory.CR_AniDB_TvDB_Episode_Override.Save(episodeOverride);
                 }
             }
 
@@ -253,18 +256,18 @@ public class DatabaseFixes
             foreach (var link in links)
             {
                 var exists =
-                    RepoFactory.CrossRef_AniDB_TvDB.GetByAniDBAndTvDBID(
+                    RepoFactory.CR_AniDB_TvDB.GetByAniDBAndTvDBID(
                         link.AniDBID, link.TvDBID);
                 if (exists != null)
                 {
                     continue;
                 }
 
-                RepoFactory.CrossRef_AniDB_TvDB.Save(link);
+                RepoFactory.CR_AniDB_TvDB.Save(link);
             }
 
             // Scan Series Without links for prequel/sequel links
-            var list = RepoFactory.CrossRef_AniDB_TvDB.GetSeriesWithoutLinks();
+            var list = RepoFactory.CR_AniDB_TvDB.GetSeriesWithoutLinks();
 
             // AniDB_Anime_Relation is a direct repository, so GetFullLinearRelationTree will be slow
             // Using a visited node set to skip processed nodes should be faster
@@ -279,7 +282,7 @@ public class DatabaseFixes
                 }
 
                 var relations = RepoFactory.AniDB_Anime_Relation.GetFullLinearRelationTree(animeseries.AniDB_ID);
-                var tvDBID = relations.SelectMany(a => RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(a))
+                var tvDBID = relations.SelectMany(a => RepoFactory.CR_AniDB_TvDB.GetByAnimeID(a))
                     .FirstOrDefault(a => a != null)?.TvDBID;
                 // No link was found in the entire relation tree
                 if (tvDBID == null)
@@ -297,12 +300,12 @@ public class DatabaseFixes
                         AniDBID = series.AniDB_ID, TvDBID = tvDBID.Value, CrossRefSource = CrossRefSource.Automatic
                     };
                     // No need to check for existence
-                    RepoFactory.CrossRef_AniDB_TvDB.Save(link);
+                    RepoFactory.CR_AniDB_TvDB.Save(link);
                     visitedNodes.Add(series.AniDB_ID);
                 }
             }
 
-            list = RepoFactory.AnimeSeries.GetAll().ToList();
+            list = RepoFactory.Shoko_Series.GetAll().ToList();
             var count = 0;
 
             list.AsParallel().ForAll(animeseries =>
@@ -325,9 +328,9 @@ public class DatabaseFixes
 
     public static void RegenTvDBMatches()
     {
-        RepoFactory.CrossRef_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
+        RepoFactory.CR_AniDB_TvDB_Episode.DeleteAllUnverifiedLinks();
 
-        var list = RepoFactory.AnimeSeries.GetAll().ToList();
+        var list = RepoFactory.Shoko_Series.GetAll().ToList();
         var count = 0;
 
         list.AsParallel().ForAll(animeseries =>
@@ -362,9 +365,9 @@ public class DatabaseFixes
     public static void PopulateCharactersAndStaff()
     {
         var allcharacters = RepoFactory.AniDB_Character.GetAll();
-        var allstaff = RepoFactory.AniDB_Seiyuu.GetAll();
+        var allstaff = RepoFactory.AniDB_Creator.GetAll();
         var allanimecharacters = RepoFactory.AniDB_Anime_Character.GetAll().ToLookup(a => a.CharID, b => b);
-        var allcharacterstaff = RepoFactory.AniDB_Character_Seiyuu.GetAll();
+        var allcharacterstaff = RepoFactory.AniDB_Character_Creator.GetAll();
         var charBasePath = ImageUtils.GetBaseAniDBCharacterImagesPath() + Path.DirectorySeparatorChar;
         var creatorBasePath = ImageUtils.GetBaseAniDBCreatorImagesPath() + Path.DirectorySeparatorChar;
 
@@ -375,13 +378,13 @@ public class DatabaseFixes
             Description = character.CharDescription?.Replace("`", "'"),
             ImagePath = character.GetPosterPath()?.Replace(charBasePath, "")
         }).ToList();
-        RepoFactory.AnimeCharacter.Save(charstosave);
+        RepoFactory.Shoko_Character.Save(charstosave);
 
         var stafftosave = allstaff.Select(a => new AnimeStaff
         {
             Name = a.SeiyuuName?.Replace("`", "'"), AniDBID = a.SeiyuuID, ImagePath = a.GetPosterPath()?.Replace(creatorBasePath, "")
         }).ToList();
-        RepoFactory.AnimeStaff.Save(stafftosave);
+        RepoFactory.Shoko_Staff.Save(stafftosave);
 
         // This is not accurate. There was a mistake in DB design
         var xrefstosave = (from xref in allcharacterstaff
@@ -393,20 +396,20 @@ public class DatabaseFixes
                 Language = "Japanese",
                 RoleType = (int)StaffRoleType.Seiyuu,
                 Role = anime.CharType,
-                RoleID = RepoFactory.AnimeCharacter.GetByAniDBID(xref.CharID).CharacterID,
-                StaffID = RepoFactory.AnimeStaff.GetByAniDBID(xref.SeiyuuID).StaffID
+                RoleID = RepoFactory.Shoko_Character.GetByAniDBID(xref.CharID).CharacterID,
+                StaffID = RepoFactory.Shoko_Staff.GetByAniDBID(xref.SeiyuuID).StaffID
             }).ToList();
-        RepoFactory.CrossRef_Anime_Staff.Save(xrefstosave);
+        RepoFactory.CR_ShokoSeries_ShokoStaff.Save(xrefstosave);
     }
 
     public static void FixCharactersWithGrave()
     {
-        var list = RepoFactory.AnimeCharacter.GetAll()
+        var list = RepoFactory.Shoko_Character.GetAll()
             .Where(character => character.Description != null && character.Description.Contains("`")).ToList();
         foreach (var character in list)
         {
             character.Description = character.Description.Replace("`", "'");
-            RepoFactory.AnimeCharacter.Save(character);
+            RepoFactory.Shoko_Character.Save(character);
         }
     }
 
@@ -414,7 +417,7 @@ public class DatabaseFixes
     {
         var charBasePath = ImageUtils.GetBaseAniDBCharacterImagesPath();
         var creatorBasePath = ImageUtils.GetBaseAniDBCreatorImagesPath();
-        var charactersList = RepoFactory.AnimeCharacter.GetAll()
+        var charactersList = RepoFactory.Shoko_Character.GetAll()
             .Where(a => a.ImagePath.StartsWith(charBasePath)).ToList();
         foreach (var character in charactersList)
         {
@@ -429,10 +432,10 @@ public class DatabaseFixes
                 character.ImagePath = character.ImagePath.Substring(1);
             }
 
-            RepoFactory.AnimeCharacter.Save(character);
+            RepoFactory.Shoko_Character.Save(character);
         }
 
-        var creatorsList = RepoFactory.AnimeStaff.GetAll()
+        var creatorsList = RepoFactory.Shoko_Staff.GetAll()
             .Where(a => a.ImagePath.StartsWith(creatorBasePath)).ToList();
         foreach (var creator in creatorsList)
         {
@@ -448,7 +451,7 @@ public class DatabaseFixes
                 creator.ImagePath = creator.ImagePath.Substring(1);
             }
 
-            RepoFactory.AnimeStaff.Save(creator);
+            RepoFactory.Shoko_Staff.Save(creator);
         }
     }
 
@@ -460,8 +463,8 @@ public class DatabaseFixes
     public static void RefreshAniDBInfoFromXML()
     {
         var i = 0;
-        var list = RepoFactory.AniDB_Episode.GetAll().Where(a => string.IsNullOrEmpty(a.Description))
-            .Select(a => a.AnimeID).Distinct().ToList();
+        var list = RepoFactory.AniDB_Episode.GetAll().Where(a => string.IsNullOrEmpty(a.Overview))
+            .Select(a => a.AnimeId).Distinct().ToList();
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         foreach (var animeID in list)
         {
@@ -498,11 +501,11 @@ public class DatabaseFixes
         var tosave = RepoFactory.AniDB_Anime.GetAll()
             .Select(anime => new AniDB_AnimeUpdate
             {
-                AnimeID = anime.AnimeID, UpdatedAt = anime.DateTimeUpdated
+                AnimeID = anime.AnimeId, UpdatedAt = anime.DateTimeUpdated
             })
             .ToList();
 
-        RepoFactory.AniDB_AnimeUpdate.Save(tosave);
+        RepoFactory.AniDB_Anime_Update.Save(tosave);
     }
 
     public static void MigrateAniDB_FileUpdates()
@@ -514,37 +517,37 @@ public class DatabaseFixes
             })
             .ToList();
 
-        tosave.AddRange(RepoFactory.CrossRef_File_Episode.GetAll().Where(a => RepoFactory.AniDB_File.GetByHash(a.Hash) == null)
-            .Select(a => (xref: a, vl: RepoFactory.VideoLocal.GetByHash(a.Hash))).Where(a => a.vl != null).Select(a => new AniDB_FileUpdate
+        tosave.AddRange(RepoFactory.CR_Video_Episode.GetAll().Where(a => RepoFactory.AniDB_File.GetByHash(a.Hash) == null)
+            .Select(a => (xref: a, vl: RepoFactory.Shoko_Video.GetByED2K(a.Hash))).Where(a => a.vl != null).Select(a => new AniDB_FileUpdate
             {
                 FileSize = a.xref.FileSize, Hash = a.xref.Hash, HasResponse = false, UpdatedAt = a.vl.DateTimeCreated
             }));
 
-        RepoFactory.AniDB_FileUpdate.Save(tosave);
+        RepoFactory.AniDB_File_Update.Save(tosave);
     }
 
     public static void FixDuplicateTagFiltersAndUpdateSeasons()
     {
-        var filters = RepoFactory.GroupFilter.GetAll();
+        var filters = RepoFactory.Shoko_Group_Filter.GetAll();
         var seasons = filters.Where(a => a.FilterType == (int)GroupFilterType.Season).ToList();
         var tags = filters.Where(a => a.FilterType == (int)GroupFilterType.Tag).ToList();
 
         var tagsGrouping = tags.GroupBy(a => a.GroupFilterName).SelectMany(a => a.Skip(1)).ToList();
 
-        tagsGrouping.ForEach(RepoFactory.GroupFilter.Delete);
+        tagsGrouping.ForEach(RepoFactory.Shoko_Group_Filter.Delete);
 
         tags = filters.Where(a => a.FilterType == (int)GroupFilterType.Tag).ToList();
 
         foreach (var filter in tags.Where(a => a.GroupConditions.Contains("`")))
         {
             filter.GroupConditions = filter.GroupConditions.Replace("`", "'");
-            RepoFactory.GroupFilter.Save(filter);
+            RepoFactory.Shoko_Group_Filter.Save(filter);
         }
 
         foreach (var seasonFilter in seasons)
         {
             seasonFilter.CalculateGroupsAndSeries();
-            RepoFactory.GroupFilter.Save(seasonFilter);
+            RepoFactory.Shoko_Group_Filter.Save(seasonFilter);
         }
     }
 
@@ -552,7 +555,7 @@ public class DatabaseFixes
     {
         try
         {
-            var filters = RepoFactory.GroupFilter.GetAll();
+            var filters = RepoFactory.Shoko_Group_Filter.GetAll();
             if (filters.Count == 0)
             {
                 return;
@@ -566,10 +569,10 @@ public class DatabaseFixes
                 }
 
                 gf.CalculateGroupsAndSeries();
-                RepoFactory.GroupFilter.Save(gf);
+                RepoFactory.Shoko_Group_Filter.Save(gf);
             }
 
-            RepoFactory.GroupFilter.CreateOrVerifyLockedFilters();
+            RepoFactory.Shoko_Group_Filter.CreateOrVerifyLockedFilters();
         }
         catch (Exception e)
         {
@@ -602,7 +605,7 @@ public class DatabaseFixes
     {
         try
         {
-            foreach (var gf in RepoFactory.GroupFilter.GetAll())
+            foreach (var gf in RepoFactory.Shoko_Group_Filter.GetAll())
             {
                 if (gf.FilterType != (int)GroupFilterType.Tag)
                 {
@@ -619,19 +622,17 @@ public class DatabaseFixes
                     if (gfc.ConditionOperator == (int)GroupFilterOperator.Include)
                     {
                         gfc.ConditionOperator = (int)GroupFilterOperator.In;
-                        RepoFactory.GroupFilterCondition.Save(gfc);
                         continue;
                     }
 
                     if (gfc.ConditionOperator == (int)GroupFilterOperator.Exclude)
                     {
                         gfc.ConditionOperator = (int)GroupFilterOperator.NotIn;
-                        RepoFactory.GroupFilterCondition.Save(gfc);
                     }
                 }
 
                 gf.CalculateGroupsAndSeries();
-                RepoFactory.GroupFilter.Save(gf);
+                RepoFactory.Shoko_Group_Filter.Save(gf);
             }
         }
         catch (Exception e)
@@ -644,7 +645,7 @@ public class DatabaseFixes
     {
         try
         {
-            var filters = RepoFactory.GroupFilter.GetAll();
+            var filters = RepoFactory.Shoko_Group_Filter.GetAll();
             if (filters.Count == 0)
             {
                 return;
@@ -659,10 +660,10 @@ public class DatabaseFixes
 
                 gf.ApplyToSeries = 1;
                 gf.CalculateGroupsAndSeries();
-                RepoFactory.GroupFilter.Save(gf);
+                RepoFactory.Shoko_Group_Filter.Save(gf);
             }
 
-            RepoFactory.GroupFilter.CreateOrVerifyLockedFilters();
+            RepoFactory.Shoko_Group_Filter.CreateOrVerifyLockedFilters();
         }
         catch (Exception e)
         {
@@ -674,7 +675,7 @@ public class DatabaseFixes
     {
         try
         {
-            var filters = RepoFactory.GroupFilter.GetAll();
+            var filters = RepoFactory.Shoko_Group_Filter.GetAll();
             if (filters.Count == 0)
             {
                 return;
@@ -689,10 +690,10 @@ public class DatabaseFixes
 
                 gf.ApplyToSeries = 1;
                 gf.CalculateGroupsAndSeries();
-                RepoFactory.GroupFilter.Save(gf);
+                RepoFactory.Shoko_Group_Filter.Save(gf);
             }
 
-            RepoFactory.GroupFilter.CreateOrVerifyLockedFilters();
+            RepoFactory.Shoko_Group_Filter.CreateOrVerifyLockedFilters();
         }
         catch (Exception e)
         {
@@ -711,9 +712,9 @@ public class DatabaseFixes
 
     public static void EnsureNoOrphanedGroupsOrSeries()
     {
-        var emptyGroups = RepoFactory.AnimeGroup.GetAll().Where(a => a.GetAllSeries().Count == 0).ToArray();
-        RepoFactory.AnimeGroup.Delete(emptyGroups);
-        var orphanedSeries = RepoFactory.AnimeSeries.GetAll().Where(a => a.AnimeGroup == null).ToArray();
+        var emptyGroups = RepoFactory.Shoko_Group.GetAll().Where(a => a.GetAllSeries().Count == 0).ToArray();
+        RepoFactory.Shoko_Group.Delete(emptyGroups);
+        var orphanedSeries = RepoFactory.Shoko_Series.GetAll().Where(a => a.ParentGroup == null).ToArray();
         var groupCreator = new AnimeGroupCreator();
         using var session = DatabaseFactory.SessionFactory.OpenSession();
         foreach (var series in orphanedSeries)
@@ -721,15 +722,15 @@ public class DatabaseFixes
             try
             {
                 var group = groupCreator.GetOrCreateSingleGroupForSeries(series);
-                series.AnimeGroupID = group.AnimeGroupID;
-                RepoFactory.AnimeSeries.Save(series, false, false);
+                series.ParentGroupId = group.AnimeGroupID;
+                RepoFactory.Shoko_Series.Save(series, false, false);
             }
             catch (Exception e)
             {
                 var name = "";
                 try
                 {
-                    name = series.GetSeriesName();
+                    name = series.GetPreferredTitle();
                 }
                 catch
                 {
@@ -737,7 +738,7 @@ public class DatabaseFixes
                 }
 
                 logger.Error(e,
-                    $"Unable to update group for orphaned series: AniDB ID: {series.AniDB_ID} SeriesID: {series.AnimeSeriesID} Series Name: {name}");
+                    $"Unable to update group for orphaned series: AniDB ID: {series.AniDB_ID} SeriesID: {series.Id} Series Name: {name}");
             }
         }
     }
@@ -748,15 +749,15 @@ public class DatabaseFixes
         logger.Debug($"Looking for faulty anidb file entries...");
         logger.Debug($"Looking for faulty episode user records...");
         // Fetch every episode user record stored to both remove orphaned records and to make sure the watch date is correct.
-        var userDict = RepoFactory.JMMUser.GetAll().ToDictionary(user => user.JMMUserID);
-        var fileListDict = RepoFactory.AnimeEpisode.GetAll()
-            .ToDictionary(episode => episode.AnimeEpisodeID, episode => episode.GetVideoLocals());
-        var episodesURsToSave = new List<SVR_AnimeEpisode_User>();
-        var episodeURsToRemove = new List<SVR_AnimeEpisode_User>();
-        foreach (var episodeUserRecord in RepoFactory.AnimeEpisode_User.GetAll())
+        var userDict = RepoFactory.Shoko_User.GetAll().ToDictionary(user => user.Id);
+        var fileListDict = RepoFactory.Shoko_Episode.GetAll()
+            .ToDictionary(episode => episode.Id, episode => episode.Videos);
+        var episodesURsToSave = new List<ShokoEpisode_User>();
+        var episodeURsToRemove = new List<ShokoEpisode_User>();
+        foreach (var episodeUserRecord in RepoFactory.Shoko_Episode_User.GetAll())
         {
             // Remove any unkown episode user records.
-            if (!fileListDict.ContainsKey(episodeUserRecord.AnimeEpisodeID) ||
+            if (!fileListDict.ContainsKey(episodeUserRecord.EpisodeId) ||
                 !userDict.ContainsKey(episodeUserRecord.JMMUserID))
             {
                 episodeURsToRemove.Add(episodeUserRecord);
@@ -764,18 +765,18 @@ public class DatabaseFixes
             }
 
             // Fetch the file user record for when a file for the episode was last watched.
-            var fileUserRecord = fileListDict[episodeUserRecord.AnimeEpisodeID]
+            var fileUserRecord = fileListDict[episodeUserRecord.EpisodeId]
                 .Select(file => file.GetUserRecord(episodeUserRecord.JMMUserID))
                 .Where(record => record != null)
-                .OrderByDescending(record => record.LastUpdated)
-                .FirstOrDefault(record => record.WatchedDate.HasValue);
+                .OrderByDescending(record => record.LastUpdatedAt)
+                .FirstOrDefault(record => record.LastWatchedAt.HasValue);
             if (fileUserRecord != null)
             {
                 // Check if the episode user record contains the same date and only update it if it does not.
-                if (!episodeUserRecord.WatchedDate.HasValue ||
-                    !episodeUserRecord.WatchedDate.Value.Equals(fileUserRecord.WatchedDate.Value))
+                if (!episodeUserRecord.LastWatchedAt.HasValue ||
+                    !episodeUserRecord.LastWatchedAt.Value.Equals(fileUserRecord.LastWatchedAt.Value))
                 {
-                    episodeUserRecord.WatchedDate = fileUserRecord.WatchedDate;
+                    episodeUserRecord.LastWatchedAt = fileUserRecord.LastWatchedAt;
                     if (episodeUserRecord.WatchedCount == 0)
                     {
                         episodeUserRecord.WatchedCount++;
@@ -785,21 +786,21 @@ public class DatabaseFixes
                 }
             }
             // We couldn't find a watched date for any of the files, so make sure the episode user record is also marked as unwatched.
-            else if (episodeUserRecord.WatchedDate.HasValue)
+            else if (episodeUserRecord.LastWatchedAt.HasValue)
             {
-                episodeUserRecord.WatchedDate = null;
+                episodeUserRecord.LastWatchedAt = null;
                 episodesURsToSave.Add(episodeUserRecord);
             }
         }
 
         logger.Debug($"Found {episodesURsToSave.Count} episode user records to fix.");
-        RepoFactory.AnimeEpisode_User.Delete(episodeURsToRemove);
-        RepoFactory.AnimeEpisode_User.Save(episodesURsToSave);
+        RepoFactory.Shoko_Episode_User.Delete(episodeURsToRemove);
+        RepoFactory.Shoko_Episode_User.Save(episodesURsToSave);
         logger.Debug($"Updating series user records and series stats.");
         // Update all the series and groups to use the new watch dates.
         var seriesList = episodesURsToSave
-            .GroupBy(record => record.AnimeSeriesID)
-            .Select(records => (RepoFactory.AnimeSeries.GetByID(records.Key),
+            .GroupBy(record => record.SeriesId)
+            .Select(records => (RepoFactory.Shoko_Series.GetByID(records.Key),
                 records.Select(record => record.JMMUserID).Distinct())).ToList();
         foreach (var (series, userIDs) in seriesList)
         {
@@ -815,15 +816,15 @@ public class DatabaseFixes
                 var seriesUserRecord = series.GetOrCreateUserRecord(userID);
                 seriesUserRecord.LastEpisodeUpdate = DateTime.Now;
                 logger.Debug(
-                    $"Updating series user contract for user \"{userDict[seriesUserRecord.JMMUserID].Username}\". (UserID={seriesUserRecord.JMMUserID},SeriesID={seriesUserRecord.AnimeSeriesID})");
-                RepoFactory.AnimeSeries_User.Save(seriesUserRecord);
+                    $"Updating series user contract for user \"{userDict[seriesUserRecord.UserId].Username}\". (UserID={seriesUserRecord.UserId},SeriesID={seriesUserRecord.SeriesId})");
+                RepoFactory.Shoko_Series_User.Save(seriesUserRecord);
             }
 
             // Update the rest of the stats for the series.
             series.UpdateStats(true, true);
         }
 
-        var groups = seriesList.Select(a => a.Item1.AnimeGroup).Where(a => a != null).DistinctBy(a => a.AnimeGroupID);
+        var groups = seriesList.Select(a => a.Item1.ParentGroup).Where(a => a != null).DistinctBy(a => a.Id);
         foreach (var group in groups)
         {
             group.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
@@ -844,22 +845,22 @@ public class DatabaseFixes
             if (++count % 10 == 0)
                 logger.Info($"Updating tags for local anidb anime entries... ({count}/{animeList.Count})");
 
-            var xml = xmlUtils.LoadAnimeHTTPFromFile(anime.AnimeID);
+            var xml = xmlUtils.LoadAnimeHTTPFromFile(anime.AnimeId);
             if (string.IsNullOrEmpty(xml))
             {
-                logger.Warn($"Unable to load cached Anime_HTTP xml dump for anime: {anime.AnimeID}/{anime.MainTitle}");
+                logger.Warn($"Unable to load cached Anime_HTTP xml dump for anime: {anime.AnimeId}/{anime.MainTitle}");
                 continue;
             }
 
             ResponseGetAnime response;
             try
             {
-                response = animeParser.Parse(anime.AnimeID, xml);
+                response = animeParser.Parse(anime.AnimeId, xml);
                 if (response == null) throw new NullReferenceException(nameof(response));
             }
             catch (Exception e)
             {
-                logger.Error(e, $"Unable to parse cached Anime_HTTP xml dump for anime: {anime.AnimeID}/{anime.MainTitle}");
+                logger.Error(e, $"Unable to parse cached Anime_HTTP xml dump for anime: {anime.AnimeId}/{anime.MainTitle}");
                 continue;
             }
 
@@ -884,20 +885,20 @@ public class DatabaseFixes
         var animeCreator = Utils.ServiceContainer.GetRequiredService<AnimeCreator>();
         var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
         var anidbAnimeDict = RepoFactory.AniDB_Anime.GetAll()
-            .ToDictionary(an => an.AnimeID);
+            .ToDictionary(an => an.AnimeId);
         var anidbEpisodeDict = RepoFactory.AniDB_Episode.GetAll()
-            .ToDictionary(ep => ep.EpisodeID);
+            .ToDictionary(ep => ep.EpisodeId);
         var anidbAnimeIDs = anidbEpisodeDict.Values
-            .GroupBy(ep => ep.AnimeID)
+            .GroupBy(ep => ep.AnimeId)
             .Where(list => anidbAnimeDict.ContainsKey(list.Key))
             .ToDictionary(list => anidbAnimeDict[list.Key], list => list.ToList());
         // This list will _hopefully_ initially be an empty…
         var episodesToSave = anidbEpisodeDict.Values
-            .Where(ep => !anidbAnimeDict.ContainsKey(ep.AnimeID))
+            .Where(ep => !anidbAnimeDict.ContainsKey(ep.AnimeId))
             .ToList();
         var animeToUpdateSet = anidbEpisodeDict.Values
-            .Where(ep => !anidbAnimeDict.ContainsKey(ep.AnimeID))
-            .Select(ep => ep.AnimeID)
+            .Where(ep => !anidbAnimeDict.ContainsKey(ep.AnimeId))
+            .Select(ep => ep.AnimeId)
             .Distinct()
             .ToHashSet();
 
@@ -905,7 +906,7 @@ public class DatabaseFixes
 
         // …but if we do have any, then reset their timestamp now.
         foreach (var faultyEpisode in episodesToSave)
-            faultyEpisode.DateTimeUpdated = DateTime.UnixEpoch;
+            faultyEpisode.LastUpdatedAt = DateTime.UnixEpoch;
 
         var faultyCount = episodesToSave.Count;
         var resetCount = 0;
@@ -916,15 +917,15 @@ public class DatabaseFixes
             if (++progressCount % 10 == 0)
                 logger.Info($"Updating last updated episode timestamps for local anidb anime entries... ({progressCount}/{anidbAnimeIDs.Count})");
 
-            var xml = xmlUtils.LoadAnimeHTTPFromFile(anime.AnimeID);
+            var xml = xmlUtils.LoadAnimeHTTPFromFile(anime.AnimeId);
             if (string.IsNullOrEmpty(xml))
             {
-                logger.Warn($"Unable to load cached Anime_HTTP xml dump for anime: {anime.AnimeID}/{anime.MainTitle}");
+                logger.Warn($"Unable to load cached Anime_HTTP xml dump for anime: {anime.AnimeId}/{anime.MainTitle}");
                 // We're unable to find the xml file, so the safest thing to do for future-proofing is to reset the dates.
                 foreach (var episode in episodeList)
                 {
                     resetCount++;
-                    episode.DateTimeUpdated = DateTime.UnixEpoch;
+                    episode.LastUpdatedAt = DateTime.UnixEpoch;
                     episodesToSave.Add(episode);
                 }
                 continue;
@@ -933,17 +934,17 @@ public class DatabaseFixes
             ResponseGetAnime response;
             try
             {
-                response = animeParser.Parse(anime.AnimeID, xml);
+                response = animeParser.Parse(anime.AnimeId, xml);
                 if (response == null) throw new NullReferenceException(nameof(response));
             }
             catch (Exception e)
             {
-                logger.Error(e, $"Unable to parse cached Anime_HTTP xml dump for anime: {anime.AnimeID}/{anime.MainTitle}");
+                logger.Error(e, $"Unable to parse cached Anime_HTTP xml dump for anime: {anime.AnimeId}/{anime.MainTitle}");
                 // We're unable to parse the xml file, so the safest thing to do for future-proofing is to reset the dates.
                 foreach (var episode in episodeList)
                 {
                     resetCount++;
-                    episode.DateTimeUpdated = DateTime.UnixEpoch;
+                    episode.LastUpdatedAt = DateTime.UnixEpoch;
                     episodesToSave.Add(episode);
                 }
                 continue;
@@ -953,19 +954,19 @@ public class DatabaseFixes
             foreach (var episode in episodeList)
             {
                 // The episode was found in the XML file, so we can safely update the timestamp.
-                if (responseEpisodeDict.TryGetValue(episode.EpisodeID, out var responseEpisode))
+                if (responseEpisodeDict.TryGetValue(episode.EpisodeId, out var responseEpisode))
                 {
                     updatedCount++;
-                    episode.DateTimeUpdated = responseEpisode.LastUpdated;
+                    episode.LastUpdatedAt = responseEpisode.LastUpdated;
                     episodesToSave.Add(episode);
                 }
                 // The episode was deleted from the anime at some point, or the cache is outdated.
                 else
                 {
-                    episode.DateTimeUpdated = DateTime.UnixEpoch;
+                    episode.LastUpdatedAt = DateTime.UnixEpoch;
                     faultyCount++;
                     episodesToSave.Add(episode);
-                    animeToUpdateSet.Add(episode.AnimeID);
+                    animeToUpdateSet.Add(episode.AnimeId);
                 }
             }
         }
@@ -991,11 +992,11 @@ public class DatabaseFixes
     
     public static void UpdateSeriesWithHiddenEpisodes()
     {
-        var seriesList = RepoFactory.AnimeEpisode.GetAll()
+        var seriesList = RepoFactory.Shoko_Episode.GetAll()
             .Where(episode => episode.IsHidden)
-            .Select(episode => episode.AnimeSeriesID)
+            .Select(episode => episode.SeriesId)
             .Distinct()
-            .Select(seriesID => RepoFactory.AnimeSeries.GetByID(seriesID))
+            .Select(seriesID => RepoFactory.Shoko_Series.GetByID(seriesID))
             .Where(series => series != null)
             .ToList();
 

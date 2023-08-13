@@ -1,18 +1,15 @@
 ﻿using FluentNHibernate.Mapping;
-using Shoko.Models.Server;
+using Shoko.Server.Models.Internal;
 
 namespace Shoko.Server.Mappings;
 
-public class GroupFilterConditionMap : ClassMap<GroupFilterCondition>
+public class ShokoGroup_FilterConditionMap : SubclassMap<ShokoGroup_FilterCondition>
 {
-    public GroupFilterConditionMap()
+    public ShokoGroup_FilterConditionMap()
     {
         Not.LazyLoad();
-        Id(x => x.GroupFilterConditionID);
-
-        Map(x => x.ConditionOperator).Not.Nullable();
-        Map(x => x.ConditionParameter);
-        Map(x => x.ConditionType).Not.Nullable();
-        Map(x => x.GroupFilterID).Not.Nullable();
+        Map(x => x.ConditionOperator).Column("ConditionOperator").Not.Nullable();
+        Map(x => x.ConditionParameter).Column("ConditionParameter");
+        Map(x => x.ConditionType).Column("ConditionType").Not.Nullable();
     }
 }

@@ -22,7 +22,7 @@ namespace Shoko.Server.Commands.Plex;
 internal class CommandRequest_PlexSyncWatched : CommandRequestImplementation
 {
     private readonly ISettingsProvider _settingsProvider;
-    public JMMUser User;
+    public ShokoUser User;
 
     protected override void Process()
     {
@@ -116,7 +116,7 @@ internal class CommandRequest_PlexSyncWatched : CommandRequestImplementation
         Priority = cq.Priority;
         CommandDetails = cq.CommandDetails;
         DateTimeUpdated = cq.DateTimeUpdated;
-        User = RepoFactory.JMMUser.GetByID(Convert.ToInt32(cq.CommandDetails));
+        User = RepoFactory.Shoko_User.GetByID(Convert.ToInt32(cq.CommandDetails));
         return true;
     }
 

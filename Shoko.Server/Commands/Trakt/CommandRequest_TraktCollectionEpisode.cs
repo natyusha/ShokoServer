@@ -47,7 +47,7 @@ public class CommandRequest_TraktCollectionEpisode : CommandRequestImplementatio
                 return;
             }
 
-            var ep = RepoFactory.AnimeEpisode.GetByID(AnimeEpisodeID);
+            var ep = RepoFactory.Shoko_Episode.GetByID(AnimeEpisodeID);
             if (ep != null)
             {
                 var syncType = TraktSyncType.CollectionAdd;

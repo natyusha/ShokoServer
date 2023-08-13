@@ -35,7 +35,7 @@ public class TraktSummaryContainer
     {
         try
         {
-            crossRefTraktV2 = RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeID(AnimeID);
+            crossRefTraktV2 = RepoFactory.CR_AniDB_Trakt.GetByAnimeID(AnimeID);
         }
         catch (Exception ex)
         {

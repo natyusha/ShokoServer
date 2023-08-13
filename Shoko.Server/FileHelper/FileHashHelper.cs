@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using NLog;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Server.Utilities;
 
 namespace Shoko.Server.FileHelper;
@@ -17,12 +18,11 @@ public class FileHashHelper
     /// <param name="fileName"></param>
     /// <param name="hashInfo"></param>
     /// <param name="vidInfo"></param>
-    public static Hashes GetHashInfo(string fileName, bool forceRefresh, Hasher.OnHashProgress hashProgress,
+    public static IHashes GetHashInfo(string fileName, bool forceRefresh, Hasher.OnHashProgress hashProgress,
         bool getCRC32, bool getMD5, bool getSHA1)
     {
         return Hasher.CalculateHashes(fileName, hashProgress, getCRC32, getMD5, getSHA1);
     }
-
 
     public static bool IsVideo(string fileName)
     {

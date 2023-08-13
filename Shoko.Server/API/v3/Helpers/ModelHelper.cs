@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shoko.Models.Enums;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models;
-using File = Shoko.Server.API.v3.Models.Shoko.File;
-using FileSource = Shoko.Server.API.v3.Models.Shoko.FileSource;
+using FileSource = Shoko.Plugin.Abstractions.Enums.FileSource;
 using GroupSizes = Shoko.Server.API.v3.Models.Shoko.GroupSizes;
 using Series = Shoko.Server.API.v3.Models.Shoko.Series;
 using SeriesSizes = Shoko.Server.API.v3.Models.Shoko.SeriesSizes;
+using EpisodeType = Shoko.Plugin.Abstractions.Enums.EpisodeType;
 using SeriesType = Shoko.Server.API.v3.Models.Shoko.SeriesType;
+using Shoko.Plugin.Abstractions.Models.Shoko;
+using Shoko.Server.Models.Internal;
 
 namespace Shoko.Server.API.v3.Helpers;
 
@@ -88,11 +91,11 @@ public static class ModelHelper
             episodeType = maybeType switch
             {
                 'S' => EpisodeType.Special,
-                'C' => EpisodeType.Credits,
+                'C' => EpisodeType.ThemeSong,
                 'T' => EpisodeType.Trailer,
                 'P' => EpisodeType.Parody,
                 'O' => EpisodeType.Other,
-                'E' => EpisodeType.Episode,
+                'E' => EpisodeType.Normal,
                 _ => null
             };
             if (!episodeType.HasValue)
@@ -104,31 +107,31 @@ public static class ModelHelper
         return (episodeNumber, episodeType, null);
     }
 
-    public static int GetTotalEpisodesForType(List<SVR_AnimeEpisode> episodeList, EpisodeType episodeType)
+    public static int GetTotalEpisodesForType(IEnumerable<IShokoEpisode> episodeList, EpisodeType episodeType)
     {
         return episodeList
-            .Select(episode => episode.AniDB_Episode)
-            .Where(anidbEpisode => anidbEpisode != null && (EpisodeType)anidbEpisode.EpisodeType == episodeType)
+            .Select(episode => episode.AniDBEpisode)
+            .Where(anidbEpisode => anidbEpisode != null && (EpisodeType)anidbEpisode.Type == episodeType)
             .Count();
     }
 
-    public static SeriesSizes GenerateSeriesSizes(List<SVR_AnimeEpisode> episodeList, int userID)
+    public static SeriesSizes GenerateSeriesSizes(IEnumerable<IShokoEpisode> episodeList, int userID)
     {
         var sizes = new SeriesSizes();
         var fileSet = new HashSet<int>();
         foreach (var episode in episodeList)
         {
-            var anidbEpisode = episode.AniDB_Episode;
-            var fileList = episode.GetVideoLocals();
+            var anidbEpisode = episode.AniDBEpisode;
+            var fileList = episode.AllVideos;
             var isLocal = fileList.Count > 0;
-            var isWatched = (episode.GetUserRecord(userID)?.WatchedCount ?? 0) > 0;
+            var isWatched = ((episode as Shoko_Episode).GetUserRecord(userID)?.WatchedCount ?? 0) > 0;
             foreach (var file in fileList)
             {
                 // Only iterate the same file once.
-                if (!fileSet.Add(file.VideoLocalID))
+                if (!fileSet.Add(file.Id))
                     continue;
 
-                var anidbFile = file.GetAniDBFile();
+                var anidbFile = file.AnidbFile;
                 if (anidbFile == null)
                 {
                     sizes.FileSources.Unknown++;
@@ -140,7 +143,7 @@ public static class ModelHelper
                     sizes.Hidden++;
                 }
 
-                switch (File.ParseFileSource(anidbFile.File_Source))
+                switch (anidbFile.Source)
                 {
                     case FileSource.Unknown:
                         sizes.FileSources.Unknown++;
@@ -191,9 +194,9 @@ public static class ModelHelper
                 continue;
             }
 
-            switch ((EpisodeType)anidbEpisode.EpisodeType)
+            switch (anidbEpisode.Type)
             {
-                case EpisodeType.Episode:
+                case EpisodeType.Normal:
                     sizes.Total.Episodes++;
                     if (isLocal)
                     {
@@ -210,7 +213,7 @@ public static class ModelHelper
                     }
 
                     break;
-                case EpisodeType.Credits:
+                case EpisodeType.ThemeSong:
                     sizes.Total.Credits++;
                     if (isLocal)
                     {
@@ -285,14 +288,14 @@ public static class ModelHelper
         return sizes;
     }
 
-    public static GroupSizes GenerateGroupSizes(List<SVR_AnimeSeries> seriesList, List<SVR_AnimeEpisode> episodeList,
+    public static GroupSizes GenerateGroupSizes(List<IShokoSeries> seriesList, List<IShokoEpisode> episodeList,
         int subGroups, int userID)
     {
         var sizes = new GroupSizes(GenerateSeriesSizes(episodeList, userID));
         foreach (var series in seriesList)
         {
-            var anime = series.GetAnime();
-            switch (Series.GetAniDBSeriesType(anime?.AnimeType))
+            var anime = series.AnidbAnime;
+            switch (Series.GetAniDBSeriesType(anime.AnimeType))
             {
                 case SeriesType.Unknown:
                     sizes.SeriesTypes.Unknown++;

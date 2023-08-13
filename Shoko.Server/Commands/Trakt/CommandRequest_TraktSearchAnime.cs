@@ -53,7 +53,7 @@ public class CommandRequest_TraktSearchAnime : CommandRequestImplementation
                 // lets try to see locally if we have a tvDB link for this anime
                 // Trakt allows the use of TvDB ID's or their own Trakt ID's
                 var
-                    xrefTvDBs = RepoFactory.CrossRef_AniDB_TvDB.GetV2LinksFromAnime(AnimeID);
+                    xrefTvDBs = RepoFactory.CR_AniDB_TvDB.GetV2LinksFromAnime(AnimeID);
                 if (xrefTvDBs != null && xrefTvDBs.Count > 0)
                 {
                     foreach (var tvXRef in xrefTvDBs)
@@ -101,7 +101,7 @@ public class CommandRequest_TraktSearchAnime : CommandRequestImplementation
 
                         var traktSeason = RepoFactory.Trakt_Season.GetByShowIDAndSeason(
                             session,
-                            traktShow.Trakt_ShowID,
+                            traktShow.Id,
                             tvXRef.TvDBSeasonNumber);
                         if (traktSeason == null)
                         {
@@ -124,14 +124,13 @@ public class CommandRequest_TraktSearchAnime : CommandRequestImplementation
                     }
                 }
 
-                // Use TvDB setting due to similarity
-                if (!settings.TvDB.AutoLink)
+                if (!settings.TraktTv.AutoLink)
                 {
                     return;
                 }
 
                 // finally lets try searching Trakt directly
-                var anime = RepoFactory.AniDB_Anime.GetByAnimeID(sessionWrapper, AnimeID);
+                var anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(AnimeID);
                 if (anime == null)
                 {
                     return;
@@ -155,19 +154,19 @@ public class CommandRequest_TraktSearchAnime : CommandRequestImplementation
 
                 foreach (var title in anime.GetTitles())
                 {
-                    if (title.TitleType != Shoko.Plugin.Abstractions.DataModels.TitleType.Official)
+                    if (title.TitleType != Shoko.Plugin.Abstractions.Models.TitleType.Official)
                     {
                         continue;
                     }
 
-                    if (string.Equals(searchCriteria, title.Title, StringComparison.InvariantCultureIgnoreCase))
+                    if (string.Equals(searchCriteria, title.Value, StringComparison.InvariantCultureIgnoreCase))
                     {
                         continue;
                     }
 
                     results = _helper.SearchShowV2(searchCriteria);
-                    Logger.LogTrace("Found {0} trakt results for search on {1}", results.Count, title.Title);
-                    if (ProcessSearchResults(session, results, title.Title))
+                    Logger.LogTrace("Found {0} trakt results for search on {1}", results.Count, title.Value);
+                    if (ProcessSearchResults(session, results, title.Value))
                     {
                         return;
                     }

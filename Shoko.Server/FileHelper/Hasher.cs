@@ -6,6 +6,8 @@ using System.Security.Cryptography;
 using System.Text;
 using NLog;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Models;
+using Shoko.Plugin.Abstractions.Models.Implementations;
 using Shoko.Server.Utilities;
 
 namespace Shoko.Server.FileHelper;
@@ -116,15 +118,15 @@ public class Hasher
 
     #endregion
 
-    public static Hashes CalculateHashes(string strPath, OnHashProgress onHashProgress)
+    public static IHashes CalculateHashes(string strPath, OnHashProgress onHashProgress)
     {
         return CalculateHashes(strPath, onHashProgress, true, true, true);
     }
 
-    public static Hashes CalculateHashes(string strPath, OnHashProgress onHashProgress, bool getCRC32, bool getMD5,
+    public static IHashes CalculateHashes(string strPath, OnHashProgress onHashProgress, bool getCRC32, bool getMD5,
         bool getSHA1)
     {
-        var rhash = new Hashes();
+        var rhash = new HashesImpl();
         if (Finalise.ModuleHandle != IntPtr.Zero || Utils.IsLinux)
         {
             var hash = new byte[56];
@@ -161,7 +163,7 @@ public class Hasher
         return CalculateHashes_here(strPath, onHashProgress, getCRC32, getMD5, getSHA1);
     }
 
-    public static Hashes CalculateHashes_here(string strPath, OnHashProgress onHashProgress, bool getCRC32,
+    public static IHashes CalculateHashes_here(string strPath, OnHashProgress onHashProgress, bool getCRC32,
         bool getMD5,
         bool getSHA1)
     {
@@ -169,7 +171,7 @@ public class Hasher
         logger.Trace("Using C# code to has file: {0}", strPath);
 
         FileStream fs;
-        var rhash = new Hashes();
+        var rhash = new HashesImpl();
         var fi = new FileInfo(strPath);
         fs = fi.OpenRead();
         var lChunkSize = 9728000;

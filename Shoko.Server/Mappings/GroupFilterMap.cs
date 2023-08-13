@@ -3,7 +3,7 @@ using Shoko.Server.Models;
 
 namespace Shoko.Server.Mappings;
 
-public class GroupFilterMap : ClassMap<SVR_GroupFilter>
+public class GroupFilterMap : ClassMap<GroupFilter>
 {
     public GroupFilterMap()
     {

@@ -6,7 +6,7 @@ using System.Data;
 using System.Data.Common;
 using NHibernate;
 using NHibernate.Engine;
-using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Models;
 using Shoko.Plugin.Abstractions.Extensions;
 
 namespace Shoko.Server.Databases.TypeConverters;
@@ -42,10 +42,10 @@ public class TitleLanguageConverter : TypeConverter, IUserType
     {
         return value switch
         {
-            null => TitleLanguage.Unknown,
-            long i => (TitleLanguage)i,
-            int i => (TitleLanguage)i,
-            string s => s.GetTitleLanguage(),
+            null => TextLanguage.Unknown,
+            long i => (TextLanguage)i,
+            int i => (TextLanguage)i,
+            string s => s.ToTextLanguage(),
             _ => throw new ArgumentException("DestinationType must be string or int")
         };
     }
@@ -70,14 +70,14 @@ public class TitleLanguageConverter : TypeConverter, IUserType
             throw new ArgumentNullException(nameof(value), @"Value can't be null");
         }
 
-        if (value is not TitleLanguage t)
+        if (value is not TextLanguage t)
         {
             throw new ArgumentException(@"Value isn't of type TitleLanguage", nameof(value));
         }
 
         return destinationType.FullName switch
         {
-            "System.String" => t.GetString(),
+            "System.String" => t.ToLanguageCode(),
             "System.Int32" => (int)t,
             "System.Int64" => (long)t,
             _ => throw new ArgumentException("DestinationType must be string or int")

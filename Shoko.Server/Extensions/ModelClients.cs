@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using NLog;
 using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.Internal;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 
@@ -68,10 +72,10 @@ public static class ModelClients
             TvDB_Language = settings.TvDB.Language,
 
             // MovieDB
-            MovieDB_AutoFanart = settings.MovieDb.AutoFanart,
-            MovieDB_AutoFanartAmount = settings.MovieDb.AutoFanartAmount,
-            MovieDB_AutoPosters = settings.MovieDb.AutoPosters,
-            MovieDB_AutoPostersAmount = settings.MovieDb.AutoPostersAmount,
+            MovieDB_AutoFanart = settings.TMDB.AutoFanart,
+            MovieDB_AutoFanartAmount = settings.TMDB.AutoFanartAmount,
+            MovieDB_AutoPosters = settings.TMDB.AutoPosters,
+            MovieDB_AutoPostersAmount = settings.TMDB.AutoPostersAmount,
 
             // Import settings
             VideoExtensions = string.Join(",", settings.Import.VideoExtensions),
@@ -85,9 +89,9 @@ public static class ModelClients
             Import_UseExistingFileWatchedStatus = settings.Import.UseExistingFileWatchedStatus,
             RunImportOnStart = settings.Import.RunOnStart,
             ScanDropFoldersOnStart = settings.Import.ScanDropFoldersOnStart,
-            Hash_CRC32 = settings.Import.Hash_CRC32,
-            Hash_MD5 = settings.Import.Hash_MD5,
-            Hash_SHA1 = settings.Import.Hash_SHA1,
+            Hash_CRC32 = settings.Import.Hasher.CRC,
+            Hash_MD5 = settings.Import.Hasher.MD5,
+            Hash_SHA1 = settings.Import.Hasher.SHA1,
             SkipDiskSpaceChecks = settings.Import.SkipDiskSpaceChecks,
 
             // Language
@@ -120,12 +124,11 @@ public static class ModelClients
         };
     }
 
-    public static CL_AniDB_Anime ToClient(this SVR_AniDB_Anime anime)
-    {
-        return new CL_AniDB_Anime
+    public static CL_AniDB_Anime ToClient(this AniDB_Anime anime)
+        => new()
         {
             AniDB_AnimeID = anime.AniDB_AnimeID,
-            AnimeID = anime.AnimeID,
+            AnimeID = anime.AnimeId,
             Description = anime.Description,
             EpisodeCount = anime.EpisodeCount,
             AirDate = anime.AirDate,
@@ -134,7 +137,7 @@ public static class ModelClients
             Picname = anime.Picname,
             BeginYear = anime.BeginYear,
             EndYear = anime.EndYear,
-            AnimeType = anime.AnimeType,
+            AnimeType = (int)anime.AnimeType,
             MainTitle = anime.MainTitle,
             AllTitles = anime.AllTitles,
             AllTags = anime.AllTags,
@@ -155,28 +158,29 @@ public static class ModelClients
             LatestEpisodeNumber = anime.LatestEpisodeNumber,
             DisableExternalLinksFlag = 0
         };
-    }
 
-
-    public static CL_AniDB_Anime_Relation ToClient(this AniDB_Anime_Relation ar, SVR_AniDB_Anime anime,
-        SVR_AnimeSeries ser, int userID)
-    {
-        var cl = new CL_AniDB_Anime_Relation
+    public static CL_CustomTag ToClient(this Custom_Tag tag)
+        => new()
         {
-            AniDB_Anime_RelationID = ar.AniDB_Anime_RelationID,
-            AnimeID = ar.AnimeID,
-            RelationType = ar.RelationType,
-            RelatedAnimeID = ar.RelatedAnimeID
+            CustomTagID = tag.Id,
+            TagDescription = tag.Description,
         };
-        cl.AniDB_Anime = anime?.Contract?.AniDBAnime;
-        cl.AnimeSeries = ser?.GetUserContract(userID);
-        return cl;
-    }
+
+    public static CL_AniDB_Anime_Relation ToClient(this AniDB_Anime_Relation ar, AniDB_Anime anime,
+        ShokoSeries ser, int userID)
+        => new()
+        {
+            AniDB_Anime_RelationID = ar.Id,
+            AnimeID = ar.AnidbAnimeId,
+            RelationType = ar.RawType,
+            RelatedAnimeID = ar.RelatedAnidbAnimeId,
+            AniDB_Anime = anime?.Contract?.AniDBAnime,
+            AnimeSeries = ser?.GetUserContract(userID),
+        };
 
 
     public static CL_AniDB_Character ToClient(this AniDB_Character c)
-    {
-        return new CL_AniDB_Character
+        => new()
         {
             AniDB_CharacterID = c.AniDB_CharacterID,
             CharID = c.CharID,
@@ -184,13 +188,11 @@ public static class ModelClients
             CreatorListRaw = c.CreatorListRaw ?? "",
             CharName = c.CharName,
             CharKanjiName = c.CharKanjiName,
-            CharDescription = c.CharDescription
+            CharDescription = c.CharDescription,
         };
-    }
 
     public static CL_AniDB_GroupStatus ToClient(this AniDB_GroupStatus g)
-    {
-        return new CL_AniDB_GroupStatus
+        => new CL_AniDB_GroupStatus
         {
             AniDB_GroupStatusID = g.AniDB_GroupStatusID,
             AnimeID = g.AnimeID,
@@ -200,49 +202,48 @@ public static class ModelClients
             LastEpisodeNumber = g.LastEpisodeNumber,
             Rating = g.Rating,
             Votes = g.Votes,
-            EpisodeRange = g.EpisodeRange
+            EpisodeRange = g.EpisodeRange,
         };
-    }
 
-    public static CL_AnimeEpisode_User ToClient(this AnimeEpisode_User e)
+    public static CL_AnimeEpisode_User ToClient(this ShokoEpisode_User e)
     {
         return new CL_AnimeEpisode_User
         {
-            AnimeEpisode_UserID = e.AnimeEpisode_UserID,
-            JMMUserID = e.JMMUserID,
-            AnimeEpisodeID = e.AnimeEpisodeID,
-            AnimeSeriesID = e.AnimeSeriesID,
-            WatchedDate = e.WatchedDate,
+            AnimeEpisode_UserID = e.Id,
+            JMMUserID = e.UserId,
+            AnimeEpisodeID = e.EpisodeId,
+            AnimeSeriesID = e.SeriesId,
+            WatchedDate = e.LastWatchedAt,
             PlayedCount = e.PlayedCount,
             WatchedCount = e.WatchedCount,
             StoppedCount = e.StoppedCount
         };
     }
 
-    public static CL_AnimeGroup_User ToClient(this AnimeGroup_User g)
+    public static CL_AnimeGroup_User ToClient(this ShokoGroup_User g)
     {
         return new CL_AnimeGroup_User
         {
-            AnimeGroup_UserID = g.AnimeGroup_UserID,
-            JMMUserID = g.JMMUserID,
-            AnimeGroupID = g.AnimeGroupID,
-            IsFave = g.IsFave,
+            AnimeGroup_UserID = g.Id,
+            JMMUserID = g.UserId,
+            AnimeGroupID = g.GroupId,
+            IsFave = g.IsFavorite ? 1 : 0,
             UnwatchedEpisodeCount = g.UnwatchedEpisodeCount,
             WatchedEpisodeCount = g.WatchedEpisodeCount,
-            WatchedDate = g.WatchedDate,
+            WatchedDate = g.LastWatchedAt,
             PlayedCount = g.PlayedCount,
             WatchedCount = g.WatchedCount,
-            StoppedCount = g.StoppedCount
+            StoppedCount = g.StoppedCount,
         };
     }
 
-    public static CL_AnimeSeries_User ToClient(this AnimeSeries_User s)
+    public static CL_AnimeSeries_User ToClient(this ShokoSeries_User s)
     {
         return new CL_AnimeSeries_User
         {
-            AnimeSeries_UserID = s.AnimeSeries_UserID,
-            JMMUserID = s.JMMUserID,
-            AnimeSeriesID = s.AnimeSeriesID,
+            AnimeSeries_UserID = s.Id,
+            JMMUserID = s.UserId,
+            AnimeSeriesID = s.SeriesId,
             UnwatchedEpisodeCount = s.UnwatchedEpisodeCount,
             WatchedEpisodeCount = s.WatchedEpisodeCount,
             WatchedDate = s.WatchedDate,
@@ -259,7 +260,7 @@ public static class ModelClients
         {
             IgnoreAnimeID = i.IgnoreAnimeID, JMMUserID = i.JMMUserID, AnimeID = i.AnimeID, IgnoreType = i.IgnoreType
         };
-        c.Anime = RepoFactory.AniDB_Anime.GetByAnimeID(i.AnimeID).ToClient();
+        c.Anime = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(i.AnimeID).ToClient();
         return c;
     }
 
@@ -279,13 +280,13 @@ public static class ModelClients
     {
         return new CL_Trakt_Show
         {
-            Trakt_ShowID = show.Trakt_ShowID,
-            TraktID = show.TraktID,
-            Title = show.Title,
+            Trakt_ShowID = show.Id,
+            TraktID = show.TraktShowID,
+            Title = show.MainTitle,
             Year = show.Year,
             URL = show.URL,
-            Overview = show.Overview,
-            TvDB_ID = show.TvDB_ID,
+            Overview = show.MainOverview,
+            TvDB_ID = show.TvdbShowId,
             Seasons = show.GetSeasons().Select(a => a.ToClient()).ToList()
         };
     }
@@ -294,24 +295,24 @@ public static class ModelClients
     public static CL_AniDB_Anime_DefaultImage ToClient(this AniDB_Anime_DefaultImage defaultImage)
     {
         var imgType = (ImageEntityType)defaultImage.ImageParentType;
-        IImageEntity parentImage = null;
+        object parentImage = null;
 
         switch (imgType)
         {
             case ImageEntityType.TvDB_Banner:
-                parentImage = RepoFactory.TvDB_ImageWideBanner.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TvDB_Banner.GetByID(defaultImage.ImageParentID);
                 break;
             case ImageEntityType.TvDB_Cover:
-                parentImage = RepoFactory.TvDB_ImagePoster.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TvDB_Poster.GetByID(defaultImage.ImageParentID);
                 break;
             case ImageEntityType.TvDB_FanArt:
-                parentImage = RepoFactory.TvDB_ImageFanart.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TvDB_Fanart.GetByID(defaultImage.ImageParentID);
                 break;
             case ImageEntityType.MovieDB_Poster:
-                parentImage = RepoFactory.MovieDB_Poster.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TMDB_Movie_Poster.GetByID(defaultImage.ImageParentID);
                 break;
             case ImageEntityType.MovieDB_FanArt:
-                parentImage = RepoFactory.MovieDB_Fanart.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TMDB_Fanart.GetByID(defaultImage.ImageParentID);
                 break;
         }
 
@@ -319,7 +320,7 @@ public static class ModelClients
     }
 
     public static CL_AniDB_Anime_DefaultImage ToClient(this AniDB_Anime_DefaultImage defaultimage,
-        IImageEntity parentImage)
+        object parentImage)
     {
         var contract = new CL_AniDB_Anime_DefaultImage
         {
@@ -334,27 +335,27 @@ public static class ModelClients
         switch (imgType)
         {
             case ImageEntityType.TvDB_Banner:
-                contract.TVWideBanner = parentImage as TvDB_ImageWideBanner;
+                contract.TVWideBanner = parentImage as CL_TvDB_ImageWideBanner;
                 break;
             case ImageEntityType.TvDB_Cover:
-                contract.TVPoster = parentImage as TvDB_ImagePoster;
+                contract.TVPoster = parentImage as CL_TvDB_ImagePoster;
                 break;
             case ImageEntityType.TvDB_FanArt:
-                contract.TVFanart = parentImage as TvDB_ImageFanart;
+                contract.TVFanart = parentImage as CL_TvDB_ImageFanart;
                 break;
             case ImageEntityType.MovieDB_Poster:
-                contract.MoviePoster = parentImage as MovieDB_Poster;
+                contract.MoviePoster = parentImage as CL_MovieDB_Poster;
                 break;
             case ImageEntityType.MovieDB_FanArt:
-                contract.MovieFanart = parentImage as MovieDB_Fanart;
+                contract.MovieFanart = parentImage as CL_MovieDB_Fanart;
                 break;
         }
 
         return contract;
     }
 
-    public static CL_AniDB_Anime_Similar ToClient(this AniDB_Anime_Similar similar, SVR_AniDB_Anime anime,
-        SVR_AnimeSeries ser, int userID)
+    public static CL_AniDB_Anime_Similar ToClient(this AniDB_Anime_Similar similar, AniDB_Anime anime,
+        ShokoSeries ser, int userID)
     {
         var cl = new CL_AniDB_Anime_Similar
         {
@@ -398,7 +399,7 @@ public static class ModelClients
             Downloading = bookmarkedanime.Downloading
         };
         cl.Anime = null;
-        var an = RepoFactory.AniDB_Anime.GetByAnimeID(bookmarkedanime.AnimeID);
+        var an = RepoFactory.AniDB_Anime.GetByAnidbAnimeId(bookmarkedanime.AnimeID);
         if (an != null)
         {
             cl.Anime = an.Contract.AniDBAnime;
@@ -428,7 +429,7 @@ public static class ModelClients
             {
                 cl.EpisodeNumber = eps[0].EpisodeNumber;
                 cl.EpisodeType = eps[0].EpisodeType;
-                cl.EpisodeName = RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(eps[0].EpisodeID)?.Title;
+                cl.EpisodeName = RepoFactory.Shoko_Episode.GetByAniDBEpisodeID(eps[0].EpisodeID)?.Title;
                 cl.AnimeID = eps[0].AnimeID;
                 var anime = RepoFactory.AniDB_Anime.GetByAnimeID(eps[0].AnimeID);
                 if (anime != null)
@@ -443,21 +444,21 @@ public static class ModelClients
 
     public static CL_AniDB_Episode ToClient(this AniDB_Episode ep)
     {
-        var titles = RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.EpisodeID);
+        var titles = RepoFactory.AniDB_Episode_Title.GetByEpisodeID(ep.EpisodeId);
         return new CL_AniDB_Episode
         {
             AniDB_EpisodeID = ep.AniDB_EpisodeID,
-            EpisodeID = ep.EpisodeID,
-            AnimeID = ep.AnimeID,
-            LengthSeconds = ep.LengthSeconds,
-            Rating = ep.Rating,
-            Votes = ep.Votes,
-            EpisodeNumber = ep.EpisodeNumber,
-            EpisodeType = ep.EpisodeType,
-            Description = ep.Description,
-            AirDate = ep.AirDate,
-            DateTimeUpdated = ep.DateTimeUpdated,
-            Titles = titles.ToDictionary(a => a.LanguageCode, a => a.Title)
+            EpisodeID = ep.EpisodeId,
+            AnimeID = ep.AnimeId,
+            LengthSeconds = ep.RawDuration,
+            Rating = ep.Rating.ToString(CultureInfo.InvariantCulture),
+            Votes = ep.Votes.ToString(CultureInfo.InvariantCulture),
+            EpisodeNumber = ep.Number,
+            EpisodeType = ep.Type,
+            Description = ep.Overview,
+            AirDate = Commons.Utils.AniDB.GetAniDBDateAsSeconds(ep.AirDate),
+            DateTimeUpdated = ep.LastUpdatedAt,
+            Titles = titles.ToDictionary(a => a.LanguageCode, a => a.Value)
         };
     }
 
@@ -537,4 +538,147 @@ public static class ModelClients
         };
         return contract;
     }
+    
+    
+    public static CL_VideoLocal ToClient(this Shoko_Video video, int userID)
+    {
+        var cl = new CL_VideoLocal
+        {
+            CRC32 = CRC32,
+            DateTimeUpdated = DateTimeUpdated,
+#pragma warning disable 0618
+            FileName = FileName,
+#pragma warning restore 0618
+            FileSize = FileSize,
+            Hash = Hash,
+            HashSource = HashSource,
+            IsIgnored = IsIgnored,
+            IsVariation = IsVariation,
+            Duration = (long) (Media?.GeneralStream.Duration ?? 0),
+            MD5 = MD5,
+            SHA1 = SHA1,
+            VideoLocalID = VideoLocalID,
+            Places = Places.Select(a => a.ToClient()).ToList()
+        };
+        var userRecord = GetUserRecord(userID);
+        if (userRecord?.WatchedDate == null)
+        {
+            cl.IsWatched = 0;
+            cl.WatchedDate = null;
+        }
+        else
+        {
+            cl.IsWatched = 1;
+            cl.WatchedDate = userRecord.WatchedDate;
+        }
+        cl.ResumePosition = userRecord?.ResumePosition ?? 0;
+
+        try
+        {
+
+            if (Media?.GeneralStream != null) cl.Media = new Media(VideoLocalID, Media);
+        }
+        catch (Exception e)
+        {
+            logger.Error($"There was an error generating a Desktop client contract: {e}");
+        }
+
+        return cl;
+    }
+
+    public static CL_VideoDetailed ToClientDetailed(this Shoko_Video video, int userID)
+    {
+        // get the cross ref episode
+        var xrefs = EpisodeCrossRefs;
+        if (xrefs.Count == 0) return null;
+
+        var userRecord = video.GetUserRecord(userID);
+        var aniFile = video.AniDB; // to prevent multiple db calls
+        var relGroup = aniFile?.ReleaseGroup; // to prevent multiple db calls
+        var cl = new CL_VideoDetailed { Percentage = xrefs[0].Percentage, EpisodeOrder = xrefs[0].EpisodeOrder, CrossRefSource = xrefs[0].CrossRefSource, AnimeEpisodeID = xrefs[0].EpisodeID,
+            VideoLocal_FileName = FileName,
+            VideoLocal_Hash = Hash,
+            VideoLocal_FileSize = FileSize,
+            VideoLocalID = VideoLocalID,
+            VideoLocal_IsIgnored = IsIgnored,
+            VideoLocal_IsVariation = IsVariation,
+            Places = Places.Select(a => a.ToClient()).ToList(),
+            VideoLocal_MD5 = MD5,
+            VideoLocal_SHA1 = SHA1,
+            VideoLocal_CRC32 = CRC32,
+            VideoLocal_HashSource = HashSource,
+            VideoLocal_IsWatched = userRecord?.LastWatchedAt == null ? 0 : 1,
+            VideoLocal_WatchedDate = userRecord?.LastWatchedAt,
+            VideoLocal_ResumePosition = userRecord?.RawResumePosition ?? 0,
+            VideoInfo_AudioBitrate = Media?.AudioStreams.FirstOrDefault()?.BitRate.ToString(),
+            VideoInfo_AudioCodec = LegacyMediaUtils.TranslateCodec(Media?.AudioStreams.FirstOrDefault()),
+            VideoInfo_Duration = Duration,
+            VideoInfo_VideoBitrate = (Media?.VideoStream?.BitRate ?? 0).ToString(),
+            VideoInfo_VideoBitDepth = (Media?.VideoStream?.BitDepth ?? 0).ToString(),
+            VideoInfo_VideoCodec = LegacyMediaUtils.TranslateCodec(Media?.VideoStream),
+            VideoInfo_VideoFrameRate = Media?.VideoStream?.FrameRate.ToString(),
+            VideoInfo_VideoResolution = VideoResolution,
+            AniDB_File_FileExtension = Path.GetExtension(aniFile?.FileName) ?? string.Empty,
+            AniDB_File_LengthSeconds = (int?) Media?.GeneralStream?.Duration ?? 0,
+            AniDB_AnimeID = xrefs.FirstOrDefault()?.AnimeID,
+            AniDB_CRC = CRC32,
+            AniDB_MD5 = MD5,
+            AniDB_SHA1 = SHA1,
+            AniDB_Episode_Rating = 0,
+            AniDB_Episode_Votes = 0,
+            AniDB_File_AudioCodec = LegacyMediaUtils.TranslateCodec(Media?.AudioStreams.FirstOrDefault()) ?? string.Empty,
+            AniDB_File_VideoCodec = LegacyMediaUtils.TranslateCodec(Media?.VideoStream) ?? string.Empty,
+            AniDB_File_VideoResolution = VideoResolution,
+            AniDB_Anime_GroupName = aniFile?.Anime_GroupName ?? string.Empty,
+            AniDB_Anime_GroupNameShort = aniFile?.Anime_GroupNameShort ?? string.Empty,
+            AniDB_File_Description = aniFile?.File_Description ?? string.Empty,
+            AniDB_File_ReleaseDate = aniFile?.File_ReleaseDate ?? 0,
+            AniDB_File_Source = aniFile?.File_Source ?? string.Empty,
+            AniDB_FileID = aniFile?.FileID ?? 0,
+            AniDB_GroupID = aniFile?.GroupID ?? 0,
+            AniDB_File_FileVersion = aniFile?.FileVersion ?? 1,
+            AniDB_File_IsCensored = aniFile?.IsCensored ?? false ? 1 : 0,
+            AniDB_File_IsChaptered = aniFile?.IsChaptered ?? false ? 1 : 0,
+            AniDB_File_IsDeprecated = aniFile?.IsDeprecated ?? false ? 1 : 0,
+            AniDB_File_InternalVersion = aniFile?.InternalVersion ?? 3,
+            LanguagesAudio = string.Join(",", aniFile?.AudioLanguages.Select(lang => lang.GetDescription()) ?? new string[0] {}),
+            LanguagesSubtitle = string.Join(",", aniFile?.TextLanguages.Select(lang => lang.GetDescription()) ?? new string[0] {}),
+            ReleaseGroup = relGroup,
+            Media = Media == null ? null : new Media(VideoLocalID, Media),
+        };
+        return cl;
+    }
+
+    public static CL_VideoLocal_ManualLink ToContractManualLink(this Shoko_Video video, int userID)
+    {
+        var cl = new CL_VideoLocal_ManualLink
+        {
+            CRC32 = CRC32,
+            DateTimeUpdated = DateTimeUpdated,
+            FileName = FileName,
+            FileSize = FileSize,
+            Hash = Hash,
+            HashSource = HashSource,
+            IsIgnored = IsIgnored,
+            IsVariation = IsVariation,
+            MD5 = MD5,
+            SHA1 = SHA1,
+            VideoLocalID = VideoLocalID,
+            Places = Places.Select(a => a.ToClient()).ToList()
+        };
+        var userRecord = video.GetUserRecord(userID);
+        if (userRecord?.LastWatchedAt == null)
+        {
+            cl.IsWatched = 0;
+            cl.WatchedDate = null;
+        }
+        else
+        {
+            cl.IsWatched = 1;
+            cl.WatchedDate = userRecord.LastWatchedAt;
+        }
+        cl.ResumePosition = userRecord?.RawResumePosition ?? 0;
+        return cl;
+    }
+
 }

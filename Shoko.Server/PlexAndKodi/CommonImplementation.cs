@@ -67,17 +67,16 @@ public class CommonImplementation
 
     public MediaContainer GetFilters(IProvider prov, string uid)
     {
-        int.TryParse(uid, out var t);
-        var user = t > 0 ? Helper.GetJMMUser(uid) : Helper.GetUser(uid);
+        var user = int.TryParse(uid, out var t) && t > 0 ? Helper.GetJMMUser(t) : Helper.GetUser(uid);
         if (user == null)
         {
             return new MediaContainer { ErrorString = "User not found" };
         }
 
-        var userid = user.JMMUserID;
+        var userId = user.Id;
 
         var info = prov.UseBreadCrumbs
-            ? new BreadCrumbs { Key = prov.ConstructFiltersUrl(userid), Title = "Anime" }
+            ? new BreadCrumbs { Key = prov.ConstructFiltersUrl(userId), Title = "Anime" }
             : null;
         var ret =
             new BaseObject(prov.NewMediaContainer(MediaContainerTypes.Show, "Anime", false, false, info));
@@ -91,10 +90,10 @@ public class CommonImplementation
         {
             using (var session = DatabaseFactory.SessionFactory.OpenSession())
             {
-                var allGfs = RepoFactory.GroupFilter.GetTopLevel()
+                var allGfs = RepoFactory.Shoko_Group_Filter.GetTopLevel()
                     .Where(a => a.InvisibleInClients == 0 &&
                                 (
-                                    (a.GroupsIds.ContainsKey(userid) && a.GroupsIds[userid].Count > 0)
+                                    (a.GroupsIds.ContainsKey(userId) && a.GroupsIds[userId].Count > 0)
                                     || (a.FilterType & (int)GroupFilterType.Directory) ==
                                     (int)GroupFilterType.Directory)
                     )
@@ -103,18 +102,18 @@ public class CommonImplementation
 
                 foreach (var gg in allGfs)
                 {
-                    var pp = Helper.DirectoryFromFilter(prov, gg, userid);
+                    var pp = Helper.DirectoryFromFilter(prov, gg, userId);
                     if (pp != null)
                     {
                         dirs.Add(prov, pp, info);
                     }
                 }
 
-                var vids = RepoFactory.VideoLocal.GetVideosWithoutEpisodeUnsorted();
+                var vids = RepoFactory.Shoko_Video.GetVideosWithoutEpisodeUnsorted();
                 if (vids.Count > 0)
                 {
                     var pp = new Shoko.Models.PlexAndKodi.Directory { Type = "show" };
-                    pp.Key = prov.ShortUrl(prov.ConstructUnsortUrl(userid));
+                    pp.Key = prov.ShortUrl(prov.ConstructUnsortUrl(userId));
                     pp.Title = "Unsort";
                     pp.AnimeType = AnimeTypes.AnimeUnsort.ToString();
                     pp.Thumb = prov.ConstructSupportImageLink("plex_unsort.png");
@@ -127,7 +126,7 @@ public class CommonImplementation
                 if (playlists.Count > 0)
                 {
                     var pp = new Shoko.Models.PlexAndKodi.Directory { Type = "show" };
-                    pp.Key = prov.ShortUrl(prov.ConstructPlaylistUrl(userid));
+                    pp.Key = prov.ShortUrl(prov.ConstructPlaylistUrl(userId));
                     pp.Title = "Playlists";
                     pp.AnimeType = AnimeTypes.AnimePlaylist.ToString();
                     pp.Thumb = prov.ConstructSupportImageLink("plex_playlists.png");
@@ -176,32 +175,32 @@ public class CommonImplementation
         }
     }
 
-    public MediaContainer GetMetadata(IProvider prov, string UserId, int type, string Id, string historyinfo,
+    public MediaContainer GetMetadata(IProvider prov, int userId, JMMType type, string id, string historyinfo,
         bool nocast = false, int? filter = null)
     {
         try
         {
-            var his = prov.UseBreadCrumbs ? BreadCrumbs.FromKey(historyinfo) : null;
-            var user = Helper.GetJMMUser(UserId);
+            var history = prov.UseBreadCrumbs ? BreadCrumbs.FromKey(historyinfo) : null;
+            var user = Helper.GetJMMUser(userId);
 
-            switch ((JMMType)type)
+            switch (type)
             {
                 case JMMType.Group:
-                    return GetItemsFromGroup(prov, user.JMMUserID, Id, his, nocast, filter);
+                    return GetItemsFromGroup(prov, user.Id, id, history, nocast, filter);
                 case JMMType.GroupFilter:
-                    return GetGroupsOrSubFiltersFromFilter(prov, user.JMMUserID, Id, his, nocast);
+                    return GetGroupsOrSubFiltersFromFilter(prov, user.Id, id, history, nocast);
                 case JMMType.GroupUnsort:
-                    return GetUnsort(prov, user.JMMUserID, his);
+                    return GetUnsort(prov, user.Id, history);
                 case JMMType.Serie:
-                    return GetItemsFromSerie(prov, user.JMMUserID, Id, his, nocast);
+                    return GetItemsFromSerie(prov, user.Id, id, history, nocast);
                 case JMMType.Episode:
-                    return GetFromEpisode(prov, user.JMMUserID, Id, his);
+                    return GetFromEpisode(prov, user.Id, id, history);
                 case JMMType.File:
-                    return GetFromFile(prov, user.JMMUserID, Id, his);
+                    return GetFromFile(prov, user.Id, id, history);
                 case JMMType.Playlist:
-                    return GetItemsFromPlaylist(prov, user.JMMUserID, Id, his);
+                    return GetItemsFromPlaylist(prov, user.Id, id, history);
                 case JMMType.FakeIosThumb:
-                    return FakeParentForIOSThumbnail(prov, Id);
+                    return FakeParentForIOSThumbnail(prov, id);
             }
 
             return new MediaContainer { ErrorString = "Unsupported Type" };
@@ -245,9 +244,7 @@ public class CommonImplementation
                     var episodeID = -1;
                     if (int.TryParse(playlist.PlaylistItems.Split('|')[0].Split(';')[1], out episodeID))
                     {
-                        var anime = RepoFactory.AnimeEpisode.GetByID(episodeID)
-                            .GetAnimeSeries()
-                            .GetAnime();
+                        var anime = RepoFactory.Shoko_Episode.GetByID(episodeID).Series.GetAnime();
                         dir.Thumb = anime?.GetDefaultPosterDetailsNoBlanks()?.GenPoster(prov);
                         dir.Art = anime?.GetDefaultFanartDetailsNoBlanks()?.GenArt(prov);
                         dir.Banner = anime?.GetDefaultWideBannerDetailsNoBlanks()?.GenArt(prov);
@@ -293,21 +290,21 @@ public class CommonImplementation
                         return new MediaContainer { ErrorString = "Invalid Episode ID" };
                     }
 
-                    var e = RepoFactory.AnimeEpisode.GetByID(episodeID);
+                    var e = RepoFactory.Shoko_Episode.GetByID(episodeID);
                     if (e == null)
                     {
                         return new MediaContainer { ErrorString = "Invalid Episode" };
                     }
 
                     var ep =
-                        new KeyValuePair<SVR_AnimeEpisode, CL_AnimeEpisode_User>(e,
+                        new KeyValuePair<ShokoEpisode, CL_AnimeEpisode_User>(e,
                             e.GetUserContract(userid));
                     if (ep.Value != null && ep.Value.LocalFileCount == 0)
                     {
                         continue;
                     }
 
-                    var ser = RepoFactory.AnimeSeries.GetByID(ep.Key.AnimeSeriesID);
+                    var ser = RepoFactory.Shoko_Series.GetByID(ep.Key.AnimeSeriesID);
                     if (ser == null)
                     {
                         return new MediaContainer { ErrorString = "Invalid Series" };
@@ -360,7 +357,7 @@ public class CommonImplementation
         }
 
         var dirs = new List<Video>();
-        var vids = RepoFactory.VideoLocal.GetVideosWithoutEpisode();
+        var vids = RepoFactory.Shoko_Video.GetVideosWithoutEpisode();
         foreach (var v in vids.OrderByDescending(a => a.DateTimeCreated))
         {
             try
@@ -396,7 +393,7 @@ public class CommonImplementation
             return new MediaContainer { ErrorString = "Invalid File Id" };
         }
 
-        var vi = RepoFactory.VideoLocal.GetByID(id);
+        var vi = RepoFactory.Shoko_Video.GetByID(id);
         var ret =
             new BaseObject(prov.NewMediaContainer(MediaContainerTypes.File,
                 Path.GetFileNameWithoutExtension(vi.FileName ?? string.Empty),
@@ -439,14 +436,14 @@ public class CommonImplementation
             var dirs = new List<Video>();
             var sessionWrapper = session.Wrap();
 
-            var e = RepoFactory.AnimeEpisode.GetByID(id);
+            var e = RepoFactory.Shoko_Episode.GetByID(id);
             if (e == null)
             {
                 return new MediaContainer { ErrorString = "Invalid Episode Id" };
             }
 
             var ep =
-                new KeyValuePair<SVR_AnimeEpisode, CL_AnimeEpisode_User>(e,
+                new KeyValuePair<ShokoEpisode, CL_AnimeEpisode_User>(e,
                     e.GetUserContract(userid));
             if (ep.Value != null && ep.Value.LocalFileCount == 0)
             {
@@ -459,7 +456,7 @@ public class CommonImplementation
                 return new MediaContainer { ErrorString = "Invalid Episode AniDB link not found" };
             }
 
-            var ser = RepoFactory.AnimeSeries.GetByID(ep.Key.AnimeSeriesID);
+            var ser = RepoFactory.Shoko_Series.GetByID(ep.Key.AnimeSeriesID);
             if (ser == null)
             {
                 return new MediaContainer { ErrorString = "Invalid Serie" };
@@ -520,9 +517,9 @@ public class CommonImplementation
         var users = new Dictionary<int, string>();
         try
         {
-            foreach (var us in RepoFactory.JMMUser.GetAll())
+            foreach (var us in RepoFactory.Shoko_User.GetAll())
             {
-                users.Add(us.JMMUserID, us.Username);
+                users.Add(us.Id, us.Username);
             }
 
             return users;
@@ -539,9 +536,9 @@ public class CommonImplementation
         try
         {
             gfs.Users = new List<PlexContract_User>();
-            foreach (var us in RepoFactory.JMMUser.GetAll())
+            foreach (var us in RepoFactory.Shoko_User.GetAll())
             {
-                var p = new PlexContract_User { id = us.JMMUserID.ToString(), name = us.Username };
+                var p = new PlexContract_User { id = us.Id.ToString(), name = us.Username };
                 gfs.Users.Add(p);
             }
         }
@@ -601,7 +598,7 @@ public class CommonImplementation
         var ls = new List<Video>();
         var cnt = 0;
         var series = searchTag
-            ? RepoFactory.AnimeSeries.GetAll()
+            ? RepoFactory.Shoko_Series.GetAll()
                 .Where(
                     a =>
                         a.Contract != null && a.Contract.AniDBAnime != null &&
@@ -611,7 +608,7 @@ public class CommonImplementation
                                  StringComparer.InvariantCultureIgnoreCase) ||
                          a.Contract.AniDBAnime.CustomTags.Select(b => b.TagName)
                              .Contains(query, StringComparer.InvariantCultureIgnoreCase)))
-            : RepoFactory.AnimeSeries.GetAll()
+            : RepoFactory.Shoko_Series.GetAll()
                 .Where(
                     a =>
                         a.Contract != null && a.Contract.AniDBAnime != null &&
@@ -683,7 +680,7 @@ public class CommonImplementation
         }
 
         var retGroups = new List<Video>();
-        var grp = RepoFactory.AnimeGroup.GetByID(groupID);
+        var grp = RepoFactory.Shoko_Group.GetByID(groupID);
 
         if (grp == null)
         {
@@ -700,10 +697,10 @@ public class CommonImplementation
         var basegrp = grp?.GetUserContract(userid);
         if (basegrp != null)
         {
-            var seriesList = grp.GetSeries();
+            var seriesList = grp.Series;
             if (filterID != null)
             {
-                var filter = RepoFactory.GroupFilter.GetByID(filterID.Value);
+                var filter = RepoFactory.Shoko_Group_Filter.GetByID(filterID.Value);
                 if (filter != null)
                 {
                     if (filter.ApplyToSeries > 0)
@@ -776,7 +773,7 @@ public class CommonImplementation
                 return rsp;
             }
 
-            var ep = RepoFactory.AnimeEpisode.GetByID(aep);
+            var ep = RepoFactory.Shoko_Episode.GetByID(aep);
             if (ep == null)
             {
                 rsp.Code = "404";
@@ -785,9 +782,9 @@ public class CommonImplementation
             }
 
             ep.ToggleWatchedStatus(wstatus, true, DateTime.Now, false, usid, true);
-            var series = ep.GetAnimeSeries();
+            var series = ep.Series;
             series?.UpdateStats(true, false);
-            series?.AnimeGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
+            series?.ParentGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
             rsp.Code = "200";
             rsp.Message = null;
         }
@@ -814,7 +811,7 @@ public class CommonImplementation
                 return rsp;
             }
 
-            var series = RepoFactory.AnimeSeries.GetByID(aep);
+            var series = RepoFactory.Shoko_Series.GetByID(aep);
             if (series == null)
             {
                 rsp.Code = "404";
@@ -822,7 +819,7 @@ public class CommonImplementation
                 return rsp;
             }
 
-            var eps = series.GetAnimeEpisodes();
+            var eps = series.GetEpisodes();
             foreach (var ep in eps)
             {
                 if (ep.AniDB_Episode == null)
@@ -844,7 +841,7 @@ public class CommonImplementation
             }
 
             series.UpdateStats(true, false);
-            series.AnimeGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
+            series.ParentGroup?.TopLevelAnimeGroup?.UpdateStatsFromTopLevel(true, true);
             rsp.Code = "200";
             rsp.Message = null;
         }
@@ -871,7 +868,7 @@ public class CommonImplementation
                 return rsp;
             }
 
-            var group = RepoFactory.AnimeGroup.GetByID(aep);
+            var group = RepoFactory.Shoko_Group.GetByID(aep);
             if (group == null)
             {
                 rsp.Code = "404";
@@ -933,7 +930,7 @@ public class CommonImplementation
             var commandFactory = Utils.ServiceContainer.GetRequiredService<ICommandRequestFactory>();
             if (vt == (int)AniDBVoteType.Episode)
             {
-                var ep = RepoFactory.AnimeEpisode.GetByID(objid);
+                var ep = RepoFactory.Shoko_Episode.GetByID(objid);
                 if (ep == null)
                 {
                     rsp.Code = "404";
@@ -941,7 +938,7 @@ public class CommonImplementation
                     return rsp;
                 }
 
-                var anime = ep.GetAnimeSeries().GetAnime();
+                var anime = ep.Series.GetAnime();
                 if (anime == null)
                 {
                     rsp.Code = "404";
@@ -949,16 +946,16 @@ public class CommonImplementation
                     return rsp;
                 }
 
-                var msg = string.Format("Voting for anime episode: {0} - Value: {1}", ep.AnimeEpisodeID,
+                var msg = string.Format("Voting for anime episode: {0} - Value: {1}", ep.Id,
                     vvalue);
                 _logger.LogInformation(msg);
 
                 // lets save to the database and assume it will work
-                var thisVote = RepoFactory.AniDB_Vote.GetByEntityAndType(ep.AnimeEpisodeID, AniDBVoteType.Episode);
+                var thisVote = RepoFactory.AniDB_Vote.GetByEntityAndType(ep.Id, AniDBVoteType.Episode);
 
                 if (thisVote == null)
                 {
-                    thisVote = new AniDB_Vote { EntityID = ep.AnimeEpisodeID };
+                    thisVote = new AniDB_Vote { EntityID = ep.Id };
                 }
 
                 thisVote.VoteType = vt;
@@ -973,7 +970,7 @@ public class CommonImplementation
                     iVoteValue = (int)vvalue;
                 }
 
-                msg = string.Format("Voting for anime episode Formatted: {0} - Value: {1}", ep.AnimeEpisodeID,
+                msg = string.Format("Voting for anime episode Formatted: {0} - Value: {1}", ep.Id,
                     iVoteValue);
                 _logger.LogInformation(msg);
                 thisVote.VoteValue = iVoteValue;
@@ -982,7 +979,7 @@ public class CommonImplementation
                 var cmdVote = commandFactory.Create<CommandRequest_VoteAnime>(
                     c =>
                     {
-                        c.AnimeID = anime.AnimeID;
+                        c.AnimeID = anime.AnimeId;
                         c.VoteType = vt;
                         c.VoteValue = Convert.ToDecimal(vvalue);
                     }
@@ -992,7 +989,7 @@ public class CommonImplementation
 
             if (vt == (int)AniDBVoteType.Anime)
             {
-                var ser = RepoFactory.AnimeSeries.GetByID(objid);
+                var ser = RepoFactory.Shoko_Series.GetByID(objid);
                 var anime = ser.GetAnime();
                 if (anime == null)
                 {
@@ -1001,17 +998,17 @@ public class CommonImplementation
                     return rsp;
                 }
 
-                var msg = string.Format("Voting for anime: {0} - Value: {1}", anime.AnimeID, vvalue);
+                var msg = string.Format("Voting for anime: {0} - Value: {1}", anime.AnimeId, vvalue);
                 _logger.LogInformation(msg);
 
                 // lets save to the database and assume it will work
                 var thisVote =
-                    RepoFactory.AniDB_Vote.GetByEntityAndType(anime.AnimeID, AniDBVoteType.AnimeTemp) ??
-                    RepoFactory.AniDB_Vote.GetByEntityAndType(anime.AnimeID, AniDBVoteType.Anime);
+                    RepoFactory.AniDB_Vote.GetByEntityAndType(anime.AnimeId, AniDBVoteType.AnimeTemp) ??
+                    RepoFactory.AniDB_Vote.GetByEntityAndType(anime.AnimeId, AniDBVoteType.Anime);
 
                 if (thisVote == null)
                 {
-                    thisVote = new AniDB_Vote { EntityID = anime.AnimeID };
+                    thisVote = new AniDB_Vote { EntityID = anime.AnimeId };
                 }
 
                 thisVote.VoteType = vt;
@@ -1026,14 +1023,14 @@ public class CommonImplementation
                     iVoteValue = (int)vvalue;
                 }
 
-                msg = string.Format("Voting for anime Formatted: {0} - Value: {1}", anime.AnimeID, iVoteValue);
+                msg = string.Format("Voting for anime Formatted: {0} - Value: {1}", anime.AnimeId, iVoteValue);
                 _logger.LogInformation(msg);
                 thisVote.VoteValue = iVoteValue;
                 RepoFactory.AniDB_Vote.Save(thisVote);
                 var cmdVote = commandFactory.Create<CommandRequest_VoteAnime>(
                     c =>
                     {
-                        c.AnimeID = anime.AnimeID;
+                        c.AnimeID = anime.AnimeId;
                         c.VoteType = vt;
                         c.VoteValue = Convert.ToDecimal(vvalue);
                     }
@@ -1193,7 +1190,7 @@ public class CommonImplementation
             }
 
             var sessionWrapper = session.Wrap();
-            var ser = RepoFactory.AnimeSeries.GetByID(serieID);
+            var ser = RepoFactory.Shoko_Series.GetByID(serieID);
             if (ser == null)
             {
                 return new MediaContainer { ErrorString = "Invalid Series" };
@@ -1208,7 +1205,7 @@ public class CommonImplementation
             var nv = ser.GetPlexContract(userid);
 
 
-            var episodes = ser.GetAnimeEpisodes()
+            var episodes = ser.GetEpisodes()
                 .ToDictionary(a => a, a => a.GetUserContract(userid));
             episodes = episodes.Where(a => a.Value == null || a.Value.LocalFileCount > 0)
                 .ToDictionary(a => a.Key, a => a.Value);
@@ -1255,7 +1252,7 @@ public class CommonImplementation
                         };
                         v.ChildCount = v.LeafCount;
                         v.ViewedLeafCount = 0;
-                        v.Key = prov.ShortUrl(prov.ConstructSerieIdUrl(userid, ee.Type + "_" + ser.AnimeSeriesID));
+                        v.Key = prov.ShortUrl(prov.ConstructSerieIdUrl(userid, ee.Type + "_" + ser.Id));
                         v.Thumb = prov.ConstructSupportImageLink(ee.Image);
                         if (ee.AnimeType == AnimeType.Movie ||
                             ee.AnimeType == AnimeType.OVA)
@@ -1272,7 +1269,7 @@ public class CommonImplementation
             }
 
             ret =
-                new BaseObject(prov.NewMediaContainer(MediaContainerTypes.Episode, ser.GetSeriesName(), true,
+                new BaseObject(prov.NewMediaContainer(MediaContainerTypes.Episode, ser.GetPreferredTitle(), true,
                     true, info));
             if (!ret.Init(prov))
             {
@@ -1354,8 +1351,8 @@ public class CommonImplementation
 
                 var start = DateTime.Now;
 
-                SVR_GroupFilter gf;
-                gf = RepoFactory.GroupFilter.GetByID(groupFilterID);
+                GroupFilter gf;
+                gf = RepoFactory.Shoko_Group_Filter.GetByID(groupFilterID);
                 if (gf == null)
                 {
                     return new MediaContainer { ErrorString = "Invalid Group Filter" };
@@ -1370,7 +1367,7 @@ public class CommonImplementation
                 }
 
                 var allGfs =
-                    RepoFactory.GroupFilter.GetByParentID(groupFilterID)
+                    RepoFactory.Shoko_Group_Filter.GetByParentID(groupFilterID)
                         .Where(a => a.InvisibleInClients == 0 &&
                                     (
                                         (a.GroupsIds.ContainsKey(userid) && a.GroupsIds[userid].Count > 0)
@@ -1400,7 +1397,7 @@ public class CommonImplementation
                     // NOTE: The ToList() in the below foreach is required to prevent enumerable was modified exception
                     foreach (var grp in gf.GroupsIds[userid]
                                  .ToList()
-                                 .Select(a => RepoFactory.AnimeGroup.GetByID(a))
+                                 .Select(a => RepoFactory.Shoko_Group.GetByID(a))
                                  .Where(a => a != null))
                     {
                         Video v = grp.GetPlexContract(userid)?.Clone<Shoko.Models.PlexAndKodi.Directory>(prov);
@@ -1458,21 +1455,21 @@ public class CommonImplementation
 
     public Directory[] Directories(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetDirectories();
+        return PlexHelper.GetForUser(RepoFactory.Shoko_User.GetByID(userId)).GetDirectories();
     }
 
     public void UseDevice(int userId, MediaDevice server)
     {
-        PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).UseServer(server);
+        PlexHelper.GetForUser(RepoFactory.Shoko_User.GetByID(userId)).UseServer(server);
     }
 
     public MediaDevice[] AvailableDevices(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).GetPlexServers().ToArray();
+        return PlexHelper.GetForUser(RepoFactory.Shoko_User.GetByID(userId)).GetPlexServers().ToArray();
     }
 
     public MediaDevice CurrentDevice(int userId)
     {
-        return PlexHelper.GetForUser(RepoFactory.JMMUser.GetByID(userId)).ServerCache;
+        return PlexHelper.GetForUser(RepoFactory.Shoko_User.GetByID(userId)).ServerCache;
     }
 }
