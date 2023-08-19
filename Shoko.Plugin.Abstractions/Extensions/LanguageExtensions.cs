@@ -30,6 +30,7 @@ public static class LanguageExtensions
             "HU" or "HUN" => TitleLanguage.Hungarian,
             "IT" or "ITA" => TitleLanguage.Italian,
             "KO" or "KOR" => TitleLanguage.Korean,
+            "X-KOT" => TitleLanguage.KoreanTranscription,
             "LT" or "LIT" => TitleLanguage.Lithuanian,
             "MN" or "MON" => TitleLanguage.Mongolian,
             "MS" or "MSA" or "MY" => TitleLanguage.Malaysian,
@@ -67,11 +68,13 @@ public static class LanguageExtensions
             "HR" or "HRV" => TitleLanguage.Croatian,
             "DV" or "DIV" => TitleLanguage.Divehi,
             "EO" or "EPO" => TitleLanguage.Esperanto,
+            "TL" or "FIL" => TitleLanguage.Filipino,
             "FJ" or "FIJ" => TitleLanguage.Fijian,
             "KA" or "KAT" => TitleLanguage.Georgian,
             "GU" or "GUJ" => TitleLanguage.Gujarati,
             "HT" or "HAT" => TitleLanguage.HaitianCreole,
             "HA" or "HAU" => TitleLanguage.Hausa,
+            "HI" or "HIN" => TitleLanguage.Hindi,
             "IS" or "ISL" => TitleLanguage.Icelandic,
             "IG" or "IBO" => TitleLanguage.Igbo,
             "ID" or "IND" => TitleLanguage.Indonesian,
@@ -119,11 +122,25 @@ public static class LanguageExtensions
             "YI" or "YID" => TitleLanguage.Yiddish,
             "YO" or "YOR" => TitleLanguage.Yoruba,
             "ZU" or "ZUL" => TitleLanguage.Zulu,
-            "UNK" => TitleLanguage.Unknown,
-            _ => TitleLanguage.Unknown,
+            "UR" or "URD" => TitleLanguage.Urdu,
+            "GREEK (ANCIENT)" => TitleLanguage.Greek,
+            "JAVANESE" or "MALAY" or "INDONESIAN" => TitleLanguage.Malaysian,
+            "PORTUGUESE (BRAZILIAN)" => TitleLanguage.BrazilianPortuguese,
+            "THAI (TRANSCRIPTION)" => TitleLanguage.ThaiTranscription,
+            "CHINESE (SIMPLIFIED)" => TitleLanguage.ChineseSimplified,
+            "CHINESE (TRADITIONAL)" => TitleLanguage.ChineseTraditional,
+            "CHINESE (CANTONESE)" or "CHINESE (MANDARIN)" or
+            "CHINESE (UNSPECIFIED)" or "TAIWANESE" => TitleLanguage.Chinese,
+            "CHINESE (TRANSCRIPTION)" => TitleLanguage.Pinyin,
+            "JAPANESE (TRANSCRIPTION)" => TitleLanguage.Romaji,
+            "CATALAN" or "SPANISH (LATIN AMERICAN)" => TitleLanguage.Spanish,
+            "KOREAN (TRANSCRIPTION)" => TitleLanguage.KoreanTranscription,
+            "FILIPINO (TAGALOG)" => TitleLanguage.Filipino,
+            _ => Enum.TryParse<TitleLanguage>(lang.ToLowerInvariant(), out var titleLanguage) ?
+                titleLanguage : TitleLanguage.Unknown,
         };
     }
-    
+
     public static string GetDescription(this TitleLanguage lang)
     {
         return lang switch
@@ -137,6 +154,8 @@ public static class LanguageExtensions
             TitleLanguage.ChineseSimplified => "Chinese (simplified)",
             TitleLanguage.ChineseTraditional => "Chinese (traditional)",
             TitleLanguage.Pinyin => "Chinese (pinyin/x-zhn)",
+            TitleLanguage.KoreanTranscription => "Korean (x-kot)",
+            TitleLanguage.ThaiTranscription => "Thai (x-tha)",
             _ => lang.ToString(),
         };
     }
@@ -145,6 +164,7 @@ public static class LanguageExtensions
     {
         return lang switch
         {
+            TitleLanguage.None => "none",
             TitleLanguage.English => "en",
             TitleLanguage.Romaji => "x-jat",
             TitleLanguage.Japanese => "ja",
@@ -165,6 +185,7 @@ public static class LanguageExtensions
             TitleLanguage.Hungarian => "hu",
             TitleLanguage.Italian => "it",
             TitleLanguage.Korean => "ko",
+            TitleLanguage.KoreanTranscription => "x-kot",
             TitleLanguage.Lithuanian => "lt",
             TitleLanguage.Mongolian => "mn",
             TitleLanguage.Malaysian => "ms",
@@ -180,6 +201,7 @@ public static class LanguageExtensions
             TitleLanguage.Serbian => "sr",
             TitleLanguage.Swedish => "sv",
             TitleLanguage.Thai => "th",
+            TitleLanguage.ThaiTranscription => "x-tha",
             TitleLanguage.Turkish => "tr",
             TitleLanguage.Ukrainian => "uk",
             TitleLanguage.Vietnamese => "vi",
@@ -202,11 +224,13 @@ public static class LanguageExtensions
             TitleLanguage.Croatian => "hr",
             TitleLanguage.Divehi => "dv",
             TitleLanguage.Esperanto => "eo",
+            TitleLanguage.Filipino => "tl",
             TitleLanguage.Fijian => "fj",
             TitleLanguage.Georgian => "ka",
             TitleLanguage.Gujarati => "gu",
             TitleLanguage.HaitianCreole => "ht",
             TitleLanguage.Hausa => "ha",
+            TitleLanguage.Hindi => "hi",
             TitleLanguage.Icelandic => "is",
             TitleLanguage.Igbo => "ig",
             TitleLanguage.Indonesian => "id",
@@ -249,6 +273,7 @@ public static class LanguageExtensions
             TitleLanguage.Turkmen => "tk",
             TitleLanguage.Uighur => "ug",
             TitleLanguage.Uzbek => "uz",
+            TitleLanguage.Urdu => "ur",
             TitleLanguage.Welsh => "cy",
             TitleLanguage.Xhosa => "xh",
             TitleLanguage.Yiddish => "yi",
@@ -257,7 +282,7 @@ public static class LanguageExtensions
             _ => "unk",
         };
     }
-    
+
     public static string GetString(this TitleType type)
     {
         return type.ToString().ToLowerInvariant();
