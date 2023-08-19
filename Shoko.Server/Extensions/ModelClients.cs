@@ -7,6 +7,7 @@ using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
 using Shoko.Server.Models;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 
@@ -262,6 +263,18 @@ public static class ModelClients
         c.Anime = RepoFactory.AniDB_Anime.GetByAnimeID(i.AnimeID).ToClient();
         return c;
     }
+
+#nullable enable
+    public static CrossRef_AniDB_Other? ToClient(this CrossRef_AniDB_TMDB_Movie? movie)
+        => movie == null ? null : new()
+        {
+            CrossRef_AniDB_OtherID = movie.CrossRef_AniDB_TMDB_MovieID,
+            AnimeID = movie.AnidbAnimeID,
+            CrossRefType = (int)CrossRefType.MovieDB,
+            CrossRefID = movie.TmdbMovieID.ToString(),
+            CrossRefSource = (int)CrossRefSource.User,
+        };
+#nullable disable
 
     public static CL_Trakt_Season ToClient(this Trakt_Season season)
     {

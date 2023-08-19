@@ -115,7 +115,7 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
 
             var movieID = results[0].MovieID;
             _helper.UpdateMovieInfo(movieID, true);
-            _helper.LinkAniDBMovieDB(AnimeID, movieID, false);
+            _helper.LinkAniDBMovieDB(AnimeID, movieID, isAutomatic: true);
             return true;
         }
 

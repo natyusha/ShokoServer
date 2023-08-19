@@ -17,10 +17,10 @@ using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.LZ4;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.NHibernate;
 using Shoko.Server.Server;
-using Shoko.Server.Settings;
 using Shoko.Server.Tasks;
 using Shoko.Server.Utilities;
 using AnimeType = Shoko.Plugin.Abstractions.DataModels.AnimeType;
@@ -159,44 +159,26 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
         return results;
     }
 
-    public CrossRef_AniDB_Other GetCrossRefMovieDB()
-    {
-        return RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(AnimeID,
-            CrossRefType.MovieDB);
-    }
+    public List<CrossRef_AniDB_TMDB_Show> GetCrossRefTmdbShows()
+        => RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(AnimeID);
 
-    public MovieDB_Movie GetMovieDBMovie()
-    {
-        var xref = GetCrossRefMovieDB();
-        if (xref == null)
-        {
-            return null;
-        }
+    public List<CrossRef_AniDB_TMDB_Movie> GetCrossRefTmdbMovies()
+        => RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(AnimeID);
 
-        return RepoFactory.MovieDb_Movie.GetByOnlineID(int.Parse(xref.CrossRefID));
-    }
+    public List<MovieDB_Movie> GetTmdbMovie()
+        => GetCrossRefTmdbMovies()
+            .Select(xref => RepoFactory.MovieDb_Movie.GetByOnlineID(xref.TmdbMovieID))
+            .ToList();
 
-    public List<MovieDB_Fanart> GetMovieDBFanarts()
-    {
-        var xref = GetCrossRefMovieDB();
-        if (xref == null)
-        {
-            return new List<MovieDB_Fanart>();
-        }
+    public List<MovieDB_Fanart> GetTmdbMovieFanarts()
+        => GetCrossRefTmdbMovies()
+            .SelectMany(xref => RepoFactory.MovieDB_Fanart.GetByMovieID(xref.TmdbMovieID))
+            .ToList();
 
-        return RepoFactory.MovieDB_Fanart.GetByMovieID(int.Parse(xref.CrossRefID));
-    }
-
-    public List<MovieDB_Poster> GetMovieDBPosters()
-    {
-        var xref = GetCrossRefMovieDB();
-        if (xref == null)
-        {
-            return new List<MovieDB_Poster>();
-        }
-
-        return RepoFactory.MovieDB_Poster.GetByMovieID(int.Parse(xref.CrossRefID));
-    }
+    public List<MovieDB_Poster> GetTmdbMoviePosters()
+        => GetCrossRefTmdbMovies()
+            .SelectMany(xref => RepoFactory.MovieDB_Poster.GetByMovieID(xref.TmdbMovieID))
+            .ToList();
 
     public AniDB_Anime_DefaultImage GetDefaultPoster()
     {
@@ -238,7 +220,7 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
                 posters.AddRange(tvdbposters);
             }
 
-            var moviebposters = GetMovieDBPosters()?.Where(img => img != null).Select(img =>
+            var moviebposters = GetTmdbMoviePosters()?.Where(img => img != null).Select(img =>
                 new AniDB_Anime_DefaultImage
                 {
                     AniDB_Anime_DefaultImageID = img.MovieDB_PosterID,
@@ -413,7 +395,7 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
             // get a random fanart
             if (this.GetAnimeTypeEnum() == Shoko.Models.Enums.AnimeType.Movie)
             {
-                var fanarts = GetMovieDBFanarts();
+                var fanarts = GetTmdbMovieFanarts();
                 if (fanarts.Count == 0)
                 {
                     return string.Empty;
@@ -719,7 +701,7 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
         logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Updated Character Contracts in {sw.Elapsed.TotalSeconds:0.00###}s");
         sw.Restart();
         logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Getting MovieDB Fanarts");
-        var movDbFanart = GetMovieDBFanarts();
+        var movDbFanart = GetTmdbMovieFanarts();
         sw.Stop();
         logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Got MovieDB Fanarts in {sw.Elapsed.TotalSeconds:0.00###}s");
         sw.Restart();

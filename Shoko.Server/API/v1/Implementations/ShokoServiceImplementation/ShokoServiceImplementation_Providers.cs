@@ -100,14 +100,14 @@ public partial class ShokoServiceImplementation : IShokoServer
 
 
             // MovieDB
-            var xrefMovie = anime.GetCrossRefMovieDB();
-            result.CrossRef_AniDB_MovieDB = xrefMovie;
+            var xrefMovie = anime.GetCrossRefTmdbMovies().FirstOrDefault();
+            result.CrossRef_AniDB_MovieDB = xrefMovie.ToClient();
 
 
-            result.MovieDBMovie = anime.GetMovieDBMovie();
+            result.MovieDBMovie = anime.GetTmdbMovie().FirstOrDefault();
 
 
-            foreach (var fanart in anime.GetMovieDBFanarts())
+            foreach (var fanart in anime.GetTmdbMovieFanarts())
             {
                 if (fanart.ImageSize.Equals(Shoko.Models.Constants.MovieDBImageSize.Original,
                         StringComparison.InvariantCultureIgnoreCase))
@@ -116,7 +116,7 @@ public partial class ShokoServiceImplementation : IShokoServer
                 }
             }
 
-            foreach (var poster in anime.GetMovieDBPosters())
+            foreach (var poster in anime.GetTmdbMoviePosters())
             {
                 if (poster.ImageSize.Equals(Shoko.Models.Constants.MovieDBImageSize.Original,
                         StringComparison.InvariantCultureIgnoreCase))
@@ -1072,7 +1072,9 @@ public partial class ShokoServiceImplementation : IShokoServer
     {
         try
         {
-            return RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(animeID, (CrossRefType)crossRefType);
+            if (crossRefType != (int)CrossRefType.MovieDB)
+                return null;
+            return RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(animeID).FirstOrDefault().ToClient();
         }
         catch (Exception ex)
         {
@@ -1091,7 +1093,7 @@ public partial class ShokoServiceImplementation : IShokoServer
             switch (xrefType)
             {
                 case CrossRefType.MovieDB:
-                    _movieDBHelper.LinkAniDBMovieDB(animeID, id, false);
+                    _movieDBHelper.LinkAniDBMovieDB(animeID, id);
                     break;
             }
 
@@ -1120,7 +1122,6 @@ public partial class ShokoServiceImplementation : IShokoServer
             switch (xrefType)
             {
                 case CrossRefType.MovieDB:
-
                     // check if there are default images used associated
                     var images =
                         RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeID(animeID);
@@ -1133,7 +1134,7 @@ public partial class ShokoServiceImplementation : IShokoServer
                         }
                     }
 
-                    _movieDBHelper.RemoveLinkAniDBMovieDB(animeID);
+                    _movieDBHelper.RemoveAllMovieLinks(animeID);
                     break;
             }
 

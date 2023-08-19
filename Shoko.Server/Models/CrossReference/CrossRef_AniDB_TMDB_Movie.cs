@@ -14,8 +14,6 @@ public class CrossRef_AniDB_TMDB_Movie
 
     public int TmdbMovieID { get; set; }
 
-    public MatchRating MatchRating { get; set; }
-
     public CrossRefSource Source { get; set; }
 
     #endregion
@@ -23,12 +21,10 @@ public class CrossRef_AniDB_TMDB_Movie
 
     public CrossRef_AniDB_TMDB_Movie() { }
 
-    public CrossRef_AniDB_TMDB_Movie(int anidbAnimeId, int anidbEpisodeId, int tmdbMovieId, MatchRating rating = MatchRating.UserVerified, CrossRefSource source = CrossRefSource.User)
+    public CrossRef_AniDB_TMDB_Movie(int anidbAnimeId, int tmdbMovieId, MatchRating rating = MatchRating.UserVerified, CrossRefSource source = CrossRefSource.User)
     {
         AnidbAnimeID = anidbAnimeId;
-        AnidbEpisodeID = anidbEpisodeId;
         TmdbMovieID = tmdbMovieId;
-        MatchRating = rating;
         Source = source;
     }
 

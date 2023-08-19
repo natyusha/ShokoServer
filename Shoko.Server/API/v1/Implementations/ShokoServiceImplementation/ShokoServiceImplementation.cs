@@ -939,7 +939,7 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
         try
         {
             var imgType = (ImageEntityType)imageType;
-            int animeID = 0;
+            var animeIDs = new HashSet<int>();
 
             switch (imgType)
             {
@@ -963,7 +963,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     banner.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImageWideBanner.Save(banner);
-                    animeID = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(banner.SeriesID).FirstOrDefault()?.AniDBID ?? 0;
+                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(banner.SeriesID))
+                        animeIDs.Add(xref.AniDBID);
                     break;
 
                 case ImageEntityType.TvDB_Cover:
@@ -975,7 +976,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     poster.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImagePoster.Save(poster);
-                    animeID = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(poster.SeriesID).FirstOrDefault()?.AniDBID ?? 0;
+                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(poster.SeriesID))
+                        animeIDs.Add(xref.AniDBID);
                     break;
 
                 case ImageEntityType.TvDB_FanArt:
@@ -987,7 +989,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     fanart.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImageFanart.Save(fanart);
-                    animeID = RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(fanart.SeriesID).FirstOrDefault()?.AniDBID ?? 0;
+                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(fanart.SeriesID))
+                        animeIDs.Add(xref.AniDBID);
                     break;
 
                 case ImageEntityType.MovieDB_Poster:
@@ -999,7 +1002,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     moviePoster.Enabled = enabled ? 1 : 0;
                     RepoFactory.MovieDB_Poster.Save(moviePoster);
-                    animeID = RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(moviePoster.MovieId, CrossRefType.MovieDB)?.AnimeID ?? 0;
+                    foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(moviePoster.MovieId))
+                        animeIDs.Add(xref.AnidbAnimeID);
                     break;
 
                 case ImageEntityType.MovieDB_FanArt:
@@ -1011,11 +1015,13 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                     movieFanart.Enabled = enabled ? 1 : 0;
                     RepoFactory.MovieDB_Fanart.Save(movieFanart);
-                    animeID = RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(movieFanart.MovieId, CrossRefType.MovieDB)?.AnimeID ?? 0;
+                    foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieFanart.MovieId))
+                        animeIDs.Add(xref.AnidbAnimeID);
                     break;
             }
 
-            if (animeID != 0) SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
+            foreach (var animeID in animeIDs)
+                SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
             return string.Empty;
         }
         catch (Exception ex)

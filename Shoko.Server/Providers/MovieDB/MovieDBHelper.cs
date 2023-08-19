@@ -6,10 +6,11 @@ using Microsoft.Extensions.Logging;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Services;
+using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Commands;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
-using Shoko.Server.Models;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using TMDbLib.Client;
@@ -21,14 +22,16 @@ public class MovieDBHelper
     private readonly ILogger<MovieDBHelper> _logger;
     private readonly ICommandRequestFactory _commandFactory;
     private readonly ISettingsProvider _settingsProvider;
+    private readonly IConnectivityService _connectivityService;
 
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
 
-    public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider)
+    public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider, IConnectivityService connectivityService)
     {
         _logger = logger;
         _commandFactory = commandFactory;
         _settingsProvider = settingsProvider;
+        _connectivityService = connectivityService;
     }
 
     private void SaveMovieToDatabase(MovieDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
@@ -85,7 +88,7 @@ public class MovieDBHelper
         var settings = _settingsProvider.GetSettings();
         if (settings.MovieDb.AutoPosters || isTrakt)
         {
-            foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID( movie.MovieId))
+            foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID(movie.MovieId))
             {
                 if (numPostersDownloaded < settings.MovieDb.AutoPostersAmount)
                 {
@@ -223,65 +226,58 @@ public class MovieDBHelper
         }
     }
 
-    public void LinkAniDBMovieDB(int animeID, int movieDBID, bool fromWebCache)
+    public void LinkAniDBMovieDB(int animeId, int movieId, int? episodeId = null, bool additiveLink = false, bool isAutomatic = false)
     {
-        // check if we have this information locally
-        // if not download it now
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieDBID);
-        if (movie == null)
-        {
-            // we download the series info here just so that we have the basic info in the
-            // database before the queued task runs later
-            UpdateMovieInfo(movieDBID, false);
-            movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieDBID);
-            if (movie == null)
-            {
-                return;
-            }
-        }
+        // Remove all existing links.
+        if (!additiveLink)
+            RemoveAllMovieLinks(animeId);
 
-        // download and update series info and images
-        UpdateMovieInfo(movieDBID, true);
-
-        var xref = RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(animeID, CrossRefType.MovieDB) ??
-                   new CrossRef_AniDB_Other();
-
-        xref.AnimeID = animeID;
-        if (fromWebCache)
-        {
-            xref.CrossRefSource = (int)CrossRefSource.WebCache;
-        }
+        // Update movie info now if we have internet, otherwise schedule an
+        // update for later.
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieId);
+        if (movie != null || !_connectivityService.NetworkAvailability.HasInternet())
+            // TODO: Add the command to update online here in the future.
+            UpdateMovieInfo(movieId, false);
         else
-        {
-            xref.CrossRefSource = (int)CrossRefSource.User;
-        }
+            UpdateMovieInfo(movieId, false);
 
-        xref.CrossRefType = (int)CrossRefType.MovieDB;
-        xref.CrossRefID = movieDBID.ToString();
-        RepoFactory.CrossRef_AniDB_Other.Save(xref);
-        SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
-
-        _logger.LogTrace("Changed moviedb association: {AnimeID}", animeID);
+        // Add or update the link.
+        _logger.LogInformation("Adding TMDB Link: AniDB (ID:{AnidbID}) → TvDB Movie (ID:{TmdbID})", animeId, movieId);
+        var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId) ??
+            new(animeId, movieId);
+        if (episodeId.HasValue)
+            xref.AnidbEpisodeID = episodeId;
+        xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
+        RepoFactory.CrossRef_AniDB_TMDB_Movie.Save(xref);
     }
 
-    public void RemoveLinkAniDBMovieDB(int animeID)
+    public void RemoveMovieLink(int animeId, int movieId)
     {
-        var xref =
-            RepoFactory.CrossRef_AniDB_Other.GetByAnimeIDAndType(animeID, CrossRefType.MovieDB);
+        var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId);
         if (xref == null)
-        {
             return;
-        }
 
         // Disable auto-matching when we remove an existing match for the series.
-        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
+        var series = RepoFactory.AnimeSeries.GetByAnimeID(animeId);
         if (series != null)
         {
             series.IsTMDBAutoMatchingDisabled = true;
             RepoFactory.AnimeSeries.Save(series, false, true, true);
         }
 
-        RepoFactory.CrossRef_AniDB_Other.Delete(xref.CrossRef_AniDB_OtherID);
+        _logger.LogInformation("Removing TMDB Link: AniDB ({AnidbID}) → TMDB Movie (ID:{TmdbID})", animeId, movieId);
+        RepoFactory.CrossRef_AniDB_TMDB_Movie.Delete(xref);
+    }
+
+    public void RemoveAllMovieLinks(int animeId)
+    {
+        _logger.LogInformation("Removing All TMDB Movie Links for: {AnimeID}", animeId);
+        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(animeId);
+        if (xrefs == null || xrefs.Count == 0)
+            return;
+
+        foreach (var xref in xrefs)
+            RepoFactory.CrossRef_AniDB_TMDB_Movie.Delete(xref);
     }
 
     public void ScanForMatches()
@@ -303,19 +299,13 @@ public class MovieDBHelper
             if (anime.Restricted > 0)
                 continue;
 
-            // don't scan if it is associated on the TvDB
-            if (anime.GetCrossRefTvDB().Count > 0)
+            if (anime.GetCrossRefTmdbMovies().Count > 0)
                 continue;
 
-            // don't scan if it is associated on the MovieDB
-            if (anime.GetCrossRefMovieDB() != null)
+            if (anime.GetCrossRefTmdbShows().Count > 0)
                 continue;
 
-            // don't scan if it is not a movie
-            if (!anime.GetSearchOnMovieDB())
-                continue;
-
-            _logger.LogTrace("Found anime movie without MovieDB association: {MainTitle}", anime.MainTitle);
+            _logger.LogTrace("Found anime without TMDB association: {MainTitle}", anime.MainTitle);
 
             _commandFactory.CreateAndSave<CommandRequest_MovieDBSearchAnime>(c => c.AnimeID = ser.AniDB_ID);
         }

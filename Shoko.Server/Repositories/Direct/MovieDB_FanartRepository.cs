@@ -51,15 +51,14 @@ public class MovieDB_FanartRepository : BaseDirectRepository<MovieDB_Fanart, int
         {
             var fanartByAnime = session.CreateSQLQuery(
                     @"
-                SELECT DISTINCT adbOther.AnimeID, {mdbFanart.*}
-                    FROM CrossRef_AniDB_Other AS adbOther
+                    SELECT DISTINCT cr.AnidbAnimeID, {mdbFanart.*}
+                    FROM CrossRef_AniDB_TMDB_Movie AS cr
                         INNER JOIN MovieDB_Fanart AS mdbFanart
-                            ON mdbFanart.MovieId = adbOther.CrossRefID
-                    WHERE adbOther.CrossRefType = :crossRefType AND adbOther.AnimeID IN (:animeIds)"
+                            ON mdbFanart.MovieId = cr.TmdbMovieID
+                    WHERE cr.AnidbAnimeID IN (:animeIds)"
                 )
                 .AddScalar("AnimeID", NHibernateUtil.Int32)
                 .AddEntity("mdbFanart", typeof(MovieDB_Fanart))
-                .SetInt32("crossRefType", (int)CrossRefType.MovieDB)
                 .SetParameterList("animeIds", animeIds)
                 .List<object[]>()
                 .ToLookup(r => (int)r[0], r => (MovieDB_Fanart)r[1]);

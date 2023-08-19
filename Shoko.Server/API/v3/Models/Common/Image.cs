@@ -638,28 +638,26 @@ public class Image
                 var tmdbFanart = RepoFactory.MovieDB_Fanart.GetByID(imageID);
                 if (tmdbFanart == null)
                     return null;
-                
-                // This will be slow as HELL. Why don't we have a lookup?
-                var xref = RepoFactory.CrossRef_AniDB_Other.GetAll()
-                    .FirstOrDefault(xref => xref.CrossRefType == (int)CrossRefType.MovieDB && int.Parse(xref.CrossRefID) == tmdbFanart.MovieId);
+
+                var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(tmdbFanart.MovieId)
+                    .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnidbAnimeID);
             }
             case ImageEntityType.MovieDB_Poster:
             {
                 var tmdbPoster = RepoFactory.MovieDB_Poster.GetByID(imageID);
                 if (tmdbPoster == null)
                     return null;
-                
-                // This will be slow as HELL. Why don't we have a lookup?
-                var xref = RepoFactory.CrossRef_AniDB_Other.GetAll()
-                    .FirstOrDefault(xref => xref.CrossRefType == (int)CrossRefType.MovieDB && int.Parse(xref.CrossRefID) == tmdbPoster.MovieId);
+
+                var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(tmdbPoster.MovieId)
+                    .FirstOrDefault();
                 if (xref == null)
                     return null;
 
-                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnimeID);
+                return RepoFactory.AnimeSeries.GetByAnimeID(xref.AnidbAnimeID);
             }
             default:
                 return null;

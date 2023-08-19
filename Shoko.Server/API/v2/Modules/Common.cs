@@ -3265,10 +3265,10 @@ public class Common : BaseController
             links.Add("tvdb", tvdb.Select(x => x.SeriesID));
         }
 
-        var tmdb = serie.CrossRefMovieDB;
+        var tmdb = serie.CrossRefMovieDB.FirstOrDefault();
         if (tmdb != null)
         {
-            links.Add("tmdb", tmdb.CrossRefID); //not sure this will work.
+            links.Add("tmdb", tmdb.TmdbMovieID.ToString()); //not sure this will work.
         }
 
         return links;

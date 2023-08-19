@@ -40,7 +40,6 @@ public static class RepoFactory
     public static AniDB_FileUpdateRepository AniDB_FileUpdate { get; } = new();
     public static CrossRef_Subtitles_AniDB_FileRepository CrossRef_Subtitles_AniDB_File { get; } = new();
     public static CrossRef_Languages_AniDB_FileRepository CrossRef_Languages_AniDB_File { get; } = new();
-    public static CrossRef_AniDB_OtherRepository CrossRef_AniDB_Other { get; } = new();
     public static CrossRef_AniDB_MALRepository CrossRef_AniDB_MAL { get; } = new();
     public static CrossRef_AniDB_TMDB_EpisodeRepository CrossRef_AniDB_TMDB_Episode { get; } = new();
     public static CrossRef_AniDB_TMDB_MovieRepository CrossRef_AniDB_TMDB_Movie { get; } = new();

@@ -204,7 +204,7 @@ public class TvDBApiHelper
         {
             // remove all current links
             _logger.LogInformation("Removing All TvDB Links for: {AnimeID}", animeID);
-            RemoveAllAniDBTvDBLinks(animeID, false);
+            RemoveAllAniDBTvDBLinks(animeID);
         }
 
         // check if we have this information locally
@@ -257,33 +257,20 @@ public class TvDBApiHelper
         }
     }
 
-    private void RemoveAllAniDBTvDBLinks(int animeID, bool updateStats = true)
+    private void RemoveAllAniDBTvDBLinks(int animeID)
     {
         // check for Trakt associations
         var trakt = RepoFactory.CrossRef_AniDB_TraktV2.GetByAnimeID(animeID);
         if (trakt.Count != 0)
-        {
             foreach (var a in trakt)
-            {
                 RepoFactory.CrossRef_AniDB_TraktV2.Delete(a);
-            }
-        }
 
         var xrefs = RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(animeID);
         if (xrefs == null || xrefs.Count == 0)
-        {
             return;
-        }
 
         foreach (var xref in xrefs)
-        {
             RepoFactory.CrossRef_AniDB_TvDB.Delete(xref);
-        }
-
-        if (updateStats)
-        {
-            SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
-        }
     }
 
     public List<TvDB_Language> GetLanguages()

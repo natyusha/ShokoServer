@@ -819,7 +819,7 @@ public class SeriesController : BaseController
             return Forbid(TvdbForbiddenForUser);
         }
 
-        return Series.GetTvDBInfo(HttpContext, series);
+        return Series.GetTvDBInfo(series);
     }
 
     /// <summary>
@@ -931,7 +931,7 @@ public class SeriesController : BaseController
             return Forbid(TvdbForbiddenForUser);
         }
 
-        return new Series.TvDB(HttpContext, tvdb, series);
+        return new Series.TvDB(tvdb, series);
     }
 
     /// <summary>
@@ -1111,7 +1111,7 @@ public class SeriesController : BaseController
             return Forbid(SeriesForbiddenForUser);
         }
 
-        return Series.GetArt(HttpContext, series.AniDB_ID, includeDisabled);
+        return Series.GetArt(series.AniDB_ID, includeDisabled);
     }
 
     #endregion
@@ -1145,7 +1145,7 @@ public class SeriesController : BaseController
             return defaultBanner;
         }
 
-        var images = Series.GetArt(HttpContext, series.AniDB_ID);
+        var images = Series.GetArt(series.AniDB_ID);
         return imageSizeType switch
         {
             ImageSizeType.Poster => images.Posters.FirstOrDefault(),
