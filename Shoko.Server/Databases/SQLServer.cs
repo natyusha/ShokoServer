@@ -22,7 +22,7 @@ namespace Shoko.Server.Databases;
 public class SQLServer : BaseDatabase<SqlConnection>
 {
     public override string Name { get; } = "SQLServer";
-    public override int RequiredVersion { get; } = 111;
+    public override int RequiredVersion { get; } = 112;
 
     public override void BackupDatabase(string fullfilename)
     {
@@ -680,6 +680,11 @@ public class SQLServer : BaseDatabase<SqlConnection>
         new DatabaseCommand(110, 2, "ALTER TABLE VideoLocal ADD LastAVDumpVersion nvarchar(128);"),
         new DatabaseCommand(111, 1, DatabaseFixes.FixAnimeSourceLinks),
         new DatabaseCommand(111, 2, DatabaseFixes.FixOrphanedShokoEpisodes),
+        new DatabaseCommand(112, 1, "CREATE TABLE CrossRef_AniDB_TMDB_Episode ( CrossRef_AniDB_TMDB_EpisodeID INT IDENTITY(1,1) NOT NULL, AnidbEpisodeID int NOT NULL, TmdbEpisodeID int NOT NULL, Ordering int NOT NULL, MatchRating int NOT NULL);"),
+        new DatabaseCommand(112, 2, "CREATE TABLE CrossRef_AniDB_TMDB_Movie ( CrossRef_AniDB_TMDB_MovieID INT IDENTITY(1,1) NOT NULL, AnidbAnimeID int NOT NULL, AnidbEpisodeID int NULL, TmdbMovieID int NOT NULL, Source int NOT NULL);"),
+        new DatabaseCommand(112, 3, "CREATE TABLE CrossRef_AniDB_TMDB_Show ( CrossRef_AniDB_TMDB_ShowID INT IDENTITY(1,1) NOT NULL, AnidbAnimeID int NOT NULL, TmdbShowID int NOT NULL, TmdbSeasonID varchar(64) NULL, Source int NOT NULL);"),
+        new DatabaseCommand(112, 4, "INSERT INTO CrossRef_AniDB_TMDB_Movie (AnidbAnimeID, TmdbMovieID, Source) SELECT AnimeID, CAST(CrossRefID AS INTEGER), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
+        new DatabaseCommand(112, 5, "DROP TABLE CrossRef_AniDB_Other;"),
     };
 
     private static Tuple<bool, string> DropDefaultsOnAnimeEpisode_User(object connection)

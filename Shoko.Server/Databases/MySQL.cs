@@ -20,7 +20,7 @@ namespace Shoko.Server.Databases;
 public class MySQL : BaseDatabase<MySqlConnection>
 {
     public override string Name { get; } = "MySQL";
-    public override int RequiredVersion { get; } = 118;
+    public override int RequiredVersion { get; } = 119;
 
 
     private List<DatabaseCommand> createVersionTable = new()
@@ -737,6 +737,11 @@ public class MySQL : BaseDatabase<MySqlConnection>
         new(117, 2, "ALTER TABLE VideoLocal ADD LastAVDumpVersion nvarchar(128);"),
         new(118, 1, DatabaseFixes.FixAnimeSourceLinks),
         new(118, 2, DatabaseFixes.FixOrphanedShokoEpisodes),
+        new(119, 1, "CREATE TABLE `CrossRef_AniDB_TMDB_Episode` ( `CrossRef_AniDB_TMDB_EpisodeID` INT NOT NULL AUTO_INCREMENT, `AnidbEpisodeID` int NOT NULL, `TmdbEpisodeID` int NOT NULL, `Ordering` int NOT NULL, `MatchRating` int NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_EpisodeID`) );"),
+        new(119, 2, "CREATE TABLE `CrossRef_AniDB_TMDB_Movie` ( `CrossRef_AniDB_TMDB_MovieID` INT NOT NULL AUTO_INCREMENT, `AnidbAnimeID` int NOT NULL, `AnidbEpisodeID` int NULL, `TmdbMovieID` int NOT NULL, `Source` int NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_MovieID`) );"),
+        new(119, 3, "CREATE TABLE `CrossRef_AniDB_TMDB_Show` ( `CrossRef_AniDB_TMDB_ShowID` INT NOT NULL AUTO_INCREMENT, `AnidbAnimeID` int NOT NULL, `TmdbShowID` int NOT NULL, `TmdbSeasonID` varchar(64) NULL, `Source` int NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_ShowID`) );"),
+        new(119, 4, "INSERT INTO `CrossRef_AniDB_TMDB_Movie` ( AnidbAnimeID, TmdbMovieID, Source ) SELECT AnimeID, CAST ( CrossRefID AS INTEGER ), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
+        new(119, 5, "DROP TABLE `CrossRef_AniDB_Other`;"),
     };
 
     private DatabaseCommand linuxTableVersionsFix = new("RENAME TABLE versions TO Versions;");
