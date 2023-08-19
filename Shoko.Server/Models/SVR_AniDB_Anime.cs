@@ -690,13 +690,14 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
 
             // check for Trakt associations
             if (settings.TraktTv.Enabled &&
+                settings.TraktTv.AutoLink &&
                 !string.IsNullOrEmpty(settings.TraktTv.AuthToken) &&
                 !series.IsTraktAutoMatchingDisabled)
             {
                 commandFactory.CreateAndSave<CommandRequest_TraktSearchAnime>(c => c.AnimeID = AnimeID);
             }
 
-            if (AnimeType == (int)Shoko.Models.Enums.AnimeType.Movie && !series.IsTMDBAutoMatchingDisabled)
+            if (settings.MovieDb.AutoLink && !series.IsTMDBAutoMatchingDisabled)
             {
                 commandFactory.CreateAndSave<CommandRequest_MovieDBSearchAnime>(c => c.AnimeID = AnimeID);
             }

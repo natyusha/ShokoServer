@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -239,7 +239,7 @@ public class TvDBApiHelper
 
         var settings = _settingsProvider.GetSettings();
         var series = RepoFactory.AnimeSeries.GetByAnimeID(animeID);
-        if (settings.TraktTv.Enabled &&
+        if (settings.TraktTv.Enabled && settings.TraktTv.AutoLink &&
             !string.IsNullOrEmpty(settings.TraktTv.AuthToken) &&
             !series.IsTraktAutoMatchingDisabled)
         {

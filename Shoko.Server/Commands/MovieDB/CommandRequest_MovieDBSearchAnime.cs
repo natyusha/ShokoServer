@@ -7,6 +7,7 @@ using Shoko.Models.Queue;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
+using Shoko.Server.Models;
 using Shoko.Server.Providers.MovieDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
@@ -39,7 +40,7 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
 
         // Use TvDB setting
         var settings = _settingsProvider.GetSettings();
-        if (!settings.TvDB.AutoLink)
+        if (!settings.MovieDb.AutoLink)
         {
             return;
         }
@@ -50,6 +51,17 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
             return;
         }
 
+        if (anime.AnimeType == (int)AnimeType.Movie)
+        {
+            SearchForMovies(anime);
+            return;
+        }
+
+        SearchForShows(anime);
+    }
+
+    private void SearchForMovies(SVR_AniDB_Anime anime)
+    {
         var searchCriteria = anime.PreferredTitle;
 
         // if not wanting to use web cache, or no match found on the web cache go to TvDB directly
@@ -85,6 +97,11 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
                 return;
             }
         }
+    }
+
+    private void SearchForShows(SVR_AniDB_Anime anime)
+    {
+        // TODO: For later.
     }
 
     private bool ProcessSearchResults(List<MovieDB_Movie_Result> results, string searchCriteria)

@@ -11,7 +11,7 @@ using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Repositories;
-using Shoko.Server.Utilities;
+using Shoko.Server.Settings;
 using TMDbLib.Client;
 
 namespace Shoko.Server.Providers.MovieDB;
@@ -20,12 +20,15 @@ public class MovieDBHelper
 {
     private readonly ILogger<MovieDBHelper> _logger;
     private readonly ICommandRequestFactory _commandFactory;
+    private readonly ISettingsProvider _settingsProvider;
+
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
 
-    public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory)
+    public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider)
     {
         _logger = logger;
         _commandFactory = commandFactory;
+        _settingsProvider = settingsProvider;
     }
 
     private void SaveMovieToDatabase(MovieDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
@@ -79,7 +82,7 @@ public class MovieDBHelper
         }
 
         // download the posters
-        var settings = Utils.SettingsProvider.GetSettings();
+        var settings = _settingsProvider.GetSettings();
         if (settings.MovieDb.AutoPosters || isTrakt)
         {
             foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID( movie.MovieId))
@@ -283,8 +286,11 @@ public class MovieDBHelper
 
     public void ScanForMatches()
     {
-        var allSeries = RepoFactory.AnimeSeries.GetAll();
+        var settings = _settingsProvider.GetSettings();
+        if (!settings.TvDB.AutoLink)
+            return;
 
+        var allSeries = RepoFactory.AnimeSeries.GetAll();
         foreach (var ser in allSeries)
         {
             if (ser.IsTMDBAutoMatchingDisabled)
@@ -292,6 +298,9 @@ public class MovieDBHelper
 
             var anime = ser.GetAnime();
             if (anime == null)
+                continue;
+
+            if (anime.Restricted > 0)
                 continue;
 
             // don't scan if it is associated on the TvDB

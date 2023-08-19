@@ -2,6 +2,8 @@ namespace Shoko.Server.Settings;
 
 public class MovieDbSettings
 {
+    public bool AutoLink { get; set; } = false;
+
     public bool AutoFanart { get; set; } = true;
 
     public int AutoFanartAmount { get; set; } = 10;
