@@ -20,7 +20,7 @@ public class ImageController : BaseController
     /// <summary>
     /// Returns the image for the given <paramref name="source"/>, <paramref name="type"/> and <paramref name="value"/>.
     /// </summary>
-    /// <param name="source">AniDB, TvDB, MovieDB, Shoko</param>
+    /// <param name="source">AniDB, TvDB, TMDB, Shoko</param>
     /// <param name="type">Poster, Fanart, Banner, Thumb, Static</param>
     /// <param name="value">Usually the ID, but the resource name in the case of image/Shoko/Static/{value}</param>
     /// <returns>200 on found, 400/404 if the type or source are invalid, and 404 if the id is not found</returns>

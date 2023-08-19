@@ -598,8 +598,8 @@ public class Series : BaseModel
         var defaultPoster =
             RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeTypeAndImageEntityType(animeID,
                 ImageSizeType.Poster, ImageEntityType.MovieDB_Poster);
-        var moviedbPosters = tmdbIDs.SelectMany(a => RepoFactory.MovieDB_Poster.GetByMovieID(a.TmdbMovieID)).ToList();
-        images.Posters.AddRange(moviedbPosters.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
+        var tmdbPosters = tmdbIDs.SelectMany(a => RepoFactory.MovieDB_Poster.GetByMovieID(a.TmdbMovieID)).ToList();
+        images.Posters.AddRange(tmdbPosters.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
         {
             var preferred = defaultPoster != null && defaultPoster.ImageParentID == a.MovieDB_PosterID;
             return new Image(a.MovieDB_PosterID, ImageEntityType.MovieDB_Poster, preferred, a.Enabled == 1);
@@ -608,8 +608,8 @@ public class Series : BaseModel
         var defaultFanart =
             RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeTypeAndImageEntityType(animeID,
                 ImageSizeType.Fanart, ImageEntityType.MovieDB_FanArt);
-        var moviedbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.MovieDB_Fanart.GetByMovieID(xref.TmdbMovieID)).ToList();
-        images.Fanarts.AddRange(moviedbFanarts.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
+        var tmdbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.MovieDB_Fanart.GetByMovieID(xref.TmdbMovieID)).ToList();
+        images.Fanarts.AddRange(tmdbFanarts.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
         {
             var preferred = defaultFanart != null && defaultFanart.ImageParentID == a.MovieDB_FanartID;
             return new Image(a.MovieDB_FanartID, ImageEntityType.MovieDB_FanArt, preferred, a.Enabled == 1);
@@ -1173,9 +1173,20 @@ public class Series : BaseModel
             /// Provider ID to add.
             /// </summary>
             [Required]
-            public int ID;
+            public int ProviderID;
 
+            /// <summary>
+            /// Replace all existing links.
+            /// </summary>
             public bool Replace = false;
+        }
+
+        public class LinkMovieBody : LinkCommonBody
+        {
+            /// <summary>
+            /// Also link to the given shoko episode by ID.
+            /// </summary>
+            public int? EpisodeID;
         }
 
         public class UnlinkCommonBody
@@ -1184,7 +1195,12 @@ public class Series : BaseModel
             /// Provider ID to remove.
             /// </summary>
             [Required]
-            public int ID;
+            public int ProviderID;
+
+            /// <summary>
+            /// Purge the provider metadata from the database.
+            /// </summary>
+            public bool Purge;
         }
     }
 

@@ -1093,7 +1093,7 @@ public partial class ShokoServiceImplementation : IShokoServer
             switch (xrefType)
             {
                 case CrossRefType.MovieDB:
-                    _movieDBHelper.LinkAniDBMovieDB(animeID, id);
+                    _movieDBHelper.AddMovieLink(animeID, id);
                     break;
             }
 
@@ -1157,7 +1157,7 @@ public partial class ShokoServiceImplementation : IShokoServer
         var results = new List<CL_MovieDBMovieSearch_Response>();
         try
         {
-            var movieResults = _movieDBHelper.Search(criteria);
+            var movieResults = _movieDBHelper.SearchMovies(criteria);
 
             foreach (var res in movieResults)
             {
@@ -1216,7 +1216,7 @@ public partial class ShokoServiceImplementation : IShokoServer
     {
         try
         {
-            _movieDBHelper.UpdateMovieInfo(movieD, true);
+            _movieDBHelper.UpdateMovie(movieD, true);
         }
         catch (Exception ex)
         {

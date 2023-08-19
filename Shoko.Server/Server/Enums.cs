@@ -7,7 +7,7 @@ public enum CommandRequestType
     AniDB_GetFileUDP = 4,
     AniDB_AddFileUDP = 5,
     AniDB_UpdateWatchedUDP = 6,
-    TvDBSearch = 7,
+    // TvDBSearch = 7,
     AniDB_GetCharsCreators = 8,
     AniDB_GetCharacter = 9,
     AniDB_GetCreator = 10,
@@ -27,7 +27,7 @@ public enum CommandRequestType
     TvDB_SearchAnime = 32,
     ImageDownload = 33,
     AniDB_DeleteFileUDP = 34,
-    MovieDB_SearchAnime = 37,
+    // MovieDB_SearchAnime = 37,
     Trakt_SearchAnime = 38,
     Trakt_UpdateInfo = 41,
     Trakt_EpisodeHistory = 42,
@@ -50,6 +50,13 @@ public enum CommandRequestType
     DownloadAniDBImages = 99,
     AVDumpFile = 100,
     AniDB_GetAnimeHTTP_Force = 101,
+    TMDB_Search = 102,
+    TMDB_Show_Update = 103,
+    TMDB_Show_DownloadImages = 104,
+    TMDB_Show_AddLink = 105,
+    TMDB_Movie_Update = 106,
+    TMDB_Movie_DownloadImages = 107,
+    TMDB_Movie_AddLink = 108,
 }
 
 public enum CommandRequestPriority

@@ -21,7 +21,7 @@ using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Plex;
 using Shoko.Server.Providers.AniDB.Interfaces;
-using Shoko.Server.Providers.MovieDB;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Providers.TvDB;
 using Shoko.Server.Repositories;
@@ -43,12 +43,12 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     private static Logger logger = LogManager.GetCurrentClassLogger();
     private readonly TvDBApiHelper _tvdbHelper;
     private readonly TraktTVHelper _traktHelper;
-    private readonly MovieDBHelper _movieDBHelper;
+    private readonly TMDBHelper _movieDBHelper;
     private readonly ICommandRequestFactory _commandFactory;
     private readonly ISettingsProvider _settingsProvider;
     private readonly ISchedulerFactory _schedulerFactory;
 
-    public ShokoServiceImplementation(TvDBApiHelper tvdbHelper, TraktTVHelper traktHelper, MovieDBHelper movieDBHelper,
+    public ShokoServiceImplementation(TvDBApiHelper tvdbHelper, TraktTVHelper traktHelper, TMDBHelper movieDBHelper,
         ICommandRequestFactory commandFactory, ISchedulerFactory schedulerFactory, ISettingsProvider settingsProvider)
     {
         _tvdbHelper = tvdbHelper;
@@ -615,10 +615,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             settings.TvDB.Language = contractIn.TvDB_Language;
 
             // MovieDB
-            settings.MovieDb.AutoFanart = contractIn.MovieDB_AutoFanart;
-            settings.MovieDb.AutoFanartAmount = contractIn.MovieDB_AutoFanartAmount;
-            settings.MovieDb.AutoPosters = contractIn.MovieDB_AutoPosters;
-            settings.MovieDb.AutoPostersAmount = contractIn.MovieDB_AutoPostersAmount;
+            settings.TMDB.AutoFanart = contractIn.MovieDB_AutoFanart;
+            settings.TMDB.AutoFanartAmount = contractIn.MovieDB_AutoFanartAmount;
+            settings.TMDB.AutoPosters = contractIn.MovieDB_AutoPosters;
+            settings.TMDB.AutoPostersAmount = contractIn.MovieDB_AutoPostersAmount;
 
             // Import settings
             settings.Import.VideoExtensions = contractIn.VideoExtensions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();

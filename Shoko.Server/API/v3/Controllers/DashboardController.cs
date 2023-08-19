@@ -135,8 +135,8 @@ public class DashboardController : BaseController
             return false;
         }
 
-        // MovieDB is in AniDB_Other, and that's a Direct repository, so we don't want to call it on API
-        var movieLinkMissing = ser?.Contract.CrossRefAniDBMovieDB == null;
+        var movieLinkMissing =
+            RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(ser.AniDB_ID).Count == 0;
         var tvlinkMissing =
             RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(ser.AniDB_ID).Count == 0;
         return movieLinkMissing && tvlinkMissing;

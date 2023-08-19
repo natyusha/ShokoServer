@@ -170,10 +170,10 @@ public static class Constants
         public static readonly string TvDB_Images = @"https://artworks.thetvdb.com/banners/{0}";
         public static readonly string TvDB_Episode_Images = @"https://thetvdb.com/banners/{0}";
 
-        public static readonly string MovieDB_Series = @"https://www.themoviedb.org/movie/{0}";
+        public static readonly string TMDB_Movie = @"https://www.themoviedb.org/movie/{0}";
         public static readonly string Trakt_Series = @"https://trakt.tv/show/{0}";
 
-        public static readonly string MovieDB_Images = @"https://image.tmdb.org/t/p/original{0}";
+        public static readonly string TMDB_Images = @"https://image.tmdb.org/t/p/original{0}";
     }
 
     public struct GroupLabelStyle

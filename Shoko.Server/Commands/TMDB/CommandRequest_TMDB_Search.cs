@@ -8,7 +8,7 @@ using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Models;
-using Shoko.Server.Providers.MovieDB;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
@@ -17,10 +17,10 @@ using Shoko.Server.Utilities;
 namespace Shoko.Server.Commands;
 
 [Serializable]
-[Command(CommandRequestType.MovieDB_SearchAnime)]
-public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
+[Command(CommandRequestType.TMDB_Search)]
+public class CommandRequest_TMDB_Search : CommandRequestImplementation
 {
-    private readonly MovieDBHelper _helper;
+    private readonly TMDBHelper _helper;
     private readonly ISettingsProvider _settingsProvider;
     public virtual int AnimeID { get; set; }
     public virtual bool ForceRefresh { get; set; }
@@ -29,18 +29,18 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
 
     public override QueueStateStruct PrettyDescription => new()
     {
-        message = "Searching for anime on The MovieDB: {0}",
+        message = "Searching for anime on TMDB: {0}",
         queueState = QueueStateEnum.SearchTMDb,
         extraParams = new[] { AnimeID.ToString() }
     };
 
     protected override void Process()
     {
-        Logger.LogInformation("Processing CommandRequest_MovieDBSearchAnime: {AnimeID}", AnimeID);
+        Logger.LogInformation("Processing CommandRequest_TMDB_Search: {AnimeID}", AnimeID);
 
         // Use TvDB setting
         var settings = _settingsProvider.GetSettings();
-        if (!settings.MovieDb.AutoLink)
+        if (!settings.TMDB.AutoLink)
         {
             return;
         }
@@ -65,8 +65,8 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
         var searchCriteria = anime.PreferredTitle;
 
         // if not wanting to use web cache, or no match found on the web cache go to TvDB directly
-        var results = _helper.Search(searchCriteria);
-        Logger.LogTrace("Found {Count} moviedb results for {Criteria} on MovieDB", results.Count, searchCriteria);
+        var results = _helper.SearchMovies(searchCriteria);
+        Logger.LogTrace("Found {Count} results for {Criteria} on TMDB", results.Count, searchCriteria);
         if (ProcessSearchResults(results, searchCriteria))
         {
             return;
@@ -90,8 +90,8 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
                 continue;
             }
 
-            results = _helper.Search(title.Title);
-            Logger.LogTrace("Found {Count} moviedb results for search on {Title}", results.Count, title.Title);
+            results = _helper.SearchMovies(title.Title);
+            Logger.LogTrace("Found {Count} results for search on {Title}", results.Count, title.Title);
             if (ProcessSearchResults(results, title.Title))
             {
                 return;
@@ -104,18 +104,18 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
         // TODO: For later.
     }
 
-    private bool ProcessSearchResults(List<MovieDB_Movie_Result> results, string searchCriteria)
+    private bool ProcessSearchResults(List<TMDB_Movie_Result> results, string searchCriteria)
     {
         if (results.Count == 1)
         {
             // since we are using this result, lets download the info
-            Logger.LogTrace("Found 1 moviedb results for search on {SearchCriteria} --- Linked to {Name} ({ID})",
+            Logger.LogTrace("Found 1 results for search on {SearchCriteria} --- Linked to {Name} ({ID})",
                 searchCriteria,
                 results[0].MovieName, results[0].MovieID);
 
             var movieID = results[0].MovieID;
-            _helper.UpdateMovieInfo(movieID, true);
-            _helper.LinkAniDBMovieDB(AnimeID, movieID, isAutomatic: true);
+            _helper.UpdateMovie(movieID, true);
+            _helper.AddMovieLink(AnimeID, movieID, isAutomatic: true);
             return true;
         }
 
@@ -124,7 +124,7 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
 
     public override void GenerateCommandID()
     {
-        CommandID = $"CommandRequest_MovieDBSearchAnime{AnimeID}";
+        CommandID = $"CommandRequest_TMDB_Search{AnimeID}";
     }
 
     protected override bool Load()
@@ -136,20 +136,20 @@ public class CommandRequest_MovieDBSearchAnime : CommandRequestImplementation
         docCreator.LoadXml(CommandDetails);
 
         // populate the fields
-        AnimeID = int.Parse(docCreator.TryGetProperty("CommandRequest_MovieDBSearchAnime", "AnimeID"));
+        AnimeID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), "AnimeID"));
         ForceRefresh =
-            bool.Parse(docCreator.TryGetProperty("CommandRequest_MovieDBSearchAnime", "ForceRefresh"));
+            bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), "ForceRefresh"));
 
         return true;
     }
 
-    public CommandRequest_MovieDBSearchAnime(ILoggerFactory loggerFactory, MovieDBHelper helper, ISettingsProvider settingsProvider) : base(loggerFactory)
+    public CommandRequest_TMDB_Search(ILoggerFactory loggerFactory, TMDBHelper helper, ISettingsProvider settingsProvider) : base(loggerFactory)
     {
         _helper = helper;
         _settingsProvider = settingsProvider;
     }
 
-    protected CommandRequest_MovieDBSearchAnime()
+    protected CommandRequest_TMDB_Search()
     {
     }
 }

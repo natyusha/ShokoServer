@@ -68,11 +68,11 @@ public static class ModelClients
             TvDB_UpdateFrequency = (int)settings.TvDB.UpdateFrequency,
             TvDB_Language = settings.TvDB.Language,
 
-            // MovieDB
-            MovieDB_AutoFanart = settings.MovieDb.AutoFanart,
-            MovieDB_AutoFanartAmount = settings.MovieDb.AutoFanartAmount,
-            MovieDB_AutoPosters = settings.MovieDb.AutoPosters,
-            MovieDB_AutoPostersAmount = settings.MovieDb.AutoPostersAmount,
+            // TMDB
+            MovieDB_AutoFanart = settings.TMDB.AutoFanart,
+            MovieDB_AutoFanartAmount = settings.TMDB.AutoFanartAmount,
+            MovieDB_AutoPosters = settings.TMDB.AutoPosters,
+            MovieDB_AutoPostersAmount = settings.TMDB.AutoPostersAmount,
 
             // Import settings
             VideoExtensions = string.Join(",", settings.Import.VideoExtensions),

@@ -948,7 +948,7 @@ public class TvDBApiHelper
     }
 
     // Removes all TVDB information from a series, bringing it back to a blank state.
-    public void RemoveLinkAniDBTvDB(int animeID, int tvDBID)
+    public void RemoveLinkAniDBTvDB(int animeID, int tvDBID, bool purge = false)
     {
         var xref = RepoFactory.CrossRef_AniDB_TvDB.GetByAniDBAndTvDBID(animeID, tvDBID);
         if (xref == null)

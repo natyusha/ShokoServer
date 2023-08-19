@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Web;
 using Microsoft.Extensions.Logging;
-using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Plugin.Abstractions.Services;
@@ -15,18 +14,18 @@ using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using TMDbLib.Client;
 
-namespace Shoko.Server.Providers.MovieDB;
+namespace Shoko.Server.Providers.TMDB;
 
-public class MovieDBHelper
+public class TMDBHelper
 {
-    private readonly ILogger<MovieDBHelper> _logger;
+    private readonly ILogger<TMDBHelper> _logger;
     private readonly ICommandRequestFactory _commandFactory;
     private readonly ISettingsProvider _settingsProvider;
     private readonly IConnectivityService _connectivityService;
 
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
 
-    public MovieDBHelper(ILogger<MovieDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider, IConnectivityService connectivityService)
+    public TMDBHelper(ILogger<TMDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider, IConnectivityService connectivityService)
     {
         _logger = logger;
         _commandFactory = commandFactory;
@@ -34,7 +33,9 @@ public class MovieDBHelper
         _connectivityService = connectivityService;
     }
 
-    private void SaveMovieToDatabase(MovieDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
+    #region Movies
+
+    private void SaveMovieToDatabase(TMDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
     {
         // save to the DB
         var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(searchResult.MovieID) ?? new MovieDB_Movie();
@@ -86,11 +87,11 @@ public class MovieDBHelper
 
         // download the posters
         var settings = _settingsProvider.GetSettings();
-        if (settings.MovieDb.AutoPosters || isTrakt)
+        if (settings.TMDB.AutoPosters || isTrakt)
         {
             foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID(movie.MovieId))
             {
-                if (numPostersDownloaded < settings.MovieDb.AutoPostersAmount)
+                if (numPostersDownloaded < settings.TMDB.AutoPostersAmount)
                 {
                     // download the image
                     if (string.IsNullOrEmpty(poster.GetFullImagePath()) || File.Exists(poster.GetFullImagePath()))
@@ -121,11 +122,11 @@ public class MovieDBHelper
         }
 
         // download the fanart
-        if (settings.MovieDb.AutoFanart || isTrakt)
+        if (settings.TMDB.AutoFanart || isTrakt)
         {
             foreach (var fanart in RepoFactory.MovieDB_Fanart.GetByMovieID(movie.MovieId))
             {
-                if (numFanartDownloaded < settings.MovieDb.AutoFanartAmount)
+                if (numFanartDownloaded < settings.TMDB.AutoFanartAmount)
                 {
                     // download the image
                     if (string.IsNullOrEmpty(fanart.GetFullImagePath()) || File.Exists(fanart.GetFullImagePath()))
@@ -156,9 +157,9 @@ public class MovieDBHelper
         }
     }
 
-    public List<MovieDB_Movie_Result> Search(string criteria)
+    public List<TMDB_Movie_Result> SearchMovies(string criteria)
     {
-        var results = new List<MovieDB_Movie_Result>();
+        var results = new List<TMDB_Movie_Result>();
 
         try
         {
@@ -169,7 +170,7 @@ public class MovieDBHelper
                 resultsTemp.TotalResults);
             foreach (var result in resultsTemp.Results)
             {
-                var searchResult = new MovieDB_Movie_Result();
+                var searchResult = new TMDB_Movie_Result();
                 var movie = client.GetMovie(result.Id);
                 var imgs = client.GetMovieImages(result.Id);
                 searchResult.Populate(movie, imgs);
@@ -179,13 +180,13 @@ public class MovieDBHelper
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in MovieDB Search");
+            _logger.LogError(ex, "Error in TMDB Movie Search");
         }
 
         return results;
     }
 
-    public void UpdateAllMovieInfo(bool saveImages)
+    public void UpdateAllMovies(bool saveImages)
     {
         using var session = DatabaseFactory.SessionFactory.OpenSession();
         var all = RepoFactory.MovieDb_Movie.GetAll();
@@ -196,17 +197,17 @@ public class MovieDBHelper
             try
             {
                 i++;
-                _logger.LogInformation("Updating MovieDB Movie {I}/{Max}", i, max);
-                UpdateMovieInfo(movie.MovieId, saveImages);
+                _logger.LogInformation("Updating TMDB  Movie {I}/{Max}", i, max);
+                UpdateMovie(movie.MovieId, saveImages);
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to Update MovieDB Movie ID: {Id}", movie.MovieId);
+                _logger.LogError(e, "Failed to Update TMDB Movie ID: {Id}", movie.MovieId);
             }
         }
     }
 
-    public void UpdateMovieInfo(int movieID, bool saveImages)
+    public void UpdateMovie(int movieID, bool saveImages)
     {
         try
         {
@@ -214,7 +215,7 @@ public class MovieDBHelper
             var movie = client.GetMovie(movieID);
             var imgs = client.GetMovieImages(movieID);
 
-            var searchResult = new MovieDB_Movie_Result();
+            var searchResult = new TMDB_Movie_Result();
             searchResult.Populate(movie, imgs);
 
             // save to the DB
@@ -226,7 +227,18 @@ public class MovieDBHelper
         }
     }
 
-    public void LinkAniDBMovieDB(int animeId, int movieId, int? episodeId = null, bool additiveLink = false, bool isAutomatic = false)
+    /// <summary>
+    /// Purge a TMDB movie from the local database.
+    /// </summary>
+    /// <param name="movieId">TMDB Movie ID.</param>
+    public void PurgeMovie(int movieId)
+    {
+        // TODO: Add implementation to remove movie and clean up xrefs, images, etc.
+    }
+
+    #region Links
+
+    public void AddMovieLink(int animeId, int movieId, int? episodeId = null, bool additiveLink = false, bool isAutomatic = false)
     {
         // Remove all existing links.
         if (!additiveLink)
@@ -237,9 +249,9 @@ public class MovieDBHelper
         var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieId);
         if (movie != null || !_connectivityService.NetworkAvailability.HasInternet())
             // TODO: Add the command to update online here in the future.
-            UpdateMovieInfo(movieId, false);
+            UpdateMovie(movieId, false);
         else
-            UpdateMovieInfo(movieId, false);
+            UpdateMovie(movieId, false);
 
         // Add or update the link.
         _logger.LogInformation("Adding TMDB Link: AniDB (ID:{AnidbID}) → TvDB Movie (ID:{TmdbID})", animeId, movieId);
@@ -251,8 +263,14 @@ public class MovieDBHelper
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Save(xref);
     }
 
-    public void RemoveMovieLink(int animeId, int movieId)
+    public void RemoveMovieLink(int animeId, int movieId, bool purge = false)
     {
+        if (purge)
+        {
+            PurgeMovie(movieId);
+            return;
+        }
+
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId);
         if (xref == null)
             return;
@@ -279,6 +297,10 @@ public class MovieDBHelper
         foreach (var xref in xrefs)
             RepoFactory.CrossRef_AniDB_TMDB_Movie.Delete(xref);
     }
+
+    #endregion
+
+    #endregion
 
     public void ScanForMatches()
     {
@@ -307,7 +329,7 @@ public class MovieDBHelper
 
             _logger.LogTrace("Found anime without TMDB association: {MainTitle}", anime.MainTitle);
 
-            _commandFactory.CreateAndSave<CommandRequest_MovieDBSearchAnime>(c => c.AnimeID = ser.AniDB_ID);
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Search>(c => c.AnimeID = ser.AniDB_ID);
         }
     }
 }

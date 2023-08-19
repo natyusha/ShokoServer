@@ -1,6 +1,6 @@
 namespace Shoko.Server.Settings;
 
-public class MovieDbSettings
+public class TMDBSettings
 {
     public bool AutoLink { get; set; } = false;
 

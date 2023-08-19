@@ -6,7 +6,7 @@ using Shoko.Models.Metro;
 using Shoko.Models.Server;
 using Shoko.Models.TvDB;
 using Shoko.Server.Models;
-using Shoko.Server.Providers.MovieDB;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TraktTV.Contracts;
 using Shoko.Server.Repositories;
 using TvDbSharper.Dto;
@@ -17,7 +17,7 @@ public static class ModelProviders
 {
     private static Logger logger = LogManager.GetCurrentClassLogger();
 
-    public static void Populate(this MovieDB_Fanart m, MovieDB_Image_Result result, int movieID)
+    public static void Populate(this MovieDB_Fanart m, TMDB_Image_Result result, int movieID)
     {
         m.MovieId = movieID;
         m.ImageID = result.ImageID;
@@ -28,7 +28,7 @@ public static class ModelProviders
         m.Enabled = 1;
     }
 
-    public static void Populate(this MovieDB_Movie m, MovieDB_Movie_Result result)
+    public static void Populate(this MovieDB_Movie m, TMDB_Movie_Result result)
     {
         m.MovieId = result.MovieID;
         m.MovieName = result.MovieName;
@@ -37,7 +37,7 @@ public static class ModelProviders
         m.Rating = (int)Math.Round(result.Rating * 10D);
     }
 
-    public static void Populate(this MovieDB_Poster m, MovieDB_Image_Result result, int movieID)
+    public static void Populate(this MovieDB_Poster m, TMDB_Image_Result result, int movieID)
     {
         m.MovieId = movieID;
         m.ImageID = result.ImageID;

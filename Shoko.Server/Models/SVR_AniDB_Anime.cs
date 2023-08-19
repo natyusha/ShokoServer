@@ -462,7 +462,7 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
             // get a random banner (only tvdb)
             if (this.GetAnimeTypeEnum() == Shoko.Models.Enums.AnimeType.Movie)
             {
-                // MovieDB doesn't have banners
+                // TMDB Movies doesn't have banners
                 return null;
             }
 
@@ -679,9 +679,9 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
                 commandFactory.CreateAndSave<CommandRequest_TraktSearchAnime>(c => c.AnimeID = AnimeID);
             }
 
-            if (settings.MovieDb.AutoLink && !series.IsTMDBAutoMatchingDisabled)
+            if (settings.TMDB.AutoLink && !series.IsTMDBAutoMatchingDisabled)
             {
-                commandFactory.CreateAndSave<CommandRequest_MovieDBSearchAnime>(c => c.AnimeID = AnimeID);
+                commandFactory.CreateAndSave<CommandRequest_TMDB_Search>(c => c.AnimeID = AnimeID);
             }
         }
 
@@ -700,10 +700,10 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
         sw.Stop();
         logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Updated Character Contracts in {sw.Elapsed.TotalSeconds:0.00###}s");
         sw.Restart();
-        logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Getting MovieDB Fanarts");
+        logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Getting TMDB Movie Fanarts");
         var movDbFanart = GetTmdbMovieFanarts();
         sw.Stop();
-        logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Got MovieDB Fanarts in {sw.Elapsed.TotalSeconds:0.00###}s");
+        logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Got TMDB Movie Fanarts in {sw.Elapsed.TotalSeconds:0.00###}s");
         sw.Restart();
         logger.Trace($"Updating AniDB_Anime Contract {AnimeID} | Getting TvDB Fanarts");
         var tvDbFanart = GetTvDBImageFanarts();
@@ -858,12 +858,12 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
             defImagesByAnime.TryGetValue(anime.AnimeID, out var defImages);
 
             var characterContracts = charsByAnime[anime.AnimeID].Select(ac => ac.ToClient()).ToList();
-            var movieDbFanart = movDbFanartByAnime[anime.AnimeID].ToList();
+            var tmdbFanart = movDbFanartByAnime[anime.AnimeID].ToList();
             var tvDbBanners = tvDbBannersByAnime[anime.AnimeID].ToList();
             var tvDbFanart = tvDbFanartByAnime[anime.AnimeID].ToList();
 
             contract.AniDBAnime = anime.GenerateContract(animeTitles.ToList(), defImages, characterContracts,
-                movieDbFanart, tvDbFanart, tvDbBanners);
+                tmdbFanart, tvDbFanart, tvDbBanners);
 
             // Anime titles
             contract.AnimeTitles = titlesByAnime[anime.AnimeID]

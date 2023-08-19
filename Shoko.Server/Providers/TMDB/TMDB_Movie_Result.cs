@@ -5,9 +5,9 @@ using Shoko.Models.Client;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 
-namespace Shoko.Server.Providers.MovieDB;
+namespace Shoko.Server.Providers.TMDB;
 
-public class MovieDB_Movie_Result
+public class TMDB_Movie_Result
 {
     private static Logger logger = LogManager.GetCurrentClassLogger();
 
@@ -17,18 +17,18 @@ public class MovieDB_Movie_Result
     public string Overview { get; set; }
     public double Rating { get; set; }
 
-    public List<MovieDB_Image_Result> Images { get; set; }
+    public List<TMDB_Image_Result> Images { get; set; }
 
     public override string ToString()
     {
-        return "MovieDBSearchResult: " + MovieID + ": " + MovieName;
+        return "TMDB_Movie_Result: " + MovieID + ": " + MovieName;
     }
 
     public bool Populate(Movie movie, ImagesWithId imgs)
     {
         try
         {
-            Images = new List<MovieDB_Image_Result>();
+            Images = new List<TMDB_Image_Result>();
 
             MovieID = movie.Id;
             MovieName = movie.Title;
@@ -40,7 +40,7 @@ public class MovieDB_Movie_Result
             {
                 foreach (var img in imgs.Backdrops)
                 {
-                    var imageResult = new MovieDB_Image_Result();
+                    var imageResult = new TMDB_Image_Result();
                     if (imageResult.Populate(img, "backdrop"))
                     {
                         Images.Add(imageResult);
@@ -52,7 +52,7 @@ public class MovieDB_Movie_Result
             {
                 foreach (var img in imgs.Posters)
                 {
-                    var imageResult = new MovieDB_Image_Result();
+                    var imageResult = new TMDB_Image_Result();
                     if (imageResult.Populate(img, "poster"))
                     {
                         Images.Add(imageResult);

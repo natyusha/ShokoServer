@@ -71,7 +71,7 @@ public static class Dashboard
         public int UnrecognizedFiles { get; set; }
 
         /// <summary>
-        /// The number of series missing both the TvDB and MovieDB Links
+        /// The number of series missing both the TvDB and TMDB Links
         /// </summary>
         public int SeriesWithMissingLinks { get; set; }
 

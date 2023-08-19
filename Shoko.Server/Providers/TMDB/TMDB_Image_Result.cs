@@ -1,8 +1,8 @@
 ﻿using TMDbLib.Objects.General;
 
-namespace Shoko.Server.Providers.MovieDB;
+namespace Shoko.Server.Providers.TMDB;
 
-public class MovieDB_Image_Result
+public class TMDB_Image_Result
 {
     public string ImageID { get; set; }
     public string ImageType { get; set; }

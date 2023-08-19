@@ -138,8 +138,8 @@ public class SettingsProvider : ISettingsProvider
                     UpdateFrequency = legacy.TvDB_UpdateFrequency,
                     Language = legacy.TvDB_Language
                 },
-            MovieDb =
-                new MovieDbSettings
+            TMDB =
+                new TMDBSettings
                 {
                     AutoFanart = legacy.MovieDB_AutoFanart,
                     AutoFanartAmount = legacy.MovieDB_AutoFanartAmount,

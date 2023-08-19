@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
@@ -20,6 +21,7 @@ using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Commands;
 using Shoko.Server.Models;
 using Shoko.Server.Providers.AniDB.Interfaces;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TvDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
@@ -38,11 +40,13 @@ public class SeriesController : BaseController
 {
     private readonly ICommandRequestFactory _commandFactory;
     private readonly IHttpConnectionHandler _httpHandler;
+    private readonly TMDBHelper _tmdbHelper;
 
-    public SeriesController(ICommandRequestFactory commandFactory, IHttpConnectionHandler httpHandler, ISettingsProvider settingsProvider) : base(settingsProvider)
+    public SeriesController(ICommandRequestFactory commandFactory, IHttpConnectionHandler httpHandler, ISettingsProvider settingsProvider, TMDBHelper tmdbHelper) : base(settingsProvider)
     {
         _commandFactory = commandFactory;
         _httpHandler = httpHandler;
+        _tmdbHelper = tmdbHelper;
     }
 
     #region Return messages
@@ -832,6 +836,12 @@ public class SeriesController : BaseController
     [HttpPost("{seriesID}/TvDB")]
     public ActionResult LinkTvDB([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.LinkCommonBody body)
     {
+        if (body.ProviderID <= 0)
+        {
+            ModelState.AddModelError(nameof(body.ProviderID), "The provider ID cannot be zero or a negative value.");
+            return ValidationProblem(ModelState);
+        }
+
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
             return NotFound(TvdbNotFoundForSeriesID);
@@ -840,7 +850,7 @@ public class SeriesController : BaseController
             return Forbid(TvdbForbiddenForUser);
 
         var tvdbHelper = Utils.ServiceContainer.GetService<TvDBApiHelper>();
-        tvdbHelper.LinkAniDBTvDB(series.AniDB_ID, body.ID, !body.Replace);
+        tvdbHelper.LinkAniDBTvDB(series.AniDB_ID, body.ProviderID, !body.Replace);
 
         return Ok();
     }
@@ -863,11 +873,11 @@ public class SeriesController : BaseController
             return Forbid(TvdbForbiddenForUser);
 
         var tvdbHelper = Utils.ServiceContainer.GetService<TvDBApiHelper>();
-        if (body != null && body.ID > 0)
-            tvdbHelper.RemoveLinkAniDBTvDB(series.AniDB_ID, body.ID);
+        if (body != null && body.ProviderID > 0)
+            tvdbHelper.RemoveLinkAniDBTvDB(series.AniDB_ID, body.ProviderID, body.Purge);
         else
             foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(series.AniDB_ID))
-                tvdbHelper.RemoveLinkAniDBTvDB(series.AniDB_ID, xref.TvDBID);
+                tvdbHelper.RemoveLinkAniDBTvDB(series.AniDB_ID, xref.TvDBID, body.Purge);
 
         return Ok();
     }
@@ -976,6 +986,206 @@ public class SeriesController : BaseController
         return seriesList
             .Select(series => new Series(HttpContext, series))
             .ToList();
+    }
+
+    #endregion
+
+    #region TMDB
+
+    /// <summary>
+    /// Get all TMDB movies linked to a Shoko series.
+    /// </summary>
+    /// <param name="seriesID">Shoko Series ID.</param>
+    /// <returns></returns>
+    [HttpGet("{seriesID}/TMDB/Movie")]
+    public ActionResult GetTMDBMoviesBySeriesID([FromRoute] int seriesID)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        // TODO: Add this when the v3 TMDB Movie Model is made.
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Add a new TMDB Movie link to the series.
+    /// </summary>
+    /// <param name="seriesID">Shoko Series ID.</param>
+    /// <param name="body">Body containing the information about the link to be made</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpPost("{seriesID}/TMDB/Movie")]
+    public ActionResult AddLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.LinkMovieBody body)
+    {
+        if (body.ProviderID <= 0)
+        {
+            ModelState.AddModelError(nameof(body.ProviderID), "The provider ID cannot be zero or a negative value.");
+            return ValidationProblem(ModelState);
+        }
+
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        _tmdbHelper.AddMovieLink(series.AniDB_ID, body.ProviderID, body.EpisodeID, !body.Replace);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Refresh all TMDB movies linked to the series.
+    /// </summary>
+    /// <param name="seriesID">Shoko Series ID.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpPost("{seriesID}/TMDB/Movie/Refresh")]
+    public ActionResult RefreshTMDBMoviesBySeriesID([FromRoute] int seriesID)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        // TODO: Schedule or run the update tmdb movie info command when it's added.
+        Task.Run(() =>
+        {
+            var movieIDs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(series.AniDB_ID)
+                .Select(xref => xref.TmdbMovieID)
+                .Distinct()
+                .ToList();
+            foreach (var movieID in movieIDs)
+                _tmdbHelper.UpdateMovie(movieID, true);
+        });
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Remove one or all TMDB Movie links from the series.
+    /// </summary>
+    /// <param name="seriesID">Shoko Series ID.</param>
+    /// <param name="body">Optional. Body containing information about the link to be removed.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("{seriesID}/TMDB/Movie")]
+    public ActionResult RemoveLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        if (body != null && body.ProviderID > 0)
+            _tmdbHelper.RemoveMovieLink(series.AniDB_ID, body.ProviderID, body.Purge);
+        else
+            foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(series.AniDB_ID))
+                _tmdbHelper.RemoveMovieLink(series.AniDB_ID, xref.TvDBID, body.Purge);
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Get the local metadata for a TMDB movie.
+    /// </summary>
+    /// <param name="movieID">TMDB Movie ID.</param>
+    /// <returns></returns>
+    [HttpGet("TMDB/Movie/{movieID}")]
+    public ActionResult GetTMDBMovieByMovieID([FromRoute] int movieID)
+    {
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        if (movie == null)
+            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
+
+        // TODO: Add this when the v3 TMDB Movie Model is made.
+        return Ok();
+    }
+
+    /// <summary>
+    /// Get all shoko series linked to a TMDB movie.
+    /// </summary>
+    /// <param name="movieID">TMDB Movie ID.</param>
+    /// <returns></returns>
+    [HttpGet("TMDB/Movie/{movieID}/Series")]
+    public ActionResult<List<Series>> GetSeriesByTMDBMovieID([FromRoute] int movieID)
+    {
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        if (movie == null)
+            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
+
+        return RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieID)
+            .Select(xref => RepoFactory.AnimeSeries.GetByAnimeID(xref.AnidbAnimeID))
+            .Where(series => series != null)
+            .Select(series => new Series(HttpContext, series))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Refresh or download  the metadata for a TMDB movie.
+    /// </summary>
+    /// <param name="movieID">TMDB Movie ID.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpPost("TMDB/Movie/{movieID}/Refresh")]
+    public ActionResult RefreshTMDBMovieByMovieID([FromRoute] int movieID)
+    {
+        // TODO: Schedule or run the update tmdb movie info command when it's added.
+        _tmdbHelper.UpdateMovie(movieID, true);
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Remove the local copy of the metadata for a TMDB movie.
+    /// </summary>
+    /// <param name="movieID">TMDB Movie ID.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("TMDB/Movie/{movieID}")]
+    public ActionResult RemoveTMDBMovieByMovieID([FromRoute] int movieID)
+    {
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        if (movie == null)
+            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
+
+        _tmdbHelper.PurgeMovie(movieID);
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// Search TMDB for movies.
+    /// </summary>
+    /// <param name="query">Query to search for</param>
+    /// <param name="fuzzy">Indicates fuzzy-matching should be used for the search.</param>
+    /// <param name="local">Only search for results in the local collection if it's true and only search for results not in the local collection if false. Omit to include both.</param>
+    /// <param name="includeTitles">Include titles in the results.</param>
+    /// <param name="pageSize">The page size.</param>
+    /// <param name="page">The page index.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpGet("TMDB/Movie/Search")]
+    public ActionResult<ListResult<object>> SearchForTMDBMovies(
+        [FromRoute] string query,
+        [FromQuery] bool fuzzy = true,
+        [FromQuery] bool? local = null,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery, Range(0, 100)] int pageSize = 50,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1)
+    {
+        // TODO: Add this once the tmdb movie search model is finalised.
+
+        return new ListResult<object>();
     }
 
     #endregion

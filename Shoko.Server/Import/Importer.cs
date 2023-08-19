@@ -16,7 +16,7 @@ using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.FileHelper;
 using Shoko.Server.Models;
-using Shoko.Server.Providers.MovieDB;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Providers.TvDB;
 using Shoko.Server.Repositories;
@@ -638,8 +638,8 @@ public static class Importer
             );
         }
 
-        // MovieDB Posters
-        if (settings.MovieDb.AutoPosters)
+        // TMDB Posters
+        if (settings.TMDB.AutoPosters)
         {
             var postersCount = new Dictionary<int, int>();
 
@@ -684,7 +684,7 @@ public static class Importer
                     postersAvailable = postersCount[moviePoster.MovieId];
                 }
 
-                if (fileExists || postersAvailable >= settings.MovieDb.AutoPostersAmount)
+                if (fileExists || postersAvailable >= settings.TMDB.AutoPostersAmount)
                 {
                     continue;
                 }
@@ -708,8 +708,8 @@ public static class Importer
             }
         }
 
-        // MovieDB Fanart
-        if (settings.MovieDb.AutoFanart)
+        // TMDB Fanart
+        if (settings.TMDB.AutoFanart)
         {
             var fanartCount = new Dictionary<int, int>();
 
@@ -754,7 +754,7 @@ public static class Importer
                     fanartAvailable = fanartCount[movieFanart.MovieId];
                 }
 
-                if (fileExists || fanartAvailable >= settings.MovieDb.AutoFanartAmount)
+                if (fileExists || fanartAvailable >= settings.TMDB.AutoFanartAmount)
                 {
                     continue;
                 }
@@ -864,10 +864,10 @@ public static class Importer
         traktHelper.ScanForMatches();
     }
 
-    public static void RunImport_ScanMovieDB()
+    public static void RunImport_ScanTMDB()
     {
-        var movieDBHelper = Utils.ServiceContainer.GetRequiredService<MovieDBHelper>();
-        movieDBHelper.ScanForMatches();
+        var tmdbHelper = Utils.ServiceContainer.GetRequiredService<TMDBHelper>();
+        tmdbHelper.ScanForMatches();
     }
 
     public static void RunImport_UpdateTvDB(bool forced)

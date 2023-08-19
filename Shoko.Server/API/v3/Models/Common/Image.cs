@@ -23,7 +23,7 @@ namespace Shoko.Server.API.v3.Models.Common;
 public class Image
 {
     /// <summary>
-    /// AniDB, TvDB, MovieDB, etc
+    /// AniDB, TvDB, TMDB, etc.
     /// </summary>
     [Required]
     public ImageSource Source { get; set; }

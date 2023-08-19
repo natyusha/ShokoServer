@@ -1030,12 +1030,12 @@ public class SVR_AnimeSeries : AnimeSeries
                     .Select(s => s.Item2)
                     .ToList();
 
-                // MovieDB contracts
+                // TMDB Movie contracts
 
-                if (movieByAnime.Value.TryGetValue(series.AniDB_ID, out var movieDbInfo))
+                if (movieByAnime.Value.TryGetValue(series.AniDB_ID, out var tmdbMovie))
                 {
-                    contract.CrossRefAniDBMovieDB = movieDbInfo.Item1.ToClient();
-                    contract.MovieDB_Movie = movieDbInfo.Item2;
+                    contract.CrossRefAniDBMovieDB = tmdbMovie.Item1.ToClient();
+                    contract.MovieDB_Movie = tmdbMovie.Item2;
                 }
                 else
                 {
@@ -1105,8 +1105,8 @@ public class SVR_AnimeSeries : AnimeSeries
 
         var animeRec = GetAnime();
         var tvDBCrossRefs = GetCrossRefTvDB();
-        var movieDBCrossRef = CrossRefMovieDB.FirstOrDefault();
-        var movie = movieDBCrossRef?.GetMovieDB_Movie();
+        var tmdbMovieXRef = CrossRefMovieDB.FirstOrDefault();
+        var tmdbMovie = tmdbMovieXRef?.GetMovieDB_Movie();
 
         var sers = new List<TvDB_Series>();
         foreach (var xref in tvDBCrossRefs)
@@ -1169,10 +1169,10 @@ public class SVR_AnimeSeries : AnimeSeries
 
         contract.TvDB_Series = sers;
         contract.CrossRefAniDBMovieDB = null;
-        if (movieDBCrossRef != null)
+        if (tmdbMovieXRef != null)
         {
-            contract.CrossRefAniDBMovieDB = movieDBCrossRef.ToClient();
-            contract.MovieDB_Movie = movie;
+            contract.CrossRefAniDBMovieDB = tmdbMovieXRef.ToClient();
+            contract.MovieDB_Movie = tmdbMovie;
         }
 
         contract.CrossRefAniDBMAL = CrossRefMAL?.ToList() ?? new List<CrossRef_AniDB_MAL>();

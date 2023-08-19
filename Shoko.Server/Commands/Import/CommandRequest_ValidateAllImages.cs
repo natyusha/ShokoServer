@@ -127,7 +127,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             }
         }
 
-        if (_settings.MovieDb.AutoPosters)
+        if (_settings.TMDB.AutoPosters)
         {
             count = 0;
             UpdateProgress(Resources.Command_ValidateAllImages_MovieDBPosters);
@@ -148,7 +148,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             }
         }
 
-        if (_settings.MovieDb.AutoFanart)
+        if (_settings.TMDB.AutoFanart)
         {
             UpdateProgress(Resources.Command_ValidateAllImages_MovieDBFanarts);
             count = 0;

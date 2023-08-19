@@ -60,7 +60,7 @@ public class ImageDownloadRequest
     private string? _filePath { get; set; } = null;
 
     public string FilePath
-        => _filePath != null ? _filePath : _filePath = ImageData switch
+        => _filePath ??= ImageData switch
         {
             AniDB_Character character => character.GetPosterPath(),
             AniDB_Seiyuu creator => creator.GetPosterPath(),
@@ -77,12 +77,12 @@ public class ImageDownloadRequest
     private string? _downloadUrl { get; set; } = null;
 
     public string DownloadUrl
-        => _downloadUrl != null ? _downloadUrl : _downloadUrl = ImageData switch
+        => _downloadUrl ??= ImageData switch
         {
             AniDB_Character character => string.Format(ImageServerUrl, character.PicName),
             AniDB_Seiyuu creator => string.Format(ImageServerUrl, creator.PicName),
-            MovieDB_Fanart movieFanart => string.Format(Constants.URLS.MovieDB_Images, movieFanart.URL),
-            MovieDB_Poster moviePoster => string.Format(Constants.URLS.MovieDB_Images, moviePoster.URL),
+            MovieDB_Fanart movieFanart => string.Format(Constants.URLS.TMDB_Images, movieFanart.URL),
+            MovieDB_Poster moviePoster => string.Format(Constants.URLS.TMDB_Images, moviePoster.URL),
             SVR_AniDB_Anime anime => string.Format(ImageServerUrl, anime.Picname),
             TvDB_Episode ep => string.Format(Constants.URLS.TvDB_Episode_Images, ep.Filename),
             TvDB_ImageFanart fanart => string.Format(Constants.URLS.TvDB_Images, fanart.BannerPath),
@@ -94,7 +94,7 @@ public class ImageDownloadRequest
     public bool IsImageValid
         => !string.IsNullOrEmpty(DownloadUrl) && !string.IsNullOrEmpty(FilePath) && File.Exists(FilePath) && Misc.IsImageValid(FilePath);
 
-    private bool ShouldAniDBRateLimit 
+    private bool ShouldAniDBRateLimit
         => ImageData switch
         {
             AniDB_Character => true,
