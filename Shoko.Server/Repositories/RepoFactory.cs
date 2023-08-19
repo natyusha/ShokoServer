@@ -42,6 +42,9 @@ public static class RepoFactory
     public static CrossRef_Languages_AniDB_FileRepository CrossRef_Languages_AniDB_File { get; } = new();
     public static CrossRef_AniDB_OtherRepository CrossRef_AniDB_Other { get; } = new();
     public static CrossRef_AniDB_MALRepository CrossRef_AniDB_MAL { get; } = new();
+    public static CrossRef_AniDB_TMDB_EpisodeRepository CrossRef_AniDB_TMDB_Episode { get; } = new();
+    public static CrossRef_AniDB_TMDB_MovieRepository CrossRef_AniDB_TMDB_Movie { get; } = new();
+    public static CrossRef_AniDB_TMDB_ShowRepository CrossRef_AniDB_TMDB_Show { get; } = new();
     public static BookmarkedAnimeRepository BookmarkedAnime { get; } = new();
     public static AniDB_SeiyuuRepository AniDB_Seiyuu { get; } = new();
     public static AniDB_ReleaseGroupRepository AniDB_ReleaseGroup { get; } = new();
