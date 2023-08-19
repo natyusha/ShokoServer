@@ -7,7 +7,7 @@ namespace Shoko.Plugin.Abstractions.Enums
     public enum DataSourceEnum
     {
         AniDB,
-        MovieDB,
+        TMDB,
         TvDB,
         AniList,
         Animeshon,
