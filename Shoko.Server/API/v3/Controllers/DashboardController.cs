@@ -135,11 +135,13 @@ public class DashboardController : BaseController
             return false;
         }
 
-        var movieLinkMissing =
+        var tmdbMovieLinkMissing =
             RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(ser.AniDB_ID).Count == 0;
-        var tvlinkMissing =
+        var tmdbShowLinkMissing =
+            RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(ser.AniDB_ID).Count == 0;
+        var tvdbLinkMissing =
             RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(ser.AniDB_ID).Count == 0;
-        return movieLinkMissing && tvlinkMissing;
+        return tmdbMovieLinkMissing && tmdbShowLinkMissing && tvdbLinkMissing;
     }
 
     /// <summary>
