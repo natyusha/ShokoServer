@@ -31,12 +31,6 @@ public class CrossRef_AniDB_TMDB_MovieRepository : BaseCachedRepository<CrossRef
     public List<CrossRef_AniDB_TMDB_Movie> GetMissingEpisodeLinks()
         => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(null));
 
-    /// <summary>
-    /// Gets other cross references by anime ID.
-    /// </summary>
-    /// <param name="animeIds">An optional list of anime IDs whose cross references are to be retrieved.
-    /// Can be <c>null</c> to get cross references for ALL anime.</param>
-    /// <returns>A <see cref="ILookup{TKey,TElement}"/> that maps anime ID to their associated other cross references.</returns>
     public ILookup<int, CrossRef_AniDB_TMDB_Movie> GetByAnimeIDsAndType(IReadOnlyCollection<int> animeIds)
     {
         if (animeIds == null || animeIds?.Count == 0)
