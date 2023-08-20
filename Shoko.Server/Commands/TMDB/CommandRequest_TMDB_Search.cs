@@ -124,7 +124,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
     public override void GenerateCommandID()
     {
-        CommandID = $"CommandRequest_TMDB_Search{AnimeID}";
+        CommandID = $"CommandRequest_TMDB_Search_{AnimeID}";
     }
 
     protected override bool Load()
