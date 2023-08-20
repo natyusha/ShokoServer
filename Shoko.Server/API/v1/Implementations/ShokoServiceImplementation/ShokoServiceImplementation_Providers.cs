@@ -1093,7 +1093,7 @@ public partial class ShokoServiceImplementation : IShokoServer
             switch (xrefType)
             {
                 case CrossRefType.MovieDB:
-                    _movieDBHelper.AddMovieLink(animeID, id);
+                    _tmdbHelper.AddMovieLink(animeID, id);
                     break;
             }
 
@@ -1134,7 +1134,7 @@ public partial class ShokoServiceImplementation : IShokoServer
                         }
                     }
 
-                    _movieDBHelper.RemoveAllMovieLinks(animeID);
+                    _tmdbHelper.RemoveAllMovieLinks(animeID);
                     break;
             }
 
@@ -1157,7 +1157,7 @@ public partial class ShokoServiceImplementation : IShokoServer
         var results = new List<CL_MovieDBMovieSearch_Response>();
         try
         {
-            var movieResults = _movieDBHelper.SearchMovies(criteria);
+            var movieResults = _tmdbHelper.SearchMovies(criteria);
 
             foreach (var res in movieResults)
             {
@@ -1216,7 +1216,7 @@ public partial class ShokoServiceImplementation : IShokoServer
     {
         try
         {
-            _movieDBHelper.UpdateMovie(movieD, true);
+            _tmdbHelper.UpdateMovie(movieD, true);
         }
         catch (Exception ex)
         {
