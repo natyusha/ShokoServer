@@ -156,7 +156,7 @@ public class ActionController : BaseController
     [HttpGet("UpdateAllMovieDBInfo")]
     public ActionResult UpdateAllMovieDBInfo()
     {
-        Task.Factory.StartNew(() => _tmdbHelper.UpdateAllMovies(true));
+        Task.Factory.StartNew(() => _tmdbHelper.UpdateAllMovies(true, true));
         return Ok();
     }
 
@@ -167,7 +167,7 @@ public class ActionController : BaseController
     [HttpGet("UpdateAllTMDBMovieInfo")]
     public ActionResult UpdateAllTMDBMovieInfo()
     {
-        Task.Factory.StartNew(() => _tmdbHelper.UpdateAllMovies(true));
+        Task.Factory.StartNew(() => _tmdbHelper.UpdateAllMovies(true, true));
         return Ok();
     }
 
