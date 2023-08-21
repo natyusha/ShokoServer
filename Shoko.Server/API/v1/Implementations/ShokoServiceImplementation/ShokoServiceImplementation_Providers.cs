@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Models.Azure;
 using Shoko.Models.Client;
@@ -1157,7 +1158,7 @@ public partial class ShokoServiceImplementation : IShokoServer
         var results = new List<CL_MovieDBMovieSearch_Response>();
         try
         {
-            var movieResults = _tmdbHelper.SearchMovies(criteria);
+            var movieResults = _tmdbHelper.SearchMovies(HttpUtility.UrlDecode(criteria));
 
             foreach (var res in movieResults)
             {

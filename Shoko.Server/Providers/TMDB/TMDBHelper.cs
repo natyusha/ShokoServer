@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Web;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
@@ -76,7 +75,7 @@ public class TMDBHelper
         try
         {
             var client = new TMDbClient(APIKey);
-            var resultsTemp = client.SearchMovie(HttpUtility.UrlDecode(query));
+            var resultsTemp = client.SearchMovie(query);
 
             _logger.LogInformation("Got {Count} of {Results} results", resultsTemp.Results.Count,
                 resultsTemp.TotalResults);
