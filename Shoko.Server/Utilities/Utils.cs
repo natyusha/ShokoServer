@@ -19,6 +19,7 @@ using NLog.Targets.Wrappers;
 using Shoko.Models.Enums;
 using Shoko.Server.API.SignalR.NLog;
 using Shoko.Server.Providers.AniDB.Titles;
+using Shoko.Server.Providers.TMDB.Search;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
 
@@ -26,15 +27,22 @@ namespace Shoko.Server.Utilities;
 
 public static class Utils
 {
+    private static TMDBOfflineSearch s_tmdbOfflineSearch;
     private static AniDBTitleHelper s_aniDBTitleHelper;
     public static ShokoServer ShokoServer { get; set; }
     public static IServiceProvider ServiceContainer { get; set; }
     public static ISettingsProvider SettingsProvider { get; set; }
 
+    public static TMDBOfflineSearch TMDBOfflineSearch
+    {
+        get => s_tmdbOfflineSearch ??= new(ServiceContainer.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
+    }
+
     public static AniDBTitleHelper AniDBTitleHelper
     {
         get => s_aniDBTitleHelper ??= new AniDBTitleHelper(ServiceContainer.GetRequiredService<ISettingsProvider>());
     }
+
     private static string _applicationPath { get; set; } = null;
     public static string ApplicationPath
     {

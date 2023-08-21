@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Shoko.Commons.Properties;
 
 namespace Shoko.Server.Server;
@@ -10,6 +10,8 @@ public static class Constants
     public static readonly string WebCacheError = @"<error>No Results</error>";
     public static readonly string AniDBTitlesURL = @"http://anidb.net/api/anime-titles.xml.gz";
     public static readonly string AnonWebCacheUsername = @"AnonymousWebCacheUser";
+
+    public const string TMDB_DumpURL = @"https://https://files.tmdb.org/p/exports/{0}_ids_{1}_{2}_{3}.json.gz";
 
     public const string DatabaseTypeKey = "Database";
 
