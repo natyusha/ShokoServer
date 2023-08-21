@@ -107,7 +107,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
             var subTitle = allEpisodeTitles.FirstOrDefault(title => title.Language == language) ??
                 allEpisodeTitles.FirstOrDefault(title => title.Language == mainTitle.Language);
-            var query = $"{officialTitle.Title} {subTitle?.Title ?? ""}";
+            var query = $"{officialTitle.Title} {subTitle?.Title ?? ""}".TrimEnd();
             SearchForMovie(episode, query);
         }
     }
