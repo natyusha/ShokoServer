@@ -1043,10 +1043,12 @@ public class SeriesController : BaseController
     /// Refresh all TMDB movies linked to the series.
     /// </summary>
     /// <param name="seriesID">Shoko Series ID.</param>
+    /// <param name="force">Forcefully download an update even if we updated recently.</param>
+    /// <param name="downloadImages">Also download images.</param>
     /// <returns></returns>
     [Authorize("admin")]
     [HttpPost("{seriesID}/TMDB/Movie/Refresh")]
-    public ActionResult RefreshTMDBMoviesBySeriesID([FromRoute] int seriesID)
+    public ActionResult RefreshTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromQuery] bool force = false, [FromQuery] bool downloadImages = true)
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1055,16 +1057,13 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        // TODO: Schedule or run the update tmdb movie info command when it's added.
-        Task.Run(() =>
-        {
-            var movieIDs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(series.AniDB_ID)
-                .Select(xref => xref.TmdbMovieID)
-                .Distinct()
-                .ToList();
-            foreach (var movieID in movieIDs)
-                _tmdbHelper.UpdateMovie(movieID, true);
-        });
+        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(series.AniDB_ID))
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
+            {
+                c.TmdbMovieID = xref.TmdbMovieID;
+                c.ForceRefresh = force;
+                c.DownloadImages = downloadImages;
+            });
 
         return Ok();
     }
@@ -1089,8 +1088,7 @@ public class SeriesController : BaseController
         if (body != null && body.ProviderID > 0)
             _tmdbHelper.RemoveMovieLink(series.AniDB_ID, body.ProviderID, body.Purge);
         else
-            foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByAnimeID(series.AniDB_ID))
-                _tmdbHelper.RemoveMovieLink(series.AniDB_ID, xref.TvDBID, body.Purge);
+            _tmdbHelper.RemoveAllMovieLinks(series.AniDB_ID, body.Purge);
 
         return Ok();
     }
@@ -1134,13 +1132,19 @@ public class SeriesController : BaseController
     /// Refresh or download  the metadata for a TMDB movie.
     /// </summary>
     /// <param name="movieID">TMDB Movie ID.</param>
+    /// <param name="force">Forcefully download an update even if we updated recently.</param>
+    /// <param name="downloadImages">Also download images.</param>
     /// <returns></returns>
     [Authorize("admin")]
     [HttpPost("TMDB/Movie/{movieID}/Refresh")]
-    public ActionResult RefreshTMDBMovieByMovieID([FromRoute] int movieID)
+    public ActionResult RefreshTMDBMovieByMovieID([FromRoute] int movieID, [FromQuery] bool force = false, [FromQuery] bool downloadImages = true)
     {
-        // TODO: Schedule or run the update tmdb movie info command when it's added.
-        _tmdbHelper.UpdateMovie(movieID, true);
+        _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
+        {
+            c.TmdbMovieID = movieID;
+            c.ForceRefresh = force;
+            c.DownloadImages = downloadImages;
+        });
 
         return Ok();
     }

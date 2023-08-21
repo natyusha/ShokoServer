@@ -61,6 +61,8 @@ public class CommandRequestMap : ClassMap<CommandRequest>
     public class CommandRequest_ReadMediaInfoMap : CommandRequestSubclass<CommandRequest_ReadMediaInfo> { }
     public class CommandRequest_ValidateAllImagesMap : CommandRequestSubclass<CommandRequest_ValidateAllImages> { }
     public class CommandRequest_TMDB_SearchMap : CommandRequestSubclass<CommandRequest_TMDB_Search> { }
+    public class CommandRequest_TMDB_Movie_UpdateMap : CommandRequestSubclass<CommandRequest_TMDB_Movie_Update> { }
+    public class CommandRequest_TMDB_Show_UpdateMap : CommandRequestSubclass<CommandRequest_TMDB_Show_Update> { }
     public class CommandRequest_PlexSyncWatchedMap : CommandRequestSubclass<CommandRequest_PlexSyncWatched> { }
     public class CommandRequest_TraktCollectionEpisodeMap : CommandRequestSubclass<CommandRequest_TraktCollectionEpisode> { }
     public class CommandRequest_TraktHistoryEpisodeMap : CommandRequestSubclass<CommandRequest_TraktHistoryEpisode> { }

@@ -114,7 +114,6 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
                 results[0].MovieName, results[0].MovieID);
 
             var movieID = results[0].MovieID;
-            _helper.UpdateMovie(movieID, true);
             _helper.AddMovieLink(AnimeID, movieID, isAutomatic: true);
             return true;
         }
