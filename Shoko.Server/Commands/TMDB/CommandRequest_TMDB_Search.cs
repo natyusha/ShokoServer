@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 using Microsoft.Extensions.Logging;
 using Shoko.Commons.Queue;
 using Shoko.Models.Queue;
+using Shoko.Models.Server;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
@@ -62,63 +63,71 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
     private void SearchForMovies(SVR_AniDB_Anime anime)
     {
-        var searchCriteria = anime.PreferredTitle;
-
-        // if not wanting to use web cache, or no match found on the web cache go to TvDB directly
-        var results = _helper.SearchMovies(searchCriteria);
-        Logger.LogTrace("Found {Count} results for {Criteria} on TMDB", results.Count, searchCriteria);
-        if (ProcessSearchResults(results, searchCriteria))
+        // Find the official title in the origin language, to compare it against
+        // the original language stored in the offline tmdb search dump.
+        var allTitles = anime.GetTitles()
+            .Where(title => title.TitleType is TitleType.Main or TitleType.Official);
+        var mainTitle = allTitles.FirstOrDefault(x => x.TitleType is TitleType.Main) ?? allTitles.FirstOrDefault();
+        var language = mainTitle.Language switch 
         {
+            TitleLanguage.Romaji => TitleLanguage.Japanese,
+            TitleLanguage.Pinyin => TitleLanguage.ChineseSimplified,
+            TitleLanguage.KoreanTranscription => TitleLanguage.Korean,
+            TitleLanguage.ThaiTranscription => TitleLanguage.Thai,
+            _ => mainTitle.Language,
+        };
+        var officialTitle = language == mainTitle.Language ? mainTitle :
+            allTitles.FirstOrDefault(title => title.Language == language) ?? mainTitle;
+
+        // Try to establish a link for every episode in the anime (so every
+        // movie in the movie collection).
+        var episodes = anime.GetAniDBEpisodes()
+            .Where(episode => episode.EpisodeType == (int)Shoko.Models.Enums.EpisodeType.Episode)
+            .ToList();
+
+        // We only have one movie in the movie collection, so don't search for
+        // a sub-title.
+        if (episodes.Count == 1)
+        {
+            SearchForMovie(episodes[0], officialTitle.Title);
             return;
         }
 
-
-        if (results.Count != 0)
+        // Find the sub title for each movie in the movie collection, then
+        // search for a movie matching the combined title.
+        foreach (var episode in episodes)
         {
-            return;
-        }
-
-        foreach (var title in anime.GetTitles())
-        {
-            if (title.TitleType != TitleType.Official)
+            var allEpisodeTitles = RepoFactory.AniDB_Episode_Title.GetByEpisodeID(episode.EpisodeID);
+            var isCompleteMovie = allEpisodeTitles.Any(title => title.Title.Contains("Complete Movie", StringComparison.InvariantCultureIgnoreCase));
+            if (isCompleteMovie)
             {
+                SearchForMovie(episode, officialTitle.Title);
                 continue;
             }
 
-            if (string.Equals(searchCriteria, title.Title, StringComparison.CurrentCultureIgnoreCase))
-            {
-                continue;
-            }
-
-            results = _helper.SearchMovies(title.Title);
-            Logger.LogTrace("Found {Count} results for search on {Title}", results.Count, title.Title);
-            if (ProcessSearchResults(results, title.Title))
-            {
-                return;
-            }
+            var subTitle = allEpisodeTitles.FirstOrDefault(title => title.Language == language) ??
+                allEpisodeTitles.FirstOrDefault(title => title.Language == mainTitle.Language);
+            var query = $"{officialTitle.Title} {subTitle?.Title ?? ""}";
+            SearchForMovie(episode, query);
         }
+    }
+
+    private bool SearchForMovie(AniDB_Episode episode, string query)
+    {
+        var results = Utils.TMDBOfflineSearch.SearchMovies(query).ToList();
+        if (results == null || results.Count == 0)
+            return false;
+
+        Logger.LogTrace("Found {Count} results for search on {Query} --- Linked to {MovieName} ({ID})", results.Count, query, results[0].Title, results[0].ID);
+
+        _helper.AddMovieLink(AnimeID, results[0].ID, episode.EpisodeID, isAutomatic: true);
+
+        return true;
     }
 
     private void SearchForShows(SVR_AniDB_Anime anime)
     {
         // TODO: For later.
-    }
-
-    private bool ProcessSearchResults(List<TMDB_Movie_Result> results, string searchCriteria)
-    {
-        if (results.Count == 1)
-        {
-            // since we are using this result, lets download the info
-            Logger.LogTrace("Found 1 results for search on {SearchCriteria} --- Linked to {Name} ({ID})",
-                searchCriteria,
-                results[0].MovieName, results[0].MovieID);
-
-            var movieID = results[0].MovieID;
-            _helper.AddMovieLink(AnimeID, movieID, isAutomatic: true);
-            return true;
-        }
-
-        return false;
     }
 
     public override void GenerateCommandID()
