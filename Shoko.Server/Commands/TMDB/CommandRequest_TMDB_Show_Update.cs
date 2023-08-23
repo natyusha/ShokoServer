@@ -27,12 +27,19 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority6;
 
-    public override QueueStateStruct PrettyDescription => new()
-    {
-        message = "Updating TMDB Show: {0}",
-        queueState = QueueStateEnum.GettingTvDBSeries,
-        extraParams = new[] { string.IsNullOrEmpty(ShowTitle) ? TmdbShowID.ToString() : $"{ShowTitle} ({TmdbShowID})" }
-    };
+    public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(ShowTitle) ?
+        new()
+        {
+            message = "Download TMDB Show: {0}",
+            queueState = QueueStateEnum.GettingTvDBSeries,
+            extraParams = new[] { TmdbShowID.ToString() }
+        } :
+        new()
+        {
+            message = "Update TMDB Show: {0}",
+            queueState = QueueStateEnum.GettingTvDBSeries,
+            extraParams = new[] { $"{ShowTitle} ({TmdbShowID})" }
+        };
 
     public override void PostInit()
     {
