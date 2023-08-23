@@ -1217,7 +1217,7 @@ public partial class ShokoServiceImplementation : IShokoServer
     {
         try
         {
-            _tmdbHelper.UpdateMovie(movieD, true);
+            _tmdbHelper.UpdateMovie(movieD, forceRefresh: true, downloadImages: true);
         }
         catch (Exception ex)
         {

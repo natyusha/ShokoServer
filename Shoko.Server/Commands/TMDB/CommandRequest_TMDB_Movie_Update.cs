@@ -27,16 +27,23 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority6;
 
-    public override QueueStateStruct PrettyDescription => new()
-    {
-        message = "Updating TMDB Movie: {0}",
-        queueState = QueueStateEnum.GettingTvDBSeries,
-        extraParams = new[] { string.IsNullOrEmpty(MovieTitle) ? TmdbMovieID.ToString() : $"{MovieTitle} ({TmdbMovieID})" }
-    };
+    public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(MovieTitle) ?
+        new()
+        {
+            message = "Download TMDB Movie: {0}",
+            queueState = QueueStateEnum.GettingTvDBSeries,
+            extraParams = new[] { TmdbMovieID.ToString() }
+        } :
+        new()
+        {
+            message = "Update TMDB Movie: {0}",
+            queueState = QueueStateEnum.GettingTvDBSeries,
+            extraParams = new[] { $"{MovieTitle} ({TmdbMovieID})" }
+        };
 
     public override void PostInit()
     {
-        MovieTitle = RepoFactory.MovieDb_Movie.GetByOnlineID(TmdbMovieID)?.MovieName;
+        MovieTitle ??= RepoFactory.MovieDb_Movie.GetByOnlineID(TmdbMovieID)?.MovieName;
     }
 
     protected override void Process()

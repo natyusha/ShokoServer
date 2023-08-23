@@ -1179,6 +1179,11 @@ public class Series : BaseModel
             /// Replace all existing links.
             /// </summary>
             public bool Replace = false;
+
+            /// <summary>
+            /// Forcefully refresh metadata even if we recently did a refresh.
+            /// </summary>
+            public bool Refresh = false;
         }
 
         public class LinkMovieBody : LinkCommonBody

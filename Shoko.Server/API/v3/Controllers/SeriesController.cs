@@ -1035,7 +1035,7 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        _tmdbHelper.AddMovieLink(series.AniDB_ID, body.ProviderID, body.EpisodeID, !body.Replace);
+        _tmdbHelper.AddMovieLink(series.AniDB_ID, body.ProviderID, body.EpisodeID, additiveLink: !body.Replace, forceRefresh: body.Refresh);
         return Ok();
     }
 

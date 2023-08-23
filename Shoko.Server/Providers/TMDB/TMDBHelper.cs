@@ -118,7 +118,7 @@ public class TMDBHelper
         }
     }
 
-    public void UpdateMovie(int movieID, bool force = false, bool downloadImages = false)
+    public void UpdateMovie(int movieID, bool forceRefresh = false, bool downloadImages = false)
     {
         var client = new TMDbClient(APIKey);
         var movie = client.GetMovie(movieID);
@@ -256,23 +256,11 @@ public class TMDBHelper
 
     #region Links
 
-    public void AddMovieLink(int animeId, int movieId, int? episodeId = null, bool additiveLink = false, bool isAutomatic = false)
+    public void AddMovieLink(int animeId, int movieId, int? episodeId = null, bool additiveLink = false, bool isAutomatic = false, bool forceRefresh = false)
     {
         // Remove all existing links.
         if (!additiveLink)
             RemoveAllMovieLinks(animeId);
-
-        // Update movie info now if we have internet, otherwise schedule an
-        // update for later.
-        if (!_connectivityService.NetworkAvailability.HasInternet())
-            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
-            {
-                c.TmdbMovieID = movieId;
-                c.ForceRefresh = true;
-                c.DownloadImages = true;
-            });
-        else
-            UpdateMovie(movieId, downloadImages: true);
 
         // Add or update the link.
         _logger.LogInformation("Adding TMDB Movie Link: AniDB (ID:{AnidbID}) → TvDB Movie (ID:{TmdbID})", animeId, movieId);
@@ -282,6 +270,14 @@ public class TMDBHelper
             xref.AnidbEpisodeID = episodeId;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Save(xref);
+
+        // Schedule the movie info to be downloaded or updated.
+        _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
+        {
+            c.TmdbMovieID = movieId;
+            c.ForceRefresh = forceRefresh;
+            c.DownloadImages = true;
+        });
     }
 
     public void RemoveMovieLink(int animeId, int movieId, bool purge = false)
@@ -390,23 +386,11 @@ public class TMDBHelper
 
     #region Links
 
-    public void AddShowLink(int animeId, int showId, string seasonId = null, bool additiveLink = true, bool isAutomatic = false)
+    public void AddShowLink(int animeId, int showId, string seasonId = null, bool additiveLink = true, bool isAutomatic = false, bool forceRefresh = false)
     {
         // Remove all existing links.
         if (!additiveLink)
             RemoveAllShowLinks(animeId);
-
-        // Update show info now if we have internet, otherwise schedule an
-        // update for later.
-        if (!_connectivityService.NetworkAvailability.HasInternet())
-            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Update>(c =>
-            {
-                c.TmdbShowID = showId;
-                c.ForceRefresh = true;
-                c.DownloadImages = true;
-            });
-        else
-            UpdateShow(showId, downloadImages: true);
 
         // Add or update the link.
         _logger.LogInformation("Adding TMDB Show Link: AniDB (ID:{AnidbID}) → TvDB Show (ID:{TmdbID})", animeId, showId);
@@ -416,6 +400,14 @@ public class TMDBHelper
             xref.TmdbSeasonID = seasonId;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Show.Save(xref);
+
+        // Schedule the movie info to be downloaded or updated.
+        _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Update>(c =>
+        {
+            c.TmdbShowID = showId;
+            c.ForceRefresh = true;
+            c.DownloadImages = true;
+        });
     }
 
     public void RemoveShowLink(int animeId, int showId, bool purge = false)

@@ -38,19 +38,13 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
     protected override void Process()
     {
         Logger.LogInformation("Processing CommandRequest_TMDB_Search: {AnimeID}", AnimeID);
-
-        // Use TvDB setting
         var settings = _settingsProvider.GetSettings();
         if (!settings.TMDB.AutoLink)
-        {
             return;
-        }
 
         var anime = RepoFactory.AniDB_Anime.GetByAnimeID(AnimeID);
         if (anime == null)
-        {
             return;
-        }
 
         if (anime.AnimeType == (int)AnimeType.Movie)
         {
@@ -61,6 +55,8 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
         SearchForShows(anime);
     }
 
+    #region Movie
+
     private void SearchForMovies(SVR_AniDB_Anime anime)
     {
         // Find the official title in the origin language, to compare it against
@@ -68,7 +64,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
         var allTitles = anime.GetTitles()
             .Where(title => title.TitleType is TitleType.Main or TitleType.Official);
         var mainTitle = allTitles.FirstOrDefault(x => x.TitleType is TitleType.Main) ?? allTitles.FirstOrDefault();
-        var language = mainTitle.Language switch 
+        var language = mainTitle.Language switch
         {
             TitleLanguage.Romaji => TitleLanguage.Japanese,
             TitleLanguage.Pinyin => TitleLanguage.ChineseSimplified,
@@ -79,8 +75,8 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
         var officialTitle = language == mainTitle.Language ? mainTitle :
             allTitles.FirstOrDefault(title => title.Language == language) ?? mainTitle;
 
-        // Try to establish a link for every episode in the anime (so every
-        // movie in the movie collection).
+        // Try to establish a link for every movie (episode) in the movie
+        // collection (anime).
         var episodes = anime.GetAniDBEpisodes()
             .Where(episode => episode.EpisodeType == (int)Shoko.Models.Enums.EpisodeType.Episode)
             .ToList();
@@ -120,15 +116,21 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
         Logger.LogTrace("Found {Count} results for search on {Query} --- Linked to {MovieName} ({ID})", results.Count, query, results[0].Title, results[0].ID);
 
-        _helper.AddMovieLink(AnimeID, results[0].ID, episode.EpisodeID, isAutomatic: true);
+        _helper.AddMovieLink(AnimeID, results[0].ID, episode.EpisodeID, additiveLink: true, isAutomatic: true, forceRefresh: ForceRefresh);
 
         return true;
     }
+
+    #endregion
+
+    #region Show
 
     private void SearchForShows(SVR_AniDB_Anime anime)
     {
         // TODO: For later.
     }
+
+    #endregion
 
     public override void GenerateCommandID()
     {
@@ -144,9 +146,8 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
         docCreator.LoadXml(CommandDetails);
 
         // populate the fields
-        AnimeID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), "AnimeID"));
-        ForceRefresh =
-            bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), "ForceRefresh"));
+        AnimeID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), nameof(AnimeID)));
+        ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Search), nameof(ForceRefresh)));
 
         return true;
     }
