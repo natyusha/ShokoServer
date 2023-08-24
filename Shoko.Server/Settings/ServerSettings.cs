@@ -88,7 +88,8 @@ public class ServerSettings : IServerSettings
         "en",
     };
 
-    public List<string> EpisodeLanguagePreference {
+    public List<string> EpisodeLanguagePreference
+    {
         get => _episodeLanguagePreference;
         set
         {
