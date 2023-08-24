@@ -55,8 +55,18 @@ public class TMDBSettings
     public int MaxAutoLogos { get; set; } = 10;
 
     /// <summary>
-    /// Automagically download thumbnails for TMDB entities that supports
+    /// Automagically download thumbnail images for TMDB entities that supports
     /// thumbnails.
     /// </summary>
     public bool AutoDownloadThumbnails { get; set; } = true;
+
+    /// <summary>
+    /// Automagically download staff member and voice-actor images.
+    /// </summary>
+    public bool AutoDownloadStaffImages { get; set; } = true;
+
+    /// <summary>
+    /// Automagically download sudio and company images.
+    /// </summary>
+    public bool AutoDownloadStudioImages { get; set; } = true;
 }
