@@ -202,7 +202,7 @@ public class TMDBHelper
             );
     }
 
-    public async Task UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false)
+    public async Task UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false, bool downloadCollections = false)
     {
         // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
 
@@ -215,6 +215,7 @@ public class TMDBHelper
 
         await Task.WhenAll(
             UpdateMovieTitlesAndOverviews(tmdbMovie),
+            downloadCollections ? UpdateMovieCollections(tmdbMovie) : Task.CompletedTask,
             downloadImages ? DownloadMovieImages(movieId) : Task.CompletedTask
         );
     }
@@ -224,6 +225,13 @@ public class TMDBHelper
         var translations = await _client.GetMovieTranslationsAsync(movie.Id);
 
         // TODO: Add/update/remove titles and overviews.
+    }
+
+    private async Task UpdateMovieCollections(Movie movie)
+    {
+        var collection = movie.BelongsToCollection;
+
+        // TODO: Add/update/remove movie collections.
     }
 
     public async Task DownloadMovieImages(int movieId, bool forceDownload = false)
@@ -411,7 +419,7 @@ public class TMDBHelper
         }
     }
 
-    public async Task UpdateShow(int showId, bool force = false, bool downloadEpisodeGroups = false, bool downloadImages = false)
+    public async Task UpdateShow(int showId, bool force = false, bool downloadImages = false, bool downloadEpisodeGroups = false)
     {
         // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
 

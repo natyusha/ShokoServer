@@ -60,8 +60,7 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
     protected override void Process()
     {
         Logger.LogInformation("Processing CommandRequest_TMDB_Show_Update: {TmdbShowId}", TmdbShowID);
-        var settings = _settingsProvider.GetSettings();
-        Task.Run(async () => await _helper.UpdateShow(TmdbShowID, ForceRefresh, DownloadEpisodeGroups ?? settings.TMDB.AutoDownloadEpisodeGroups, DownloadImages))
+        Task.Run(async () => await _helper.UpdateShow(TmdbShowID, ForceRefresh, DownloadImages, DownloadEpisodeGroups ?? _settingsProvider.GetSettings().TMDB.AutoDownloadEpisodeGroups))
             .ConfigureAwait(false)
             .GetAwaiter()
             .GetResult();
@@ -85,7 +84,7 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
         TmdbShowID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(TmdbShowID)));
         ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ForceRefresh)));
         DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadImages)));
-        DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadImages)));
+        DownloadEpisodeGroups = bool.TryParse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadEpisodeGroups)), out var value) ? value : null;
         ShowTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ShowTitle));
 
         return true;

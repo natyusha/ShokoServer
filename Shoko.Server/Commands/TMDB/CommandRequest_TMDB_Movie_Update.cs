@@ -11,6 +11,7 @@ using Shoko.Server.Commands.Generic;
 using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
+using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 namespace Shoko.Server.Commands;
@@ -22,9 +23,14 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
     [XmlIgnore, JsonIgnore]
     private readonly TMDBHelper _helper;
 
+    [XmlIgnore, JsonIgnore]
+    private readonly ISettingsProvider _settingsProvider;
+
     public virtual int TmdbMovieID { get; set; }
 
     public virtual bool DownloadImages { get; set; }
+
+    public virtual bool? DownloadCollections { get; set; }
 
     public virtual bool ForceRefresh { get; set; }
 
@@ -54,7 +60,7 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
     protected override void Process()
     {
         Logger.LogInformation("Processing CommandRequest_TMDB_Movie_Update: {TmdbMovieId}", TmdbMovieID);
-        Task.Run(() => _helper.UpdateMovie(TmdbMovieID, ForceRefresh, DownloadImages))
+        Task.Run(() => _helper.UpdateMovie(TmdbMovieID, ForceRefresh, DownloadImages, DownloadCollections ?? _settingsProvider.GetSettings().TMDB.AutoDownloadCollections))
             .ConfigureAwait(false)
             .GetAwaiter()
             .GetResult();
@@ -77,14 +83,16 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
         TmdbMovieID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(TmdbMovieID)));
         ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(ForceRefresh)));
         DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(DownloadImages)));
+        DownloadCollections = bool.TryParse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(DownloadCollections)), out var value) ? value : null;
         MovieTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(MovieTitle));
 
         return true;
     }
 
-    public CommandRequest_TMDB_Movie_Update(ILoggerFactory loggerFactory, TMDBHelper helper) : base(loggerFactory)
+    public CommandRequest_TMDB_Movie_Update(ILoggerFactory loggerFactory, TMDBHelper helper, ISettingsProvider settingsProvider) : base(loggerFactory)
     {
         _helper = helper;
+        _settingsProvider = settingsProvider;
     }
 
     protected CommandRequest_TMDB_Movie_Update()

@@ -8,6 +8,12 @@ public class TMDBSettings
     public bool AutoLink { get; set; } = false;
 
     /// <summary>
+    /// Automagically download collections for movies and tv shows in the local
+    /// collection.
+    /// </summary>
+    public bool AutoDownloadCollections { get; set; } = false;
+
+    /// <summary>
     /// Automagically download episode groups for tv shows.
     /// </summary>
     public bool AutoDownloadEpisodeGroups { get; set; } = false;
