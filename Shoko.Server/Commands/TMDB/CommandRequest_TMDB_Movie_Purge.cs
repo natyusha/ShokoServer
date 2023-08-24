@@ -30,18 +30,12 @@ public class CommandRequest_TMDB_Movie_Purge : CommandRequestImplementation
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority6;
 
-    public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(MovieTitle) ?
+    public override QueueStateStruct PrettyDescription =>
         new()
         {
             message = "Purge TMDB Movie: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
-            extraParams = new[] { TmdbMovieID.ToString() }
-        } :
-        new()
-        {
-            message = "Purge TMDB Movie: {0}",
-            queueState = QueueStateEnum.GettingTvDBSeries,
-            extraParams = new[] { $"{MovieTitle} ({TmdbMovieID})" }
+            extraParams = new[] { string.IsNullOrEmpty(MovieTitle) ? TmdbMovieID.ToString() : $"{MovieTitle} ({TmdbMovieID})" }
         };
 
     public override void PostInit()

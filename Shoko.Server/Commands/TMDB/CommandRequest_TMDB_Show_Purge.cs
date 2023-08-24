@@ -29,18 +29,12 @@ public class CommandRequest_TMDB_Show_Purge : CommandRequestImplementation
 
     public override CommandRequestPriority DefaultPriority => CommandRequestPriority.Priority6;
 
-    public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(ShowTitle) ?
+    public override QueueStateStruct PrettyDescription =>
         new()
         {
             message = "Purge TMDB Show: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
-            extraParams = new[] { TmdbShowID.ToString() }
-        } :
-        new()
-        {
-            message = "Purge TMDB Show: {0}",
-            queueState = QueueStateEnum.GettingTvDBSeries,
-            extraParams = new[] { $"{ShowTitle} ({TmdbShowID})" }
+            extraParams = new[] { string.IsNullOrEmpty(ShowTitle) ? TmdbShowID.ToString() : $"{ShowTitle} ({TmdbShowID})" }
         };
 
     public override void PostInit()
