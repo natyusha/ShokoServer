@@ -615,10 +615,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             settings.TvDB.Language = contractIn.TvDB_Language;
 
             // MovieDB
-            settings.TMDB.AutoFanart = contractIn.MovieDB_AutoFanart;
-            settings.TMDB.AutoFanartAmount = contractIn.MovieDB_AutoFanartAmount;
-            settings.TMDB.AutoPosters = contractIn.MovieDB_AutoPosters;
-            settings.TMDB.AutoPostersAmount = contractIn.MovieDB_AutoPostersAmount;
+            settings.TMDB.AutoDownloadBackdrops = contractIn.MovieDB_AutoFanart;
+            settings.TMDB.MaxAutoBackdrops = contractIn.MovieDB_AutoFanartAmount;
+            settings.TMDB.AutoDownloadPosters = contractIn.MovieDB_AutoPosters;
+            settings.TMDB.MaxAutoPosters = contractIn.MovieDB_AutoPostersAmount;
 
             // Import settings
             settings.Import.VideoExtensions = contractIn.VideoExtensions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
@@ -993,30 +993,20 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         animeIDs.Add(xref.AniDBID);
                     break;
 
-                case ImageEntityType.MovieDB_Poster:
-                    var moviePoster = RepoFactory.MovieDB_Poster.GetByID(imageID);
-                    if (moviePoster == null)
-                    {
-                        return "Could not find image";
-                    }
-
-                    moviePoster.Enabled = enabled ? 1 : 0;
-                    RepoFactory.MovieDB_Poster.Save(moviePoster);
-                    foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(moviePoster.MovieId))
-                        animeIDs.Add(xref.AnidbAnimeID);
-                    break;
-
                 case ImageEntityType.MovieDB_FanArt:
-                    var movieFanart = RepoFactory.MovieDB_Fanart.GetByID(imageID);
-                    if (movieFanart == null)
-                    {
+                case ImageEntityType.MovieDB_Poster:
+                    var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
+                    if (tmdbImage == null)
                         return "Could not find image";
-                    }
 
-                    movieFanart.Enabled = enabled ? 1 : 0;
-                    RepoFactory.MovieDB_Fanart.Save(movieFanart);
-                    foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieFanart.MovieId))
-                        animeIDs.Add(xref.AnidbAnimeID);
+                    tmdbImage.IsEnabled = enabled;
+                    RepoFactory.TMDB_ImageMetadata.Save(tmdbImage);
+                    if (tmdbImage.TmdbShowID.HasValue)
+                        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(tmdbImage.TmdbShowID.Value))
+                            animeIDs.Add(xref.AnidbAnimeID);
+                    if (tmdbImage.TmdbMovieID.HasValue)
+                        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(tmdbImage.TmdbMovieID.Value))
+                            animeIDs.Add(xref.AnidbAnimeID);
                     break;
             }
 

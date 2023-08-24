@@ -109,15 +109,7 @@ public class DatabaseFixes
 
     public static void RemoveOldMovieDBImageRecords()
     {
-        try
-        {
-            RepoFactory.MovieDB_Fanart.Delete(RepoFactory.MovieDB_Fanart.GetAll());
-            RepoFactory.MovieDB_Poster.Delete(RepoFactory.MovieDB_Poster.GetAll());
-        }
-        catch (Exception ex)
-        {
-            logger.Error(ex, "Could not RemoveOldMovieDBImageRecords: " + ex);
-        }
+        // No-op.
     }
 
 

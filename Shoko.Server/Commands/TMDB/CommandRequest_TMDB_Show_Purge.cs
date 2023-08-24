@@ -10,28 +10,20 @@ using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Server;
-using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 namespace Shoko.Server.Commands;
 
 [Serializable]
-[Command(CommandRequestType.TMDB_Show_Update)]
-public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
+[Command(CommandRequestType.TMDB_Show_Purge)]
+public class CommandRequest_TMDB_Show_Purge : CommandRequestImplementation
 {
     [XmlIgnore, JsonIgnore]
     private readonly TMDBHelper _helper;
 
-    [XmlIgnore, JsonIgnore]
-    private readonly ISettingsProvider _settingsProvider;
-
     public virtual int TmdbShowID { get; set; }
 
-    public virtual bool DownloadImages { get; set; }
-
-    public virtual bool? DownloadEpisodeGroups { get; set; }
-
-    public virtual bool ForceRefresh { get; set; }
+    public virtual bool RemoveImageFiles { get; set; } = true;
 
     public virtual string ShowTitle { get; set; }
 
@@ -40,13 +32,13 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
     public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(ShowTitle) ?
         new()
         {
-            message = "Download TMDB Show: {0}",
+            message = "Purge TMDB Show: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
             extraParams = new[] { TmdbShowID.ToString() }
         } :
         new()
         {
-            message = "Update TMDB Show: {0}",
+            message = "Purge TMDB Show: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
             extraParams = new[] { $"{ShowTitle} ({TmdbShowID})" }
         };
@@ -59,18 +51,16 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
 
     protected override void Process()
     {
-        Logger.LogInformation("Processing CommandRequest_TMDB_Show_Update: {TmdbShowId}", TmdbShowID);
-        var settings = _settingsProvider.GetSettings();
-        Task.Run(async () => await _helper.UpdateShow(TmdbShowID, ForceRefresh, DownloadEpisodeGroups ?? settings.TMDB.AutoDownloadEpisodeGroups, DownloadImages))
+        Logger.LogInformation("Processing CommandRequest_TMDB_Show_Purge: {TmdbShowId}", TmdbShowID);
+        Task.Run(() => _helper.PurgeShow(TmdbShowID, RemoveImageFiles))
             .ConfigureAwait(false)
             .GetAwaiter()
             .GetResult();
-        ;
     }
 
     public override void GenerateCommandID()
     {
-        CommandID = $"CommandRequest_TMDB_Show_Update_{TmdbShowID}";
+        CommandID = $"CommandRequest_TMDB_Show_Purge_{TmdbShowID}";
     }
 
     protected override bool Load()
@@ -82,22 +72,19 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
         docCreator.LoadXml(CommandDetails);
 
         // populate the fields
-        TmdbShowID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(TmdbShowID)));
-        ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ForceRefresh)));
-        DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadImages)));
-        DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadImages)));
-        ShowTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ShowTitle));
+        TmdbShowID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Purge), nameof(TmdbShowID)));
+        RemoveImageFiles = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Purge), nameof(RemoveImageFiles)));
+        ShowTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Purge), nameof(ShowTitle));
 
         return true;
     }
 
-    public CommandRequest_TMDB_Show_Update(ILoggerFactory loggerFactory, TMDBHelper helper, ISettingsProvider settingsProvider) : base(loggerFactory)
+    public CommandRequest_TMDB_Show_Purge(ILoggerFactory loggerFactory, TMDBHelper helper) : base(loggerFactory)
     {
         _helper = helper;
-        _settingsProvider = settingsProvider;
     }
 
-    protected CommandRequest_TMDB_Show_Update()
+    protected CommandRequest_TMDB_Show_Purge()
     {
     }
 }

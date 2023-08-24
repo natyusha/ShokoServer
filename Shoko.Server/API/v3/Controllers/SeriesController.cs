@@ -1162,7 +1162,7 @@ public class SeriesController : BaseController
         if (movie == null)
             return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
 
-        _tmdbHelper.PurgeMovie(movieID);
+        _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c => c.TmdbMovieID = movieID);
 
         return Ok();
     }
@@ -1415,43 +1415,22 @@ public class SeriesController : BaseController
                 {
                     var tvdbPoster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
                     if (tvdbPoster == null)
-                    {
                         return ValidationProblem(InvalidIDForSource);
-                    }
 
                     if (tvdbPoster.Enabled != 1)
-                    {
                         return ValidationProblem(InvalidImageIsDisabled);
-                    }
 
                     break;
                 }
-            case ImageEntityType.MovieDB_Poster:
-                var tmdbPoster = RepoFactory.MovieDB_Poster.GetByID(imageID);
-                if (tmdbPoster == null)
-                {
-                    return ValidationProblem(InvalidIDForSource);
-                }
-
-                if (tmdbPoster.Enabled != 1)
-                {
-                    return ValidationProblem(InvalidImageIsDisabled);
-                }
-
-                break;
 
             // Banners
             case ImageEntityType.TvDB_Banner:
                 var tvdbBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
                 if (tvdbBanner == null)
-                {
                     return ValidationProblem(InvalidIDForSource);
-                }
 
                 if (tvdbBanner.Enabled != 1)
-                {
                     return ValidationProblem(InvalidImageIsDisabled);
-                }
 
                 break;
 
@@ -1459,27 +1438,20 @@ public class SeriesController : BaseController
             case ImageEntityType.TvDB_FanArt:
                 var tvdbFanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
                 if (tvdbFanart == null)
-                {
                     return ValidationProblem(InvalidIDForSource);
-                }
 
                 if (tvdbFanart.Enabled != 1)
-                {
                     return ValidationProblem(InvalidImageIsDisabled);
-                }
 
                 break;
+            case ImageEntityType.MovieDB_Poster:
             case ImageEntityType.MovieDB_FanArt:
-                var tmdbFanart = RepoFactory.MovieDB_Fanart.GetByID(imageID);
-                if (tmdbFanart == null)
-                {
+                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
+                if (tmdbImage == null)
                     return ValidationProblem(InvalidIDForSource);
-                }
 
-                if (tmdbFanart.Enabled != 1)
-                {
+                if (!tmdbImage.IsEnabled)
                     return ValidationProblem(InvalidImageIsDisabled);
-                }
 
                 break;
 

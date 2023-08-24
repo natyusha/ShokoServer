@@ -6,9 +6,9 @@ using Shoko.Models.Metro;
 using Shoko.Models.Server;
 using Shoko.Models.TvDB;
 using Shoko.Server.Models;
-using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TraktTV.Contracts;
 using Shoko.Server.Repositories;
+using TMDbLib.Objects.Movies;
 using TvDbSharper.Dto;
 
 namespace Shoko.Server.Extensions;
@@ -17,36 +17,13 @@ public static class ModelProviders
 {
     private static Logger logger = LogManager.GetCurrentClassLogger();
 
-    public static void Populate(this MovieDB_Fanart m, TMDB_Image_Result result, int movieID)
+    public static void Populate(this MovieDB_Movie m, Movie result)
     {
-        m.MovieId = movieID;
-        m.ImageID = result.ImageID;
-        m.ImageType = result.ImageType;
-        m.ImageSize = result.ImageSize;
-        m.ImageWidth = result.ImageWidth;
-        m.ImageHeight = result.ImageHeight;
-        m.Enabled = 1;
-    }
-
-    public static void Populate(this MovieDB_Movie m, TMDB_Movie_Result result)
-    {
-        m.MovieId = result.MovieID;
-        m.MovieName = result.MovieName;
-        m.OriginalName = result.OriginalName;
+        m.MovieId = result.Id;
+        m.MovieName = result.Title;
+        m.OriginalName = result.OriginalTitle;
         m.Overview = result.Overview;
-        m.Rating = (int)Math.Round(result.Rating * 10D);
-    }
-
-    public static void Populate(this MovieDB_Poster m, TMDB_Image_Result result, int movieID)
-    {
-        m.MovieId = movieID;
-        m.ImageID = result.ImageID;
-        m.ImageType = result.ImageType;
-        m.ImageSize = result.ImageSize;
-        m.URL = result.URL;
-        m.ImageWidth = result.ImageWidth;
-        m.ImageHeight = result.ImageHeight;
-        m.Enabled = 1;
+        m.Rating = (int)Math.Round(result.VoteAverage * 10D);
     }
 
     public static void Populate(this Trakt_Show show, TraktV2ShowExtended tvshow)

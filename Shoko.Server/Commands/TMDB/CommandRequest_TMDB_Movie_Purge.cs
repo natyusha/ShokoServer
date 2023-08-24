@@ -16,17 +16,15 @@ using Shoko.Server.Utilities;
 namespace Shoko.Server.Commands;
 
 [Serializable]
-[Command(CommandRequestType.TMDB_Movie_Update)]
-public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
+[Command(CommandRequestType.TMDB_Movie_Purge)]
+public class CommandRequest_TMDB_Movie_Purge : CommandRequestImplementation
 {
     [XmlIgnore, JsonIgnore]
     private readonly TMDBHelper _helper;
 
     public virtual int TmdbMovieID { get; set; }
 
-    public virtual bool DownloadImages { get; set; }
-
-    public virtual bool ForceRefresh { get; set; }
+    public virtual bool RemoveImageFiles { get; set; } = true;
 
     public virtual string MovieTitle { get; set; }
 
@@ -35,13 +33,13 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
     public override QueueStateStruct PrettyDescription => string.IsNullOrEmpty(MovieTitle) ?
         new()
         {
-            message = "Download TMDB Movie: {0}",
+            message = "Purge TMDB Movie: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
             extraParams = new[] { TmdbMovieID.ToString() }
         } :
         new()
         {
-            message = "Update TMDB Movie: {0}",
+            message = "Purge TMDB Movie: {0}",
             queueState = QueueStateEnum.GettingTvDBSeries,
             extraParams = new[] { $"{MovieTitle} ({TmdbMovieID})" }
         };
@@ -53,8 +51,8 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
 
     protected override void Process()
     {
-        Logger.LogInformation("Processing CommandRequest_TMDB_Movie_Update: {TmdbMovieId}", TmdbMovieID);
-        Task.Run(() => _helper.UpdateMovie(TmdbMovieID, ForceRefresh, DownloadImages))
+        Logger.LogInformation("Processing CommandRequest_TMDB_Movie_Purge: {TmdbMovieId}", TmdbMovieID);
+        Task.Run(() => _helper.PurgeMovie(TmdbMovieID, RemoveImageFiles))
             .ConfigureAwait(false)
             .GetAwaiter()
             .GetResult();
@@ -62,7 +60,7 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
 
     public override void GenerateCommandID()
     {
-        CommandID = $"CommandRequest_TMDB_Movie_Update_{TmdbMovieID}";
+        CommandID = $"CommandRequest_TMDB_Movie_Purge_{TmdbMovieID}";
     }
 
     protected override bool Load()
@@ -74,20 +72,19 @@ public class CommandRequest_TMDB_Movie_Update : CommandRequestImplementation
         docCreator.LoadXml(CommandDetails);
 
         // populate the fields
-        TmdbMovieID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(TmdbMovieID)));
-        ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(ForceRefresh)));
-        DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(DownloadImages)));
-        MovieTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Update), nameof(MovieTitle));
+        TmdbMovieID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Purge), nameof(TmdbMovieID)));
+        RemoveImageFiles = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Purge), nameof(RemoveImageFiles)));
+        MovieTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Movie_Purge), nameof(MovieTitle));
 
         return true;
     }
 
-    public CommandRequest_TMDB_Movie_Update(ILoggerFactory loggerFactory, TMDBHelper helper) : base(loggerFactory)
+    public CommandRequest_TMDB_Movie_Purge(ILoggerFactory loggerFactory, TMDBHelper helper) : base(loggerFactory)
     {
         _helper = helper;
     }
 
-    protected CommandRequest_TMDB_Movie_Update()
+    protected CommandRequest_TMDB_Movie_Purge()
     {
     }
 }

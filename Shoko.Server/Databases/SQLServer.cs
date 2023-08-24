@@ -683,8 +683,13 @@ public class SQLServer : BaseDatabase<SqlConnection>
         new DatabaseCommand(112, 1, "CREATE TABLE CrossRef_AniDB_TMDB_Episode ( CrossRef_AniDB_TMDB_EpisodeID INT IDENTITY(1,1) NOT NULL, AnidbEpisodeID int NOT NULL, TmdbEpisodeID int NOT NULL, Ordering int NOT NULL, MatchRating int NOT NULL);"),
         new DatabaseCommand(112, 2, "CREATE TABLE CrossRef_AniDB_TMDB_Movie ( CrossRef_AniDB_TMDB_MovieID INT IDENTITY(1,1) NOT NULL, AnidbAnimeID int NOT NULL, AnidbEpisodeID int NULL, TmdbMovieID int NOT NULL, Source int NOT NULL);"),
         new DatabaseCommand(112, 3, "CREATE TABLE CrossRef_AniDB_TMDB_Show ( CrossRef_AniDB_TMDB_ShowID INT IDENTITY(1,1) NOT NULL, AnidbAnimeID int NOT NULL, TmdbShowID int NOT NULL, TmdbSeasonID varchar(64) NULL, Source int NOT NULL);"),
-        new DatabaseCommand(112, 4, "INSERT INTO CrossRef_AniDB_TMDB_Movie (AnidbAnimeID, TmdbMovieID, Source) SELECT AnimeID, CAST(CrossRefID AS INTEGER), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
+        new DatabaseCommand(112, 4, "INSERT INTO CrossRef_AniDB_TMDB_Movie (AnidbAnimeID, TmdbMovieID, Source) SELECT AnimeID, CAST(CrossRefID AS INT), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
         new DatabaseCommand(112, 5, "DROP TABLE CrossRef_AniDB_Other;"),
+        new DatabaseCommand(112, 6, "CREATE TABLE TMDB_ImageMetadata ( TMDB_ImageMetadataID INT IDENTITY(1,1) NOT NULL, TmdbMovieID INT NULL, TmdbEpisodeID INT NULL, TmdbSeasonID VARCHAR(64) NULL, TmdbShowID INT NULL, TmdbCollectionID INT NULL, ForeignType INT NOT NULL, ImageType INT NOT NULL, IsEnabled INT NOT NULL, AspectRatio DOUBLE(3) NOT NULL, Width INT NOT NULL, Height INT NOT NULL, Language VARCHAR(64) NOT NULL, RemoteFilePath VARCHAR(128) NOT NULL );"),
+        new DatabaseCommand(112, 7, "INSERT INTO TMDB_ImageMetadata (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFilePath ) SELECT MovieId, 6, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Poster WHERE URL IS NOT NULL;"),
+        new DatabaseCommand(112, 8, "INSERT INTO TMDB_ImageMetadata (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFilePath ) SELECT MovieId, 1, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Fanart WHERE URL IS NOT NULL;"),
+        new DatabaseCommand(112, 9, "DROP TABLE MovieDB_Fanart;"),
+        new DatabaseCommand(112, 10, "DROP TABLE MovieDB_Poster;"),
     };
 
     private static Tuple<bool, string> DropDefaultsOnAnimeEpisode_User(object connection)

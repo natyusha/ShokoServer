@@ -1,4 +1,6 @@
-﻿namespace Shoko.Server.Server;
+﻿using System;
+
+namespace Shoko.Server.Server;
 
 public enum CommandRequestType
 {
@@ -54,9 +56,12 @@ public enum CommandRequestType
     TMDB_Show_Update = 103,
     TMDB_Show_DownloadImages = 104,
     TMDB_Show_AddLink = 105,
-    TMDB_Movie_Update = 106,
-    TMDB_Movie_DownloadImages = 107,
-    TMDB_Movie_AddLink = 108,
+    TMDB_Show_Purge = 106,
+    TMDB_Movie_Update = 107,
+    TMDB_Movie_DownloadImages = 108,
+    TMDB_Movie_AddLink = 109,
+    TMDB_Movie_Purge = 110,
+    ImageDownload_New = 111,
 }
 
 public enum CommandRequestPriority
@@ -129,4 +134,35 @@ public enum FileHashType
     MD5 = 1,
     SHA1 = 2,
     CRC32 = 3
+}
+
+public enum ImageEntityType_New
+{
+    None = 0,
+    Backdrop = 1,
+    Banner = 2,
+    Logo = 3,
+    Art = 4,
+    Disc = 5,
+    Poster = 6,
+    Thumbnail = 7,
+    Person = 8,
+    Character = 9,
+}
+
+[Flags]
+public enum ForeignEntityType
+{
+    None = 0,
+    Collection = 1,
+    Movie = 2,
+    Show = 4,
+    Season = 8,
+    Episode = 16,
+    Company = 32,
+    Studio = 64,
+    Network = 128,
+    Person = 256,
+    Character = 512,
+    All = Collection | Movie | Show | Season | Episode | Company | Studio | Network | Person | Character,
 }

@@ -360,49 +360,17 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                 return string.Empty;
 
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetByID(imageId);
-                if (mPoster == null)
-                {
-                    return null;
-                }
-
-                // now find only the original size
-                mPoster = RepoFactory.MovieDB_Poster.GetByOnlineID(mPoster.URL);
-                if (mPoster == null)
-                {
-                    return null;
-                }
-
-                if (System.IO.File.Exists(mPoster.GetFullImagePath()))
-                {
-                    return mPoster.GetFullImagePath();
-                }
-                else
-                {
-                    logger.Trace("Could not find MovieDB_Poster image: {0}", mPoster.GetFullImagePath());
-                    return string.Empty;
-                }
-
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetByID(imageId);
-                if (mFanart == null)
                 {
-                    return null;
-                }
+                    var mFanart = RepoFactory.TMDB_ImageMetadata.GetByID(imageId);
+                    if (mFanart == null)
+                        return null;
 
-                mFanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(mFanart.URL);
-                if (mFanart == null)
-                {
-                    return null;
-                }
+                    var path = mFanart.AbsolutePath;
+                    if (System.IO.File.Exists(path))
+                        return path;
 
-                if (System.IO.File.Exists(mFanart.GetFullImagePath()))
-                {
-                    return mFanart.GetFullImagePath();
-                }
-                else
-                {
-                    logger.Trace("Could not find MovieDB_FanArt image: {0}", mFanart.GetFullImagePath());
+                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", path);
                     return string.Empty;
                 }
 

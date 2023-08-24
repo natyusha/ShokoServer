@@ -27,16 +27,10 @@ namespace Shoko.Server.Utilities;
 
 public static class Utils
 {
-    private static TMDBOfflineSearch s_tmdbOfflineSearch;
     private static AniDBTitleHelper s_aniDBTitleHelper;
     public static ShokoServer ShokoServer { get; set; }
     public static IServiceProvider ServiceContainer { get; set; }
     public static ISettingsProvider SettingsProvider { get; set; }
-
-    public static TMDBOfflineSearch TMDBOfflineSearch
-    {
-        get => s_tmdbOfflineSearch ??= new(ServiceContainer.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
-    }
 
     public static AniDBTitleHelper AniDBTitleHelper
     {

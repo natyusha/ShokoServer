@@ -6,6 +6,7 @@ using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
+using Shoko.Models.Server.TMDB;
 using Shoko.Server.Models;
 using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Repositories;
@@ -69,10 +70,10 @@ public static class ModelClients
             TvDB_Language = settings.TvDB.Language,
 
             // TMDB
-            MovieDB_AutoFanart = settings.TMDB.AutoFanart,
-            MovieDB_AutoFanartAmount = settings.TMDB.AutoFanartAmount,
-            MovieDB_AutoPosters = settings.TMDB.AutoPosters,
-            MovieDB_AutoPostersAmount = settings.TMDB.AutoPostersAmount,
+            MovieDB_AutoFanart = settings.TMDB.AutoDownloadBackdrops,
+            MovieDB_AutoFanartAmount = settings.TMDB.MaxAutoBackdrops,
+            MovieDB_AutoPosters = settings.TMDB.AutoDownloadPosters,
+            MovieDB_AutoPostersAmount = settings.TMDB.MaxAutoPosters,
 
             // Import settings
             VideoExtensions = string.Join(",", settings.Import.VideoExtensions),
@@ -274,6 +275,34 @@ public static class ModelClients
             CrossRefID = movie.TmdbMovieID.ToString(),
             CrossRefSource = (int)CrossRefSource.User,
         };
+
+    public static MovieDB_Fanart? ToClientFanart(this TMDB_ImageMetadata image)
+        => image == null ? null : new()
+        {
+            MovieDB_FanartID = image.TMDB_ImageMetadataID,
+            Enabled = image.IsEnabled ? 1 : 0,
+            ImageHeight = image.Height,
+            ImageID = string.Empty,
+            ImageSize = "original",
+            ImageType = "backdrop",
+            ImageWidth = image.Width,
+            MovieId = image.TmdbMovieID ?? 0,
+            URL = image.RemoteFileName,
+        };
+
+    public static MovieDB_Poster? ToClientPoster(this TMDB_ImageMetadata image)
+        => image == null ? null : new()
+        {
+            MovieDB_PosterID = image.TMDB_ImageMetadataID,
+            Enabled = image.IsEnabled ? 1 : 0,
+            ImageHeight = image.Height,
+            ImageID = string.Empty,
+            ImageSize = "original",
+            ImageType = "poster",
+            ImageWidth = image.Width,
+            MovieId = image.TmdbMovieID ?? 0,
+            URL = image.RemoteFileName,
+        };
 #nullable disable
 
     public static CL_Trakt_Season ToClient(this Trakt_Season season)
@@ -321,10 +350,10 @@ public static class ModelClients
                 parentImage = RepoFactory.TvDB_ImageFanart.GetByID(defaultImage.ImageParentID);
                 break;
             case ImageEntityType.MovieDB_Poster:
-                parentImage = RepoFactory.MovieDB_Poster.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TMDB_ImageMetadata.GetByID(defaultImage.ImageParentID).ToClientPoster();
                 break;
             case ImageEntityType.MovieDB_FanArt:
-                parentImage = RepoFactory.MovieDB_Fanart.GetByID(defaultImage.ImageParentID);
+                parentImage = RepoFactory.TMDB_ImageMetadata.GetByID(defaultImage.ImageParentID).ToClientFanart();
                 break;
         }
 

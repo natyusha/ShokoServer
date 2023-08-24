@@ -1,36 +1,60 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
-using Shoko.Plugin.Abstractions.Services;
-using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Models.Server.TMDB;
 using Shoko.Server.Commands;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models.CrossReference;
+using Shoko.Server.Providers.TMDB.Search;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using TMDbLib.Client;
+using TMDbLib.Objects.Movies;
+using TMDbLib.Objects.TvShows;
+using TMDbLib.Objects.General;
+using Shoko.Plugin.Abstractions.Enums;
+using Shoko.Server.Server;
 
 namespace Shoko.Server.Providers.TMDB;
 
 public class TMDBHelper
 {
     private readonly ILogger<TMDBHelper> _logger;
+
     private readonly ICommandRequestFactory _commandFactory;
+
     private readonly ISettingsProvider _settingsProvider;
-    private readonly IConnectivityService _connectivityService;
+
+    public readonly TMDBOfflineSearch OfflineSearch;
+
+    private readonly TMDbClient _client;
+
+    private static string _imageServerUrl = null;
+
+    public string ImageServerUrl =>
+        _imageServerUrl;
 
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
 
-    public TMDBHelper(ILogger<TMDBHelper> logger, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider, IConnectivityService connectivityService)
+    public TMDBHelper(ILoggerFactory loggerFactory, ICommandRequestFactory commandFactory, ISettingsProvider settingsProvider)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<TMDBHelper>();
         _commandFactory = commandFactory;
         _settingsProvider = settingsProvider;
-        _connectivityService = connectivityService;
+        _client = new(APIKey);
+        OfflineSearch = new(loggerFactory);
+
+        if (string.IsNullOrEmpty(_imageServerUrl))
+        {
+            var config = _client.GetAPIConfiguration().Result;
+            _imageServerUrl = config.Images.SecureBaseUrl + "/{0}";
+        }
     }
 
     public void ScanForMatches()
@@ -68,188 +92,14 @@ public class TMDBHelper
 
     #region Search
 
-    public List<TMDB_Movie_Result> SearchMovies(string query)
+    public List<Movie> SearchMovies(string query)
     {
-        var results = new List<TMDB_Movie_Result>();
+        var results = _client.SearchMovie(query);
 
-        try
-        {
-            var client = new TMDbClient(APIKey);
-            var resultsTemp = client.SearchMovie(query);
-
-            _logger.LogInformation("Got {Count} of {Results} results", resultsTemp.Results.Count,
-                resultsTemp.TotalResults);
-            foreach (var result in resultsTemp.Results)
-            {
-                var searchResult = new TMDB_Movie_Result();
-                var movie = client.GetMovie(result.Id);
-                var imgs = client.GetMovieImages(result.Id);
-                searchResult.Populate(movie, imgs);
-                results.Add(searchResult);
-                SaveMovieToDatabase(searchResult, false, false);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in TMDB Movie Search");
-        }
-
-        return results;
-    }
-
-    #endregion
-
-    #region Update
-
-    public void UpdateAllMovies(bool force, bool saveImages)
-    {
-        using var session = DatabaseFactory.SessionFactory.OpenSession();
-        var allXRefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll();
-        foreach (var xref in allXRefs)
-        {
-            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(
-                c =>
-                {
-                    c.TmdbMovieID = xref.TmdbMovieID;
-                    c.ForceRefresh = force;
-                    c.DownloadImages = saveImages;
-                }
-            );
-        }
-    }
-
-    public void UpdateMovie(int movieID, bool forceRefresh = false, bool downloadImages = false)
-    {
-        var client = new TMDbClient(APIKey);
-        var movie = client.GetMovie(movieID);
-        var imgs = client.GetMovieImages(movieID);
-
-        var searchResult = new TMDB_Movie_Result();
-        searchResult.Populate(movie, imgs);
-
-        SaveMovieToDatabase(searchResult, downloadImages, false);
-    }
-
-    private void SaveMovieToDatabase(TMDB_Movie_Result searchResult, bool saveImages, bool isTrakt)
-    {
-        // save to the DB
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(searchResult.MovieID) ?? new MovieDB_Movie();
-        movie.Populate(searchResult);
-
-        // Only save movie info if source is not trakt, this presents adding tv shows as movies
-        // Needs better fix later on
-
-        if (!isTrakt)
-        {
-            RepoFactory.MovieDb_Movie.Save(movie);
-        }
-
-        if (!saveImages)
-        {
-            return;
-        }
-
-        var numFanartDownloaded = 0;
-        var numPostersDownloaded = 0;
-
-        // save data to the DB and determine the number of images we already have
-        foreach (var img in searchResult.Images)
-        {
-            if (img.ImageType.Equals("poster", StringComparison.InvariantCultureIgnoreCase))
-            {
-                var poster = RepoFactory.MovieDB_Poster.GetByOnlineID(img.URL) ?? new MovieDB_Poster();
-                poster.Populate(img, movie.MovieId);
-                RepoFactory.MovieDB_Poster.Save(poster);
-
-                if (!string.IsNullOrEmpty(poster.GetFullImagePath()) && File.Exists(poster.GetFullImagePath()))
-                {
-                    numPostersDownloaded++;
-                }
-            }
-            else
-            {
-                // fanart (backdrop)
-                var fanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(img.URL) ?? new MovieDB_Fanart();
-                fanart.Populate(img, movie.MovieId);
-                RepoFactory.MovieDB_Fanart.Save(fanart);
-
-                if (!string.IsNullOrEmpty(fanart.GetFullImagePath()) && File.Exists(fanart.GetFullImagePath()))
-                {
-                    numFanartDownloaded++;
-                }
-            }
-        }
-
-        // download the posters
-        var settings = _settingsProvider.GetSettings();
-        if (settings.TMDB.AutoPosters || isTrakt)
-        {
-            foreach (var poster in RepoFactory.MovieDB_Poster.GetByMovieID(movie.MovieId))
-            {
-                if (numPostersDownloaded < settings.TMDB.AutoPostersAmount)
-                {
-                    // download the image
-                    if (string.IsNullOrEmpty(poster.GetFullImagePath()) || File.Exists(poster.GetFullImagePath()))
-                    {
-                        continue;
-                    }
-
-                    _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(
-                        c =>
-                        {
-                            c.EntityID = poster.MovieDB_PosterID;
-                            c.EntityType = (int)ImageEntityType.MovieDB_Poster;
-                        }
-                    );
-                    numPostersDownloaded++;
-                }
-                else
-                {
-                    //The MovieDB_AutoPostersAmount should prevent from saving image info without image
-                    // we should clean those image that we didn't download because those dont exists in local repo
-                    // first we check if file was downloaded
-                    if (!File.Exists(poster.GetFullImagePath()))
-                    {
-                        RepoFactory.MovieDB_Poster.Delete(poster.MovieDB_PosterID);
-                    }
-                }
-            }
-        }
-
-        // download the fanart
-        if (settings.TMDB.AutoFanart || isTrakt)
-        {
-            foreach (var fanart in RepoFactory.MovieDB_Fanart.GetByMovieID(movie.MovieId))
-            {
-                if (numFanartDownloaded < settings.TMDB.AutoFanartAmount)
-                {
-                    // download the image
-                    if (string.IsNullOrEmpty(fanart.GetFullImagePath()) || File.Exists(fanart.GetFullImagePath()))
-                    {
-                        continue;
-                    }
-
-                    _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(
-                        c =>
-                        {
-                            c.EntityID = fanart.MovieDB_FanartID;
-                            c.EntityType = (int)ImageEntityType.MovieDB_FanArt;
-                        }
-                    );
-                    numFanartDownloaded++;
-                }
-                else
-                {
-                    //The MovieDB_AutoFanartAmount should prevent from saving image info without image
-                    // we should clean those image that we didn't download because those dont exists in local repo
-                    // first we check if file was downloaded
-                    if (!File.Exists(fanart.GetFullImagePath()))
-                    {
-                        RepoFactory.MovieDB_Fanart.Delete(fanart.MovieDB_FanartID);
-                    }
-                }
-            }
-        }
+        _logger.LogInformation("Got {Count} of {Results} results", results.Results.Count, results.TotalResults);
+        return results.Results
+            .Select(result => _client.GetMovie(result.Id))
+            .ToList();
     }
 
     #endregion
@@ -284,7 +134,7 @@ public class TMDBHelper
     {
         if (purge)
         {
-            PurgeMovie(movieId);
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c => c.TmdbMovieID = movieId);
             return;
         }
 
@@ -294,7 +144,7 @@ public class TMDBHelper
 
         // Disable auto-matching when we remove an existing match for the series.
         var series = RepoFactory.AnimeSeries.GetByAnimeID(animeId);
-        if (series != null)
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
         {
             series.IsTMDBAutoMatchingDisabled = true;
             RepoFactory.AnimeSeries.Save(series, false, true, true);
@@ -312,7 +162,7 @@ public class TMDBHelper
 
         // Disable auto-matching when we remove an existing match for the series.
         var series = RepoFactory.AnimeSeries.GetByAnimeID(animeId);
-        if (series != null)
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
         {
             series.IsTMDBAutoMatchingDisabled = true;
             RepoFactory.AnimeSeries.Save(series, false, true, true);
@@ -335,15 +185,112 @@ public class TMDBHelper
 
     #endregion
 
+    #region Update
+
+    public void UpdateAllMovies(bool force, bool saveImages)
+    {
+        var allXRefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll();
+        _logger.LogInformation("Scheduling {Count} movies to be updated.", allXRefs.Count);
+        foreach (var xref in allXRefs)
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(
+                c =>
+                {
+                    c.TmdbMovieID = xref.TmdbMovieID;
+                    c.ForceRefresh = force;
+                    c.DownloadImages = saveImages;
+                }
+            );
+    }
+
+    public async Task UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false)
+    {
+        // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
+
+        var tmdbMovie = await _client.GetMovieAsync(movieId, "en");
+        // save to the DB
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(tmdbMovie.Id) ?? new();
+        movie.Populate(tmdbMovie);
+
+        RepoFactory.MovieDb_Movie.Save(movie);
+
+        await Task.WhenAll(
+            UpdateMovieTitlesAndOverviews(tmdbMovie),
+            downloadImages ? DownloadMovieImages(movieId) : Task.CompletedTask
+        );
+    }
+
+    private async Task UpdateMovieTitlesAndOverviews(Movie movie)
+    {
+        var translations = await _client.GetMovieTranslationsAsync(movie.Id);
+
+        // TODO: Add/update/remove titles and overviews.
+    }
+
+    public async Task DownloadMovieImages(int movieId, bool forceDownload = false)
+    {
+        var settings = _settingsProvider.GetSettings();
+        var images = await _client.GetMovieImagesAsync(movieId);
+        if (settings.TMDB.AutoDownloadPosters)
+            DownloadImagesByType(images.Posters, ImageEntityType_New.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+        if (settings.TMDB.AutoDownloadLogos)
+            DownloadImagesByType(images.Logos, ImageEntityType_New.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+        if (settings.TMDB.AutoDownloadBackdrops)
+            DownloadImagesByType(images.Backdrops, ImageEntityType_New.Backdrop, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+    }
+
+    #endregion
+
     #region Purge
+
+    public void PurgeAllUnusedMovies()
+    {
+        var allMovies = RepoFactory.MovieDb_Movie.GetAll().Select(movie => movie.MovieId)
+            .Concat(RepoFactory.TMDB_ImageMetadata.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID.Value))
+            .ToHashSet();
+        var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll()
+            .Select(xref => xref.TmdbMovieID)
+            .ToHashSet();
+        var toBePurged = allMovies
+            .Except(toKeep)
+            .ToHashSet();
+
+        _logger.LogInformation("Scheduling {Count} out of {AllCount} movies to be purged.", toBePurged.Count, allMovies.Count);
+        foreach (var movieID in toBePurged)
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c => c.TmdbMovieID = movieID);
+    }
 
     /// <summary>
     /// Purge a TMDB movie from the local database.
     /// </summary>
     /// <param name="movieId">TMDB Movie ID.</param>
-    public void PurgeMovie(int movieId)
+    /// <param name="removeImageFiles">Remove image files.</param>
+    public bool PurgeMovie(int movieId, bool removeImageFiles = true)
     {
-        // TODO: Add implementation to remove movie and clean up xrefs, images, etc.
+        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieId);
+        if (xrefs != null && xrefs.Count > 0)
+        {
+            foreach (var xref in xrefs)
+                RemoveMovieLink(xref);
+        }
+
+        PurgeMovieImages(movieId, removeImageFiles);
+
+        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieId);
+        if (movie != null)
+        {
+            _logger.LogTrace("Removing movie {MovieName} ({MovieID})", movie.OriginalName, movie.MovieId);
+            RepoFactory.MovieDb_Movie.Delete(movie);
+        }
+
+        return false;
+    }
+
+    private static void PurgeMovieImages(int movieId, bool removeFiles = true)
+    {
+        var images = RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieID(movieId);
+        if (images != null & images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Movie, removeFiles);
     }
 
     #endregion
@@ -352,34 +299,12 @@ public class TMDBHelper
 
     #region Show
 
-    public List<object> SearchShows(string query)
+    #region Search
+
+    public List<TvShow> SearchShows(string query)
     {
         // TODO: Implement search after finalising the search model.
         return default;
-    }
-
-    #region Update
-
-    public void UpdateAllShows(bool force = false, bool downloadImages = false)
-    {
-        using var session = DatabaseFactory.SessionFactory.OpenSession();
-        var allXRefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetAll();
-        foreach (var xref in allXRefs)
-        {
-            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Update>(
-                c =>
-                {
-                    c.TmdbShowID = xref.TmdbShowID;
-                    c.ForceRefresh = force;
-                    c.DownloadImages = downloadImages;
-                }
-            );
-        }
-    }
-
-    public void UpdateShow(int showId, bool force = false, bool downloadImages = false)
-    {
-        // TODO: Update show.
     }
 
     #endregion
@@ -424,7 +349,7 @@ public class TMDBHelper
 
         // Disable auto-matching when we remove an existing match for the series.
         var series = RepoFactory.AnimeSeries.GetByAnimeID(animeId);
-        if (series != null)
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
         {
             series.IsTMDBAutoMatchingDisabled = true;
             RepoFactory.AnimeSeries.Save(series, false, true, true);
@@ -442,7 +367,7 @@ public class TMDBHelper
 
         // Disable auto-matching when we remove an existing match for the series.
         var series = RepoFactory.AnimeSeries.GetByAnimeID(animeId);
-        if (series != null)
+        if (series != null && !series.IsTMDBAutoMatchingDisabled)
         {
             series.IsTMDBAutoMatchingDisabled = true;
             RepoFactory.AnimeSeries.Save(series, false, true, true);
@@ -467,12 +392,104 @@ public class TMDBHelper
 
     #endregion
 
+    #region Update
+
+    public void UpdateAllShows(bool force = false, bool downloadImages = false)
+    {
+        var allXRefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetAll();
+        _logger.LogInformation("Scheduling {Count} shows to be updated.", allXRefs.Count);
+        foreach (var xref in allXRefs)
+        {
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Update>(
+                c =>
+                {
+                    c.TmdbShowID = xref.TmdbShowID;
+                    c.ForceRefresh = force;
+                    c.DownloadImages = downloadImages;
+                }
+            );
+        }
+    }
+
+    public async Task UpdateShow(int showId, bool force = false, bool downloadEpisodeGroups = false, bool downloadImages = false)
+    {
+        // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
+
+        var show = await _client.GetTvShowAsync(showId);
+
+        // TODO: Update show.
+
+        await Task.WhenAll(
+            UpdateShowTitlesAndOverviews(show),
+            UpdateShowEpisodes(show),
+            UpdateShowSeasons(show),
+            downloadEpisodeGroups ? UpdateShowEpisodeGroups(show) : Task.CompletedTask,
+            downloadImages ? DownloadShowImages(showId) : Task.CompletedTask
+        );
+    }
+
+    private async Task UpdateShowTitlesAndOverviews(TvShow show)
+    {
+        var translations = await _client.GetTvShowTranslationsAsync(show.Id);
+
+        // TODO: Add/update/remove show titles.
+    }
+
+    private async Task UpdateShowEpisodes(TvShow show)
+    {
+        // TODO: Update TMDB episodes, check for xrefs, auto-add xrefs that does not exist, etc.
+    }
+
+    private async Task UpdateShowSeasons(TvShow show)
+    {
+        // TODO: Update TMDB seasons.
+    }
+
+    private async Task UpdateShowEpisodeGroups(TvShow show)
+    {
+        // TODO: Update TMDB episode groups.
+    }
+
+    public async Task DownloadShowImages(int showId, bool forceDownload = false)
+    {
+        var settings = _settingsProvider.GetSettings();
+        var images = await _client.GetTvShowImagesAsync(showId);
+        if (settings.TMDB.AutoDownloadPosters)
+            DownloadImagesByType(images.Posters, ImageEntityType_New.Poster, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+        if (settings.TMDB.AutoDownloadLogos)
+            DownloadImagesByType(images.Logos, ImageEntityType_New.Logo, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+        if (settings.TMDB.AutoDownloadBackdrops)
+            DownloadImagesByType(images.Backdrops, ImageEntityType_New.Backdrop, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+    }
+
+    #endregion
+
     #region Purge
 
-    public bool PurgeShow(int showId)
+    public void PurgeAllUnusedShows()
     {
+        // TODO: Implement this logic once the show tables are added and the repositories are set up.
+        var allShows = new HashSet<int>();
+        var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Show.GetAll()
+            .Select(xref => xref.TmdbShowID)
+            .ToHashSet();
+        var toBePurged = allShows
+            .Except(toKeep)
+            .ToHashSet();
 
-        RemoveAllShowLinks(showId, false);
+        _logger.LogInformation("Scheduling {Count} out of {AllCount} shows to be purged.", toBePurged.Count, allShows.Count);
+        foreach (var showID in toBePurged)
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Purge>(c => c.TmdbShowID = showID);
+    }
+
+    public bool PurgeShow(int showId, bool removeImageFiles = true)
+    {
+        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(showId);
+        if (xrefs != null && xrefs.Count > 0)
+        {
+            foreach (var xref in xrefs)
+                RemoveShowLink(xref);
+        }
 
         PurgeShowImages(showId);
 
@@ -480,24 +497,136 @@ public class TMDBHelper
 
         PurgeShowSeasons(showId);
 
+        PurgeShowEpisodeGroups(showId);
+
         // TODO: Remove show.
 
         return false;
     }
 
-    private static void PurgeShowImages(int showId)
+    private static void PurgeShowImages(int showId, bool removeFiles = true)
     {
-        // TODO: Remove Images.
+        var images = RepoFactory.TMDB_ImageMetadata.GetByTmdbShowID(showId);
+        if (images != null & images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Movie, removeFiles);
     }
 
-    private static void PurgeShowEpisodes(int showId)
+    private static void PurgeShowEpisodes(int showId, bool removeImageFiles = true)
     {
-        // TODO: Remove Episodes.
+        // TODO: Remove Episodes and their images.
     }
 
     private static void PurgeShowSeasons(int showId)
     {
         // TODO: Remove Seasons.
+    }
+
+    private static void PurgeShowEpisodeGroups(int showId)
+    {
+        // TODO: Remove all episode groups.
+    }
+
+    #endregion
+
+    #endregion
+
+    #region Shared
+
+    #region Image
+
+    private void DownloadImagesByType(IReadOnlyList<ImageData> images, ImageEntityType_New type, ForeignEntityType foreignType, int maxCount, int episodeId, bool forceDownload = false)
+    {
+        var count = 0;
+        foreach (var imageData in images)
+        {
+            if (count >= maxCount)
+                break;
+
+            var image = RepoFactory.TMDB_ImageMetadata.GetByRemoteFileNameAndType(imageData.FilePath, type) ?? new(type);
+            image.Populate(imageData, foreignType, episodeId);
+            RepoFactory.TMDB_ImageMetadata.Save(image);
+
+            var path = image.AbsolutePath;
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                count++;
+        }
+
+        foreach (var image in RepoFactory.TMDB_ImageMetadata.GetByForeignIDAndType(episodeId, foreignType, type))
+        {
+            var path = image.AbsolutePath;
+            if (count < maxCount)
+            {
+                // Clean up outdated entries.
+                if (string.IsNullOrEmpty(path))
+                {
+                    RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+                    continue;
+                }
+
+                // Skip downloading if it already exists.
+                if (File.Exists(path))
+                {
+                    count++;
+                    continue;
+                }
+
+                // Scheduled the image to be downloaded.
+                _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
+                {
+                    c.EntityID = image.TMDB_ImageMetadataID;
+                    c.DataSourceEnum = DataSourceEnum.TMDB;
+                    c.ForceDownload = forceDownload;
+                });
+                count++;
+            }
+            // Keep it if it's already downloaded, otherwise remove the metadata.
+            else if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+            }
+        }
+    }
+
+    private static void PurgeImage(TMDB_ImageMetadata image, ForeignEntityType foreignType, bool removeFile)
+    {
+        // Skip the operation if th flag is not set.
+        if (!image.ForeignType.HasFlag(foreignType))
+            return;
+
+        // Disable the flag.
+        image.ForeignType &= ~foreignType;
+
+        // Only delete the image metadata and/or file if all references were removed.
+        if (image.ForeignType == ForeignEntityType.None)
+        {
+            if (removeFile && !string.IsNullOrEmpty(image.AbsolutePath) && File.Exists(image.AbsolutePath))
+                File.Delete(image.AbsolutePath);
+
+            RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+        }
+        // Remove the ID since we're keeping the metadata a little bit longer.
+        else
+        {
+            switch (foreignType)
+            {
+                case ForeignEntityType.Movie:
+                    image.TmdbMovieID = null;
+                    break;
+                case ForeignEntityType.Episode:
+                    image.TmdbEpisodeID = null;
+                    break;
+                case ForeignEntityType.Season:
+                    image.TmdbSeasonID = null;
+                    break;
+                case ForeignEntityType.Show:
+                    image.TmdbShowID = null;
+                    break;
+                case ForeignEntityType.Collection:
+                    image.TmdbCollectionID = null;
+                    break;
+            }
+        }
     }
 
     #endregion

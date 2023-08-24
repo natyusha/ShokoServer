@@ -13,6 +13,7 @@ using Shoko.Server.Commands;
 using Shoko.Server.Commands.TvDB;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TraktTV;
 using Shoko.Server.Repositories;
 
@@ -25,20 +26,20 @@ public partial class ShokoServiceImplementation : IShokoServer
     {
         var result = new CL_AniDB_AnimeCrossRefs
         {
-            CrossRef_AniDB_TvDB = new List<CrossRef_AniDB_TvDBV2>(),
-            TvDBSeries = new List<TvDB_Series>(),
-            TvDBEpisodes = new List<TvDB_Episode>(),
-            TvDBImageFanarts = new List<TvDB_ImageFanart>(),
-            TvDBImagePosters = new List<TvDB_ImagePoster>(),
-            TvDBImageWideBanners = new List<TvDB_ImageWideBanner>(),
+            CrossRef_AniDB_TvDB = new(),
+            TvDBSeries = new(),
+            TvDBEpisodes = new(),
+            TvDBImageFanarts = new(),
+            TvDBImagePosters = new(),
+            TvDBImageWideBanners = new(),
             CrossRef_AniDB_MovieDB = null,
             MovieDBMovie = null,
-            MovieDBFanarts = new List<MovieDB_Fanart>(),
-            MovieDBPosters = new List<MovieDB_Poster>(),
+            MovieDBFanarts = new(),
+            MovieDBPosters = new(),
             CrossRef_AniDB_MAL = null,
-            CrossRef_AniDB_Trakt = new List<CrossRef_AniDB_TraktV2>(),
-            TraktShows = new List<CL_Trakt_Show>(),
-            AnimeID = animeID
+            CrossRef_AniDB_Trakt = new(),
+            TraktShows = new(),
+            AnimeID = animeID,
         };
 
         try
@@ -113,7 +114,7 @@ public partial class ShokoServiceImplementation : IShokoServer
                 if (fanart.ImageSize.Equals(Shoko.Models.Constants.MovieDBImageSize.Original,
                         StringComparison.InvariantCultureIgnoreCase))
                 {
-                    result.MovieDBFanarts.Add(fanart);
+                    result.MovieDBFanarts.Add(fanart.ToClientFanart());
                 }
             }
 
@@ -122,7 +123,7 @@ public partial class ShokoServiceImplementation : IShokoServer
                 if (poster.ImageSize.Equals(Shoko.Models.Constants.MovieDBImageSize.Original,
                         StringComparison.InvariantCultureIgnoreCase))
                 {
-                    result.MovieDBPosters.Add(poster);
+                    result.MovieDBPosters.Add(poster.ToClientPoster());
                 }
             }
 
@@ -1180,16 +1181,18 @@ public partial class ShokoServiceImplementation : IShokoServer
         try
         {
             if (movieID.HasValue)
-            {
-                return RepoFactory.MovieDB_Poster.GetByMovieID(movieID.Value);
-            }
+                return RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType_New.Poster)
+                    .Select(image => image.ToClientPoster())
+                    .ToList();
 
-            return RepoFactory.MovieDB_Poster.GetAllOriginal();
+            return RepoFactory.TMDB_ImageMetadata.GetByType(Server.ImageEntityType_New.Poster)
+                .Select(image => image.ToClientPoster())
+                .ToList();
         }
         catch (Exception ex)
         {
             logger.Error(ex, ex.ToString());
-            return new List<MovieDB_Poster>();
+            return new();
         }
     }
 
@@ -1199,25 +1202,33 @@ public partial class ShokoServiceImplementation : IShokoServer
         try
         {
             if (movieID.HasValue)
-            {
-                return RepoFactory.MovieDB_Fanart.GetByMovieID(movieID.Value);
-            }
+                return RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType_New.Backdrop)
+                    .Select(image => image.ToClientFanart())
+                    .ToList();
 
-            return RepoFactory.MovieDB_Fanart.GetAllOriginal();
+            return RepoFactory.TMDB_ImageMetadata.GetByType(Server.ImageEntityType_New.Backdrop)
+                .Select(image => image.ToClientFanart())
+                .ToList();
         }
         catch (Exception ex)
         {
             logger.Error(ex, ex.ToString());
-            return new List<MovieDB_Fanart>();
+            return new();
         }
     }
 
     [HttpPost("MovieDB/Refresh/{movieID}")]
-    public string UpdateMovieDBData(int movieD)
+    public string UpdateMovieDBData(int movieID)
     {
         try
         {
-            _tmdbHelper.UpdateMovie(movieD, forceRefresh: true, downloadImages: true);
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
+            {
+                c.TmdbMovieID = movieID;
+                c.DownloadImages = true;
+                c.ForceRefresh = true;
+                c.BubbleExceptions = true;
+            });
         }
         catch (Exception ex)
         {

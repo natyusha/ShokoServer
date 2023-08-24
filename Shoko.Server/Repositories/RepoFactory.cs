@@ -30,9 +30,8 @@ public static class RepoFactory
     public static ScheduledUpdateRepository ScheduledUpdate { get; } = new();
     public static RenameScriptRepository RenameScript { get; } = new();
     public static PlaylistRepository Playlist { get; } = new();
-    public static MovieDB_PosterRepository MovieDB_Poster { get; } = new();
-    public static MovieDB_FanartRepository MovieDB_Fanart { get; } = new();
     public static MovieDb_MovieRepository MovieDb_Movie { get; } = new();
+    public static TMDB_ImageMetadataRepository TMDB_ImageMetadata { get; } = new();
     public static IgnoreAnimeRepository IgnoreAnime { get; } = new();
     public static FileNameHashRepository FileNameHash { get; } = new();
     public static DuplicateFileRepository DuplicateFile { get; } = new();

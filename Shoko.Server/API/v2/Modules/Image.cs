@@ -15,6 +15,7 @@ using Shoko.Server.Extensions;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Properties;
 using Shoko.Server.Repositories;
+using Shoko.Server.Server;
 using Shoko.Server.Settings;
 using Mime = MimeMapping.MimeUtility;
 
@@ -302,48 +303,17 @@ public class Image : BaseController
                 logger.Trace("Could not find TvDB_FanArt image: {0}", fanart.GetFullImagePath());
                 break;
 
-            // 8
+            // 8 & 9
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetByID(id);
-                if (mFanart == null)
-                {
-                    return null;
-                }
-
-                mFanart = RepoFactory.MovieDB_Fanart.GetByOnlineID(mFanart.URL);
-                if (mFanart == null)
-                {
-                    return null;
-                }
-
-                path = mFanart.GetFullImagePath();
-                if (System.IO.File.Exists(path))
-                {
-                    return path;
-                }
-                else
-                {
-                    path = string.Empty;
-                    logger.Trace("Could not find MovieDB_FanArt image: {0}", mFanart.GetFullImagePath());
-                }
-
-                break;
-
-            // 9
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetByID(id);
-                if (mPoster == null)
+                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByID(id);
+                if (mFanart == null)
                 {
                     return null;
                 }
 
-                mPoster = RepoFactory.MovieDB_Poster.GetByOnlineID(mPoster.URL);
-                if (mPoster == null)
-                {
-                    return null;
-                }
 
-                path = mPoster.GetFullImagePath();
+                path = mFanart.AbsolutePath;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -351,7 +321,7 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find MovieDB_Poster image: {0}", mPoster.GetFullImagePath());
+                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.AbsolutePath);
                 }
 
                 break;
@@ -593,13 +563,13 @@ public class Image : BaseController
 
             // 8
             case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.MovieDB_Fanart.GetAll().GetRandomElement();
+                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType_New.Backdrop).GetRandomElement();
                 if (mFanart == null)
                 {
                     return null;
                 }
 
-                path = mFanart.GetFullImagePath();
+                path = mFanart.AbsolutePath;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -607,20 +577,20 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find MovieDB_FanArt image: {0}", mFanart.GetFullImagePath());
+                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.AbsolutePath);
                 }
 
                 break;
 
             // 9
             case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.MovieDB_Poster.GetAll().GetRandomElement();
+                var mPoster = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType_New.Poster).GetRandomElement();
                 if (mPoster == null)
                 {
                     return null;
                 }
 
-                path = mPoster.GetFullImagePath();
+                path = mPoster.AbsolutePath;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -628,7 +598,7 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find MovieDB_Poster image: {0}", mPoster.GetFullImagePath());
+                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", mPoster.AbsolutePath);
                 }
 
                 break;

@@ -110,7 +110,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
     private bool SearchForMovie(AniDB_Episode episode, string query)
     {
-        var results = Utils.TMDBOfflineSearch.SearchMovies(query).ToList();
+        var results = _helper.OfflineSearch.SearchMovies(query).ToList();
         if (results.Count == 0)
             return false;
 

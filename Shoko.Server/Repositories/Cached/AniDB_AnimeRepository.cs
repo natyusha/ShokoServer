@@ -9,6 +9,7 @@ using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
+using Shoko.Models.Server.TMDB;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
@@ -158,18 +159,18 @@ public class AniDB_AnimeRepository : BaseCachedRepository<SVR_AniDB_Anime, int>
                             ON tvPoster.TvDB_ImagePosterID = defImg.ImageParentID AND defImg.ImageParentType = :tvdbCoverType
                         LEFT OUTER JOIN TvDB_ImageFanart AS tvFanart
                             ON tvFanart.TvDB_ImageFanartID = defImg.ImageParentID AND defImg.ImageParentType = :tvdbFanartType
-                        LEFT OUTER JOIN MovieDB_Poster AS movPoster
-                            ON movPoster.MovieDB_PosterID = defImg.ImageParentID AND defImg.ImageParentType = :movdbPosterType
-                        LEFT OUTER JOIN MovieDB_Fanart AS movFanart
-                            ON movFanart.MovieDB_FanartID = defImg.ImageParentID AND defImg.ImageParentType = :movdbFanartType
+                        LEFT OUTER JOIN TMDB_ImageMetadata AS movPoster
+                            ON movPoster.ImageType = 6 AND movPoster.TMDB_ImageMetadataID = defImg.ImageParentID AND defImg.ImageParentType = :movdbPosterType
+                        LEFT OUTER JOIN TMDB_ImageMetadata AS movFanart
+                            ON movFanart.ImageType = 1 AND movFanart.TMDB_ImageMetadataID = defImg.ImageParentID AND defImg.ImageParentType = :movdbFanartType
                     WHERE defImg.AnimeID IN (:animeIds) AND defImg.ImageParentType IN (:tvdbBannerType, :tvdbCoverType, :tvdbFanartType, :movdbPosterType, :movdbFanartType)"
                 )
                 .AddEntity("defImg", typeof(AniDB_Anime_DefaultImage))
                 .AddEntity("tvWide", typeof(TvDB_ImageWideBanner))
                 .AddEntity("tvPoster", typeof(TvDB_ImagePoster))
                 .AddEntity("tvFanart", typeof(TvDB_ImageFanart))
-                .AddEntity("movPoster", typeof(MovieDB_Poster))
-                .AddEntity("movFanart", typeof(MovieDB_Fanart))
+                .AddEntity("movPoster", typeof(TMDB_ImageMetadata))
+                .AddEntity("movFanart", typeof(TMDB_ImageMetadata))
                 .SetParameterList("animeIds", animeIds)
                 .SetInt32("tvdbBannerType", (int)ImageEntityType.TvDB_Banner)
                 .SetInt32("tvdbCoverType", (int)ImageEntityType.TvDB_Cover)
@@ -196,10 +197,10 @@ public class AniDB_AnimeRepository : BaseCachedRepository<SVR_AniDB_Anime, int>
                     parentImage = (IImageEntity)result[3];
                     break;
                 case ImageEntityType.MovieDB_Poster:
-                    parentImage = (IImageEntity)result[4];
+                    parentImage = ((TMDB_ImageMetadata)result[4]).ToClientPoster();
                     break;
                 case ImageEntityType.MovieDB_FanArt:
-                    parentImage = (IImageEntity)result[5];
+                    parentImage = ((TMDB_ImageMetadata)result[5]).ToClientFanart();
                     break;
             }
 

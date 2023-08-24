@@ -9,6 +9,7 @@ using NLog;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.AniDB;
 using Shoko.Server.Commands.Import;
@@ -22,7 +23,7 @@ using Shoko.Server.Providers.TvDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.Cached;
 using Shoko.Server.Server;
-using Shoko.Server.Utilities;
+using Shoko.Server.Settings;
 using Utils = Shoko.Server.Utilities.Utils;
 
 namespace Shoko.Server;
@@ -460,7 +461,8 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvPoster.TvDB_ImagePosterID;
-                        c.EntityType = (int)ImageEntityType.TvDB_Cover;
+                        c.ImageTypeEnum = ImageEntityType_New.Poster;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
 
@@ -529,7 +531,8 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvFanart.TvDB_ImageFanartID;
-                        c.EntityType = (int)ImageEntityType.TvDB_FanArt;
+                        c.ImageTypeEnum = ImageEntityType_New.Backdrop;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
 
@@ -599,7 +602,8 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvBanner.TvDB_ImageWideBannerID;
-                        c.EntityType = (int)ImageEntityType.TvDB_Banner;
+                        c.ImageTypeEnum = ImageEntityType_New.Banner;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
 
@@ -633,150 +637,19 @@ public static class Importer
                 c =>
                 {
                     c.EntityID = tvEpisode.TvDB_EpisodeID;
-                    c.EntityType = (int)ImageEntityType.TvDB_Episode;
+                    c.ImageTypeEnum = ImageEntityType_New.Thumbnail;
+                    c.DataSourceEnum = DataSourceEnum.TvDB;
                 }
             );
         }
 
-        // TMDB Posters
-        if (settings.TMDB.AutoPosters)
-        {
-            var postersCount = new Dictionary<int, int>();
-
-            // build a dictionary of series and how many images exist
-            var allPosters = RepoFactory.MovieDB_Poster.GetAll();
-            foreach (var moviePoster in allPosters)
-            {
-                if (string.IsNullOrEmpty(moviePoster.GetFullImagePath()))
-                {
-                    continue;
-                }
-
-                var fileExists = File.Exists(moviePoster.GetFullImagePath());
-
-                if (!fileExists)
-                {
-                    continue;
-                }
-
-                if (postersCount.ContainsKey(moviePoster.MovieId))
-                {
-                    postersCount[moviePoster.MovieId] += 1;
-                }
-                else
-                {
-                    postersCount[moviePoster.MovieId] = 1;
-                }
-            }
-
-            foreach (var moviePoster in allPosters)
-            {
-                if (string.IsNullOrEmpty(moviePoster.GetFullImagePath()))
-                {
-                    continue;
-                }
-
-                var fileExists = File.Exists(moviePoster.GetFullImagePath());
-
-                var postersAvailable = 0;
-                if (postersCount.ContainsKey(moviePoster.MovieId))
-                {
-                    postersAvailable = postersCount[moviePoster.MovieId];
-                }
-
-                if (fileExists || postersAvailable >= settings.TMDB.AutoPostersAmount)
-                {
-                    continue;
-                }
-
-                commandFactory.CreateAndSave<CommandRequest_DownloadImage>(
-                    c =>
-                    {
-                        c.EntityID = moviePoster.MovieDB_PosterID;
-                        c.EntityType = (int)ImageEntityType.MovieDB_Poster;
-                    }
-                );
-
-                if (postersCount.ContainsKey(moviePoster.MovieId))
-                {
-                    postersCount[moviePoster.MovieId] += 1;
-                }
-                else
-                {
-                    postersCount[moviePoster.MovieId] = 1;
-                }
-            }
-        }
-
-        // TMDB Fanart
-        if (settings.TMDB.AutoFanart)
-        {
-            var fanartCount = new Dictionary<int, int>();
-
-            // build a dictionary of series and how many images exist
-            var allFanarts = RepoFactory.MovieDB_Fanart.GetAll();
-            foreach (var movieFanart in allFanarts)
-            {
-                if (string.IsNullOrEmpty(movieFanart.GetFullImagePath()))
-                {
-                    continue;
-                }
-
-                var fileExists = File.Exists(movieFanart.GetFullImagePath());
-
-                if (!fileExists)
-                {
-                    continue;
-                }
-
-                if (fanartCount.ContainsKey(movieFanart.MovieId))
-                {
-                    fanartCount[movieFanart.MovieId] += 1;
-                }
-                else
-                {
-                    fanartCount[movieFanart.MovieId] = 1;
-                }
-            }
-
-            foreach (var movieFanart in RepoFactory.MovieDB_Fanart.GetAll())
-            {
-                if (string.IsNullOrEmpty(movieFanart.GetFullImagePath()))
-                {
-                    continue;
-                }
-
-                var fileExists = File.Exists(movieFanart.GetFullImagePath());
-
-                var fanartAvailable = 0;
-                if (fanartCount.ContainsKey(movieFanart.MovieId))
-                {
-                    fanartAvailable = fanartCount[movieFanart.MovieId];
-                }
-
-                if (fileExists || fanartAvailable >= settings.TMDB.AutoFanartAmount)
-                {
-                    continue;
-                }
-
-                commandFactory.CreateAndSave<CommandRequest_DownloadImage>(
-                    c =>
-                    {
-                        c.EntityID = movieFanart.MovieDB_FanartID;
-                        c.EntityType = (int)ImageEntityType.MovieDB_FanArt;
-                    }
-                );
-
-                if (fanartCount.ContainsKey(movieFanart.MovieId))
-                {
-                    fanartCount[movieFanart.MovieId] += 1;
-                }
-                else
-                {
-                    fanartCount[movieFanart.MovieId] = 1;
-                }
-            }
-        }
+        // TMDB Images
+        if (settings.TMDB.AutoDownloadPosters)
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Poster, settings.TMDB.MaxAutoPosters);
+        if (settings.TMDB.AutoDownloadLogos)
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Logo, settings.TMDB.MaxAutoLogos);
+        if (settings.TMDB.AutoDownloadBackdrops)
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Backdrop, settings.TMDB.MaxAutoBackdrops);
 
         // AniDB Characters
         if (settings.AniDb.DownloadCharacters)
@@ -835,6 +708,92 @@ public static class Importer
                 }
 
                 commandFactory.CreateAndSave<CommandRequest_DownloadAniDBImages>(c => c.AnimeID = AnimeID);
+            }
+        }
+    }
+
+    private static void RunImport_DownloadTmdbImagesForType(ICommandRequestFactory commandFactory, ImageEntityType_New type, int maxCount)
+    {
+        // Build a few dictionaries to check how many images exist for each type.
+        var moviePosterCount = new Dictionary<int, int>();
+        var seasonPosterCount = new Dictionary<string, int>();
+        var showPosterCount = new Dictionary<int, int>();
+        var collectionPosterCount = new Dictionary<int, int>();
+        var allImages = RepoFactory.TMDB_ImageMetadata.GetByType(type);
+        foreach (var image in allImages)
+        {
+            var path = image.AbsolutePath;
+            if (string.IsNullOrEmpty(path))
+                continue;
+
+            if (!File.Exists(path))
+                continue;
+
+            if (image.TmdbMovieID.HasValue)
+                if (moviePosterCount.ContainsKey(image.TmdbMovieID.Value))
+                    moviePosterCount[image.TmdbMovieID.Value] += 1;
+                else
+                    moviePosterCount[image.TmdbMovieID.Value] = 1;
+            if (!string.IsNullOrEmpty(image.TmdbSeasonID))
+                if (seasonPosterCount.ContainsKey(image.TmdbSeasonID))
+                    seasonPosterCount[image.TmdbSeasonID] += 1;
+                else
+                    seasonPosterCount[image.TmdbSeasonID] = 1;
+            if (image.TmdbShowID.HasValue)
+                if (showPosterCount.ContainsKey(image.TmdbShowID.Value))
+                    showPosterCount[image.TmdbShowID.Value] += 1;
+                else
+                    showPosterCount[image.TmdbShowID.Value] = 1;
+            if (image.TmdbCollectionID.HasValue)
+                if (collectionPosterCount.ContainsKey(image.TmdbCollectionID.Value))
+                    collectionPosterCount[image.TmdbCollectionID.Value] += 1;
+                else
+                    collectionPosterCount[image.TmdbCollectionID.Value] = 1;
+        }
+
+        foreach (var image in allImages)
+        {
+            var path = image.AbsolutePath;
+            if (string.IsNullOrEmpty(path) || File.Exists(path))
+                continue;
+
+            // Check if we should download the image or not.
+            var shouldDownload = false;
+            if (moviePosterCount.TryGetValue(image.TmdbMovieID ?? 0, out var moviePosters) && moviePosters < maxCount)
+                shouldDownload = true;
+            if (seasonPosterCount.TryGetValue(image.TmdbSeasonID, out var seasonPosters) && seasonPosters < maxCount)
+                shouldDownload = true;
+            if (showPosterCount.TryGetValue(image.TmdbShowID ?? 0, out var showPosters) && showPosters < maxCount)
+                shouldDownload = true;
+
+            if (shouldDownload)
+            {
+                commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
+                {
+                    c.EntityID = image.TMDB_ImageMetadataID;
+                    c.DataSourceEnum = DataSourceEnum.TMDB;
+                });
+
+                if (image.TmdbMovieID.HasValue)
+                    if (moviePosterCount.ContainsKey(image.TmdbMovieID.Value))
+                        moviePosterCount[image.TmdbMovieID.Value] += 1;
+                    else
+                        moviePosterCount[image.TmdbMovieID.Value] = 1;
+                if (!string.IsNullOrEmpty(image.TmdbSeasonID))
+                    if (seasonPosterCount.ContainsKey(image.TmdbSeasonID))
+                        seasonPosterCount[image.TmdbSeasonID] += 1;
+                    else
+                        seasonPosterCount[image.TmdbSeasonID] = 1;
+                if (image.TmdbShowID.HasValue)
+                    if (showPosterCount.ContainsKey(image.TmdbShowID.Value))
+                        showPosterCount[image.TmdbShowID.Value] += 1;
+                    else
+                        showPosterCount[image.TmdbShowID.Value] = 1;
+                if (image.TmdbCollectionID.HasValue)
+                    if (collectionPosterCount.ContainsKey(image.TmdbCollectionID.Value))
+                        collectionPosterCount[image.TmdbCollectionID.Value] += 1;
+                    else
+                        collectionPosterCount[image.TmdbCollectionID.Value] = 1;
             }
         }
     }

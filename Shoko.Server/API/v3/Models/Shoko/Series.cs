@@ -24,6 +24,7 @@ using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
 using AniDBAnimeType = Shoko.Models.Enums.AnimeType;
 using RelationType = Shoko.Plugin.Abstractions.DataModels.RelationType;
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using Shoko.Server.Server;
 
 namespace Shoko.Server.API.v3.Models.Shoko;
 
@@ -595,24 +596,23 @@ public class Series : BaseModel
     {
         var tmdbIDs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(animeID);
 
-        var defaultPoster =
-            RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeTypeAndImageEntityType(animeID,
+        var defaultPoster = RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeTypeAndImageEntityType(animeID,
                 ImageSizeType.Poster, ImageEntityType.MovieDB_Poster);
-        var tmdbPosters = tmdbIDs.SelectMany(a => RepoFactory.MovieDB_Poster.GetByMovieID(a.TmdbMovieID)).ToList();
-        images.Posters.AddRange(tmdbPosters.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
+        var tmdbPosters = tmdbIDs.SelectMany(a => RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(a.TmdbMovieID, ImageEntityType_New.Poster)).ToList();
+        images.Posters.AddRange(tmdbPosters.Where(a => includeDisabled || a.IsEnabled).Select(a =>
         {
-            var preferred = defaultPoster != null && defaultPoster.ImageParentID == a.MovieDB_PosterID;
-            return new Image(a.MovieDB_PosterID, ImageEntityType.MovieDB_Poster, preferred, a.Enabled == 1);
+            var preferred = defaultPoster != null && defaultPoster.ImageParentID == a.TMDB_ImageMetadataID;
+            return new Image(a.TMDB_ImageMetadataID, ImageEntityType.MovieDB_Poster, preferred, a.IsEnabled);
         }));
 
         var defaultFanart =
             RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeTypeAndImageEntityType(animeID,
                 ImageSizeType.Fanart, ImageEntityType.MovieDB_FanArt);
-        var tmdbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.MovieDB_Fanart.GetByMovieID(xref.TmdbMovieID)).ToList();
-        images.Fanarts.AddRange(tmdbFanarts.Where(a => includeDisabled || a.Enabled != 0).Select(a =>
+        var tmdbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(xref.TmdbMovieID, ImageEntityType_New.Backdrop)).ToList();
+        images.Fanarts.AddRange(tmdbFanarts.Where(a => includeDisabled || a.IsEnabled).Select(a =>
         {
-            var preferred = defaultFanart != null && defaultFanart.ImageParentID == a.MovieDB_FanartID;
-            return new Image(a.MovieDB_FanartID, ImageEntityType.MovieDB_FanArt, preferred, a.Enabled == 1);
+            var preferred = defaultFanart != null && defaultFanart.ImageParentID == a.TMDB_ImageMetadataID;
+            return new Image(a.TMDB_ImageMetadataID, ImageEntityType.MovieDB_FanArt, preferred, a.IsEnabled);
         }));
     }
 

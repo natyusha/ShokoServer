@@ -22,6 +22,7 @@ using TvDbSharper;
 using TvDbSharper.Dto;
 
 using SentrySdk = Sentry.SentrySdk;
+using Shoko.Plugin.Abstractions.Enums;
 
 namespace Shoko.Server.Providers.TvDB;
 
@@ -689,7 +690,8 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImageFanartID;
-                        c.EntityType = (int)ImageEntityType.TvDB_FanArt;
+                        c.ImageTypeEnum = ImageEntityType_New.Backdrop;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -727,7 +729,8 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImagePosterID;
-                        c.EntityType = (int)ImageEntityType.TvDB_Cover;
+                        c.ImageTypeEnum = ImageEntityType_New.Poster;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -764,7 +767,8 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImageWideBannerID;
-                        c.EntityType = (int)ImageEntityType.TvDB_Banner;
+                        c.ImageTypeEnum = ImageEntityType_New.Banner;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -899,7 +903,8 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = ep.TvDB_EpisodeID;
-                        c.EntityType = (int)ImageEntityType.TvDB_Episode;
+                        c.ImageTypeEnum = ImageEntityType_New.Thumbnail;
+                        c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceRefresh;
                     }
                 );
