@@ -11,7 +11,7 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
 {
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbMovieIDs;
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbEpisodeIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, string?>? _tmdbSeasonIDs;
+    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbSeasonIDs;
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbShowIDs;
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbCollectionIDs;
     private PocoIndex<int, TMDB_ImageMetadata, ImageEntityType_New>? _tmdbTypes;
@@ -29,10 +29,10 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeIDAndType(int? episodeId, ImageEntityType_New type)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId)).Where(image => image.ImageType == type).ToList();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonID(string? seasonId)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonID(int? seasonId)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonIDAndType(string? seasonId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonIDAndType(int? seasonId, ImageEntityType_New type)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId))?.Where(image => image.ImageType == type).ToList() ?? new();
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowID(int? showId)
@@ -50,14 +50,14 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
     public IReadOnlyList<TMDB_ImageMetadata> GetByType(ImageEntityType_New type)
         => ReadLock(() => _tmdbTypes!.GetMultiple(type)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByForeignIDAndType(object? id, ForeignEntityType foreignType, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType_New type)
         => foreignType switch
         {
-            ForeignEntityType.Movie => GetByTmdbMovieIDAndType(id as int?, type),
-            ForeignEntityType.Episode => GetByTmdbEpisodeIDAndType(id as int?, type),
-            ForeignEntityType.Season => GetByTmdbSeasonIDAndType(id as string, type),
-            ForeignEntityType.Show => GetByTmdbShowIDAndType(id as int?, type),
-            ForeignEntityType.Collection => GetByTmdbCollectionIDAndType(id as int?, type),
+            ForeignEntityType.Movie => GetByTmdbMovieIDAndType(id, type),
+            ForeignEntityType.Episode => GetByTmdbEpisodeIDAndType(id, type),
+            ForeignEntityType.Season => GetByTmdbSeasonIDAndType(id, type),
+            ForeignEntityType.Show => GetByTmdbShowIDAndType(id, type),
+            ForeignEntityType.Collection => GetByTmdbCollectionIDAndType(id, type),
             _ => new List<TMDB_ImageMetadata>(),
         };
 

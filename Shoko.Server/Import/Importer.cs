@@ -716,7 +716,7 @@ public static class Importer
     {
         // Build a few dictionaries to check how many images exist for each type.
         var moviePosterCount = new Dictionary<int, int>();
-        var seasonPosterCount = new Dictionary<string, int>();
+        var seasonPosterCount = new Dictionary<int, int>();
         var showPosterCount = new Dictionary<int, int>();
         var collectionPosterCount = new Dictionary<int, int>();
         var allImages = RepoFactory.TMDB_ImageMetadata.GetByType(type);
@@ -734,11 +734,11 @@ public static class Importer
                     moviePosterCount[image.TmdbMovieID.Value] += 1;
                 else
                     moviePosterCount[image.TmdbMovieID.Value] = 1;
-            if (!string.IsNullOrEmpty(image.TmdbSeasonID))
-                if (seasonPosterCount.ContainsKey(image.TmdbSeasonID))
-                    seasonPosterCount[image.TmdbSeasonID] += 1;
+            if (image.TmdbSeasonID.HasValue)
+                if (seasonPosterCount.ContainsKey(image.TmdbSeasonID.Value))
+                    seasonPosterCount[image.TmdbSeasonID.Value] += 1;
                 else
-                    seasonPosterCount[image.TmdbSeasonID] = 1;
+                    seasonPosterCount[image.TmdbSeasonID.Value] = 1;
             if (image.TmdbShowID.HasValue)
                 if (showPosterCount.ContainsKey(image.TmdbShowID.Value))
                     showPosterCount[image.TmdbShowID.Value] += 1;
@@ -761,7 +761,7 @@ public static class Importer
             var shouldDownload = false;
             if (moviePosterCount.TryGetValue(image.TmdbMovieID ?? 0, out var moviePosters) && moviePosters < maxCount)
                 shouldDownload = true;
-            if (seasonPosterCount.TryGetValue(image.TmdbSeasonID, out var seasonPosters) && seasonPosters < maxCount)
+            if (seasonPosterCount.TryGetValue(image.TmdbSeasonID ?? 0, out var seasonPosters) && seasonPosters < maxCount)
                 shouldDownload = true;
             if (showPosterCount.TryGetValue(image.TmdbShowID ?? 0, out var showPosters) && showPosters < maxCount)
                 shouldDownload = true;
@@ -779,11 +779,11 @@ public static class Importer
                         moviePosterCount[image.TmdbMovieID.Value] += 1;
                     else
                         moviePosterCount[image.TmdbMovieID.Value] = 1;
-                if (!string.IsNullOrEmpty(image.TmdbSeasonID))
-                    if (seasonPosterCount.ContainsKey(image.TmdbSeasonID))
-                        seasonPosterCount[image.TmdbSeasonID] += 1;
+                if (image.TmdbSeasonID.HasValue)
+                    if (seasonPosterCount.ContainsKey(image.TmdbSeasonID.Value))
+                        seasonPosterCount[image.TmdbSeasonID.Value] += 1;
                     else
-                        seasonPosterCount[image.TmdbSeasonID] = 1;
+                        seasonPosterCount[image.TmdbSeasonID.Value] = 1;
                 if (image.TmdbShowID.HasValue)
                     if (showPosterCount.ContainsKey(image.TmdbShowID.Value))
                         showPosterCount[image.TmdbShowID.Value] += 1;

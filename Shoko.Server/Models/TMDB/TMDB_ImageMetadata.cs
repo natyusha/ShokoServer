@@ -37,7 +37,7 @@ public class TMDB_ImageMetadata
     /// <remarks>
     /// An image can be linked to multiple entries at once.
     /// </remarks>
-    public string? TmdbSeasonID { get; set; }
+    public int? TmdbSeasonID { get; set; }
 
     /// <summary>
     /// Related TMDB Show entry id, if applicable.
@@ -154,32 +154,24 @@ public class TMDB_ImageMetadata
         Populate(data);
         switch (foreignType)
         {
-            case ForeignEntityType.Collection:
-                TmdbCollectionID = foreignId;
+            case ForeignEntityType.Movie:
+                TmdbMovieID = foreignId;
                 ForeignType |= foreignType;
                 break;
             case ForeignEntityType.Episode:
                 TmdbEpisodeID = foreignId;
                 ForeignType |= foreignType;
                 break;
-            case ForeignEntityType.Movie:
-                TmdbMovieID = foreignId;
+            case ForeignEntityType.Season:
+                TmdbSeasonID = foreignId;
                 ForeignType |= foreignType;
                 break;
             case ForeignEntityType.Show:
                 TmdbShowID = foreignId;
                 ForeignType |= foreignType;
                 break;
-        }
-    }
-
-    public void Populate(ImageData data, ForeignEntityType foreignType, string foreignId)
-    {
-        Populate(data);
-        switch (foreignType)
-        {
-            case ForeignEntityType.Season:
-                TmdbSeasonID = foreignId;
+            case ForeignEntityType.Collection:
+                TmdbCollectionID = foreignId;
                 ForeignType |= foreignType;
                 break;
         }
