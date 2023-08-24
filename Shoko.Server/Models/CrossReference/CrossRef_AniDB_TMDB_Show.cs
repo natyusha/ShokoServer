@@ -13,7 +13,7 @@ public class CrossRef_AniDB_TMDB_Show
 
     public int TmdbShowID { get; set; }
 
-    public string? TmdbSeasonID { get; set; }
+    public int? TmdbSeasonID { get; set; }
 
     public CrossRefSource Source { get; set; }
 
@@ -22,7 +22,7 @@ public class CrossRef_AniDB_TMDB_Show
 
     public CrossRef_AniDB_TMDB_Show() { }
 
-    public CrossRef_AniDB_TMDB_Show(int anidbAnimeId, int tmdbShowId, string? tmdbSeasonId = null, CrossRefSource source = CrossRefSource.User)
+    public CrossRef_AniDB_TMDB_Show(int anidbAnimeId, int tmdbShowId, int? tmdbSeasonId = null, CrossRefSource source = CrossRefSource.User)
     {
         AnidbAnimeID = anidbAnimeId;
         TmdbShowID = tmdbShowId;

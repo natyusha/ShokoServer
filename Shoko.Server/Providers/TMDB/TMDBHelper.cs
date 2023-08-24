@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -319,7 +319,7 @@ public class TMDBHelper
 
     #region Links
 
-    public void AddShowLink(int animeId, int showId, string seasonId = null, bool additiveLink = true, bool isAutomatic = false, bool forceRefresh = false)
+    public void AddShowLink(int animeId, int showId, int? seasonId = null, bool additiveLink = true, bool isAutomatic = false, bool forceRefresh = false)
     {
         // Remove all existing links.
         if (!additiveLink)
@@ -329,7 +329,7 @@ public class TMDBHelper
         _logger.LogInformation("Adding TMDB Show Link: AniDB (ID:{AnidbID}) → TvDB Show (ID:{TmdbID})", animeId, showId);
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeAndTmdbShowIDs(animeId, showId) ??
             new(animeId, showId);
-        if (!string.IsNullOrEmpty(seasonId))
+        if (seasonId.HasValue)
             xref.TmdbSeasonID = seasonId;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Show.Save(xref);
