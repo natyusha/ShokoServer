@@ -20,7 +20,7 @@ using Shoko.Server.Utilities;
 
 namespace Shoko.Server.Commands;
 
-[Command(CommandRequestType.ImageDownload_New)]
+[Command(CommandRequestType.ImageDownload)]
 public class CommandRequest_DownloadImage : CommandRequestImplementation
 {
     private const string FailedToDownloadNoID = "Image failed to download: Can\'t find valid {EntityType} with ID: {EntityID}";

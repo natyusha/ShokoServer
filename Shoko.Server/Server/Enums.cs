@@ -61,7 +61,6 @@ public enum CommandRequestType
     TMDB_Movie_DownloadImages = 108,
     TMDB_Movie_AddLink = 109,
     TMDB_Movie_Purge = 110,
-    ImageDownload_New = 111,
 }
 
 public enum CommandRequestPriority
