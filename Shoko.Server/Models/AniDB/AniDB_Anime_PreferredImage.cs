@@ -20,7 +20,7 @@ public class AniDB_Anime_PreferredImage
 
     public DataSourceType ImageSource { get; set; }
 
-    public IImageEntity? GetImage()
+    public IImageEntity? GetImageEntity()
         => ImageSource switch
         {
             DataSourceType.TMDB => ImageType switch

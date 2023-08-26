@@ -312,7 +312,7 @@ public static class ModelClients
         if (image == null)
             return null;
 
-        parentImage ??= image.GetImage();
+        parentImage ??= image.GetImageEntity();
         if (parentImage == null)
             return null;
 
