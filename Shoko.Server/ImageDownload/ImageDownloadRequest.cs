@@ -9,6 +9,7 @@ using Shoko.Server.Models;
 using Shoko.Server.Server;
 using Shoko.Commons.Utils;
 using Shoko.Server.Providers.AniDB;
+using Shoko.Server.Providers.TMDB;
 
 #nullable enable
 namespace Shoko.Server.ImageDownload;

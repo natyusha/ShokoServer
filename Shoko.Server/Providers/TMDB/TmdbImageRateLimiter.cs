@@ -2,7 +2,7 @@
 using System.Threading;
 using NLog;
 
-namespace Shoko.Server.Providers.AniDB;
+namespace Shoko.Server.Providers.TMDB;
 
 public sealed class TmdbImageRateLimiter
 {
