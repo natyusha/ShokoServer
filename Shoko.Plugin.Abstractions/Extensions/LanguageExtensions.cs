@@ -8,7 +8,7 @@ public static class LanguageExtensions
 {
     public static TitleLanguage GetTitleLanguage(this string lang)
     {
-        return lang.ToUpper() switch
+        return lang?.ToUpper() switch
         {
             "EN" or "ENG" => TitleLanguage.English,
             "X-JAT" => TitleLanguage.Romaji,
@@ -136,6 +136,8 @@ public static class LanguageExtensions
             "CATALAN" or "SPANISH (LATIN AMERICAN)" => TitleLanguage.Spanish,
             "KOREAN (TRANSCRIPTION)" => TitleLanguage.KoreanTranscription,
             "FILIPINO (TAGALOG)" => TitleLanguage.Filipino,
+            "" => TitleLanguage.None,
+            null => TitleLanguage.None,
             _ => Enum.TryParse<TitleLanguage>(lang.ToLowerInvariant(), out var titleLanguage) ?
                 titleLanguage : TitleLanguage.Unknown,
         };
