@@ -31,7 +31,7 @@ public static class RepoFactory
     public static RenameScriptRepository RenameScript { get; } = new();
     public static PlaylistRepository Playlist { get; } = new();
     public static MovieDb_MovieRepository MovieDb_Movie { get; } = new();
-    public static TMDB_ImageMetadataRepository TMDB_ImageMetadata { get; } = new();
+    public static TMDB_ImageRepository TMDB_Image { get; } = new();
     public static IgnoreAnimeRepository IgnoreAnime { get; } = new();
     public static FileNameHashRepository FileNameHash { get; } = new();
     public static DuplicateFileRepository DuplicateFile { get; } = new();

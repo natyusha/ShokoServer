@@ -66,7 +66,7 @@ public class ImageDownloadRequest
             AniDB_Character character => character.GetPosterPath(),
             AniDB_Seiyuu creator => creator.GetPosterPath(),
             SVR_AniDB_Anime anime => anime.PosterPath,
-            TMDB_ImageMetadata tmdbImage => tmdbImage.LocalPath,
+            TMDB_Image tmdbImage => tmdbImage.LocalPath,
             TvDB_Episode episode => episode.GetFullImagePath(),
             TvDB_ImageFanart image => image.GetFullImagePath(),
             TvDB_ImagePoster image => image.GetFullImagePath(),
@@ -82,7 +82,7 @@ public class ImageDownloadRequest
             AniDB_Character character => string.Format(ImageServerUrl, character.PicName),
             AniDB_Seiyuu creator => string.Format(ImageServerUrl, creator.PicName),
             SVR_AniDB_Anime anime => string.Format(ImageServerUrl, anime.Picname),
-            TMDB_ImageMetadata tmdbImage => tmdbImage.RemoteURL,
+            TMDB_Image tmdbImage => tmdbImage.RemoteURL,
             TvDB_Episode ep => string.Format(Constants.URLS.TvDB_Episode_Images, ep.Filename),
             TvDB_ImageFanart fanart => string.Format(Constants.URLS.TvDB_Images, fanart.BannerPath),
             TvDB_ImagePoster poster => string.Format(Constants.URLS.TvDB_Images, poster.BannerPath),
@@ -105,7 +105,7 @@ public class ImageDownloadRequest
     private bool ShouldTmdbRateLimit
         => ImageData switch
         {
-            TMDB_ImageMetadata => true,
+            TMDB_Image => true,
             _ => false,
         };
 
@@ -207,8 +207,8 @@ public class ImageDownloadRequest
     {
         switch (ImageData)
         {
-            case TMDB_ImageMetadata tmdbImage:
-                Repositories.RepoFactory.TMDB_ImageMetadata.Delete(tmdbImage);
+            case TMDB_Image tmdbImage:
+                Repositories.RepoFactory.TMDB_Image.Delete(tmdbImage);
                 return true;
 
             case TvDB_ImageFanart tvdbFanart:

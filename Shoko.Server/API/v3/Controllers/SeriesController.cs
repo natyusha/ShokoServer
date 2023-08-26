@@ -1440,7 +1440,7 @@ public class SeriesController : BaseController
                 break;
             case CL_ImageEntityType.MovieDB_Poster:
             case CL_ImageEntityType.MovieDB_FanArt:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(body.ID);
+                var tmdbImage = RepoFactory.TMDB_Image.GetByID(body.ID);
                 if (tmdbImage == null)
                     return ValidationProblem(InvalidIDForSource);
 

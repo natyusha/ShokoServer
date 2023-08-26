@@ -253,7 +253,7 @@ public class TMDBHelper
     public void PurgeAllUnusedMovies()
     {
         var allMovies = RepoFactory.MovieDb_Movie.GetAll().Select(movie => movie.MovieId)
-            .Concat(RepoFactory.TMDB_ImageMetadata.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID.Value))
+            .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID.Value))
             .ToHashSet();
         var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll()
             .Select(xref => xref.TmdbMovieID)
@@ -295,7 +295,7 @@ public class TMDBHelper
 
     private static void PurgeMovieImages(int movieId, bool removeFiles = true)
     {
-        var images = RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieID(movieId);
+        var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
         if (images != null & images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Movie, removeFiles);
@@ -516,7 +516,7 @@ public class TMDBHelper
 
     private static void PurgeShowImages(int showId, bool removeFiles = true)
     {
-        var images = RepoFactory.TMDB_ImageMetadata.GetByTmdbShowID(showId);
+        var images = RepoFactory.TMDB_Image.GetByTmdbShowID(showId);
         if (images != null & images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Movie, removeFiles);
@@ -553,16 +553,16 @@ public class TMDBHelper
             if (count >= maxCount)
                 break;
 
-            var image = RepoFactory.TMDB_ImageMetadata.GetByRemoteFileNameAndType(imageData.FilePath, type) ?? new(type);
+            var image = RepoFactory.TMDB_Image.GetByRemoteFileNameAndType(imageData.FilePath, type) ?? new(type);
             image.Populate(imageData, foreignType, episodeId);
-            RepoFactory.TMDB_ImageMetadata.Save(image);
+            RepoFactory.TMDB_Image.Save(image);
 
             var path = image.LocalPath;
             if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 count++;
         }
 
-        foreach (var image in RepoFactory.TMDB_ImageMetadata.GetByForeignIDAndType(episodeId, foreignType, type))
+        foreach (var image in RepoFactory.TMDB_Image.GetByForeignIDAndType(episodeId, foreignType, type))
         {
             var path = image.LocalPath;
             if (count < maxCount)
@@ -570,7 +570,7 @@ public class TMDBHelper
                 // Clean up outdated entries.
                 if (string.IsNullOrEmpty(path))
                 {
-                    RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+                    RepoFactory.TMDB_Image.Delete(image.TMDB_ImageID);
                     continue;
                 }
 
@@ -584,7 +584,7 @@ public class TMDBHelper
                 // Scheduled the image to be downloaded.
                 _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
                 {
-                    c.EntityID = image.TMDB_ImageMetadataID;
+                    c.EntityID = image.TMDB_ImageID;
                     c.DataSourceEnum = DataSourceEnum.TMDB;
                     c.ForceDownload = forceDownload;
                 });
@@ -593,12 +593,12 @@ public class TMDBHelper
             // Keep it if it's already downloaded, otherwise remove the metadata.
             else if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
-                RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+                RepoFactory.TMDB_Image.Delete(image.TMDB_ImageID);
             }
         }
     }
 
-    private static void PurgeImage(TMDB_ImageMetadata image, ForeignEntityType foreignType, bool removeFile)
+    private static void PurgeImage(TMDB_Image image, ForeignEntityType foreignType, bool removeFile)
     {
         // Skip the operation if th flag is not set.
         if (!image.ForeignType.HasFlag(foreignType))
@@ -613,7 +613,7 @@ public class TMDBHelper
             if (removeFile && !string.IsNullOrEmpty(image.LocalPath) && File.Exists(image.LocalPath))
                 File.Delete(image.LocalPath);
 
-            RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
+            RepoFactory.TMDB_Image.Delete(image.TMDB_ImageID);
         }
         // Remove the ID since we're keeping the metadata a little bit longer.
         else
@@ -646,7 +646,7 @@ public class TMDBHelper
         {
             if (defaultImage.ImageSource == DataSourceType.TMDB)
             {
-                var image = RepoFactory.TMDB_ImageMetadata.GetByID(defaultImage.ImageID);
+                var image = RepoFactory.TMDB_Image.GetByID(defaultImage.ImageID);
                 if (image == null)
                 {
                     _logger.LogTrace("Removing preferred image for anime {AnimeId} because the preferred image could not be found.", anidbAnimeId);

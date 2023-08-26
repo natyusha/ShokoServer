@@ -103,7 +103,7 @@ public class Image
 
             // We can now grab the metadata from the database(!)
             case DataSourceType.TMDB:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(id);
+                var tmdbImage = RepoFactory.TMDB_Image.GetByID(id);
                 if (tmdbImage != null)
                 {
                     var relativePath = tmdbImage.RelativePath;
@@ -369,8 +369,8 @@ public class Image
                     .GetRandomElement()?.StaffID,
                 _ => null,
             },
-            DataSourceType.TMDB => RepoFactory.TMDB_ImageMetadata.GetByType(imageType)
-                .GetRandomElement()?.TMDB_ImageMetadataID,
+            DataSourceType.TMDB => RepoFactory.TMDB_Image.GetByType(imageType)
+                .GetRandomElement()?.TMDB_ImageID,
             // TvDB doesn't allow H content, so we get to skip the check!
             DataSourceType.TvDB => imageType switch
             {
@@ -441,7 +441,7 @@ public class Image
 
             case CL_ImageEntityType.MovieDB_Poster:
             case CL_ImageEntityType.MovieDB_FanArt:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
+                var tmdbImage = RepoFactory.TMDB_Image.GetByID(imageID);
                 if (tmdbImage == null || !tmdbImage.TmdbMovieID.HasValue)
                     return null;
 

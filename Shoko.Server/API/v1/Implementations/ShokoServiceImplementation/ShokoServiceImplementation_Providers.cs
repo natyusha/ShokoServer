@@ -1108,11 +1108,11 @@ public partial class ShokoServiceImplementation : IShokoServer
         try
         {
             if (movieID.HasValue)
-                return RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType.Poster)
+                return RepoFactory.TMDB_Image.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType.Poster)
                     .Select(image => image.ToClientPoster())
                     .ToList();
 
-            return RepoFactory.TMDB_ImageMetadata.GetByType(Server.ImageEntityType.Poster)
+            return RepoFactory.TMDB_Image.GetByType(Server.ImageEntityType.Poster)
                 .Select(image => image.ToClientPoster())
                 .ToList();
         }
@@ -1129,11 +1129,11 @@ public partial class ShokoServiceImplementation : IShokoServer
         try
         {
             if (movieID.HasValue)
-                return RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType.Backdrop)
+                return RepoFactory.TMDB_Image.GetByTmdbMovieIDAndType(movieID.Value, Server.ImageEntityType.Backdrop)
                     .Select(image => image.ToClientFanart())
                     .ToList();
 
-            return RepoFactory.TMDB_ImageMetadata.GetByType(Server.ImageEntityType.Backdrop)
+            return RepoFactory.TMDB_Image.GetByType(Server.ImageEntityType.Backdrop)
                 .Select(image => image.ToClientFanart())
                 .ToList();
         }

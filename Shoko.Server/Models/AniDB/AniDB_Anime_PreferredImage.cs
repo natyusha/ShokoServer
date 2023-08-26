@@ -26,9 +26,9 @@ public class AniDB_Anime_PreferredImage
             DataSourceType.TMDB => ImageType switch
             {
                 ImageEntityType.Backdrop =>
-                    RepoFactory.TMDB_ImageMetadata.GetByID(ImageID)?.ToClientFanart(),
+                    RepoFactory.TMDB_Image.GetByID(ImageID)?.ToClientFanart(),
                 ImageEntityType.Poster =>
-                    RepoFactory.TMDB_ImageMetadata.GetByID(ImageID)?.ToClientPoster(),
+                    RepoFactory.TMDB_Image.GetByID(ImageID)?.ToClientPoster(),
                 _ => null,
             },
             DataSourceType.TvDB => ImageType switch

@@ -5,14 +5,14 @@ using Shoko.Server.Server;
 
 namespace Shoko.Server.Mappings;
 
-public class TMDB_ImageMetadataMap : ClassMap<TMDB_ImageMetadata>
+public class TMDB_ImageMap : ClassMap<TMDB_Image>
 {
-    public TMDB_ImageMetadataMap()
+    public TMDB_ImageMap()
     {
-        Table("TMDB_ImageMetadata");
+        Table("TMDB_Image");
 
         Not.LazyLoad();
-        Id(x => x.TMDB_ImageMetadataID);
+        Id(x => x.TMDB_ImageID);
 
         Map(x => x.TmdbMovieID);
         Map(x => x.TmdbEpisodeID);

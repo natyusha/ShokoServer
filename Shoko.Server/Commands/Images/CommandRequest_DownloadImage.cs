@@ -155,7 +155,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                 }
                 break;
             case DataSourceEnum.TMDB:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(EntityID);
+                var tmdbImage = RepoFactory.TMDB_Image.GetByID(EntityID);
                 if (string.IsNullOrEmpty(tmdbImage.RemoteURL))
                 {
                     Logger.LogWarning(FailedToDownloadNoID, $"TMDB {ImageTypeEnum}", EntityID);
@@ -245,11 +245,11 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                 break;
 
             case DataSourceEnum.TMDB:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(EntityID);
+                var tmdbImage = RepoFactory.TMDB_Image.GetByID(EntityID);
                 if (tmdbImage == null)
                     break;
 
-                RepoFactory.TMDB_ImageMetadata.Delete(tmdbImage);
+                RepoFactory.TMDB_Image.Delete(tmdbImage);
                 return true;
         }
         return false;

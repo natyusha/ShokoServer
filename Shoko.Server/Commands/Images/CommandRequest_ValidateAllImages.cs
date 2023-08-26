@@ -134,14 +134,14 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             count = 0;
             UpdateProgress("TMDB Posters");
             Logger.LogInformation(ScanForType, "TMDB poster");
-            var imageList = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Poster)
+            var imageList = RepoFactory.TMDB_Image.GetByType(ImageEntityType.Poster)
                 .Where(image => !Misc.IsImageValid(image.LocalPath))
                 .ToList();
 
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB poster" : "TMDB posters");
             foreach (var image in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Poster, image.TMDB_ImageMetadataID, image);
+                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Poster, image.TMDB_ImageID, image);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -155,14 +155,14 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             UpdateProgress("TMDB Backdrops");
             count = 0;
             Logger.LogInformation(ScanForType, "TMDB backdrop");
-            var imageList = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Backdrop)
+            var imageList = RepoFactory.TMDB_Image.GetByType(ImageEntityType.Backdrop)
                 .Where(image => !Misc.IsImageValid(image.LocalPath))
                 .ToList();
 
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB backdrop" : "TMDB backdrops");
             foreach (var fanart in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Backdrop, fanart.TMDB_ImageMetadataID, fanart);
+                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Backdrop, fanart.TMDB_ImageID, fanart);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -176,14 +176,14 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             UpdateProgress("TMDB Logos");
             count = 0;
             Logger.LogInformation(ScanForType, "TMDB logo");
-            var imageList = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Logo)
+            var imageList = RepoFactory.TMDB_Image.GetByType(ImageEntityType.Logo)
                 .Where(image => !Misc.IsImageValid(image.LocalPath))
                 .ToList();
 
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB logo" : "TMDB logos");
             foreach (var image in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Logo, image.TMDB_ImageMetadataID, image);
+                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Logo, image.TMDB_ImageID, image);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -261,7 +261,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             AniDB_Character character => character.GetPosterPath(),
             AniDB_Seiyuu creator => creator.GetPosterPath(),
             SVR_AniDB_Anime anime => anime.PosterPath,
-            TMDB_ImageMetadata tmdbImage => tmdbImage.LocalPath,
+            TMDB_Image tmdbImage => tmdbImage.LocalPath,
             TvDB_Episode episode => episode.GetFullImagePath(),
             TvDB_ImageFanart image => image.GetFullImagePath(),
             TvDB_ImagePoster image => image.GetFullImagePath(),

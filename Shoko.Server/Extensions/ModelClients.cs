@@ -279,10 +279,10 @@ public static class ModelClients
             CrossRefSource = (int)CrossRefSource.User,
         };
 
-    public static MovieDB_Fanart? ToClientFanart(this TMDB_ImageMetadata image)
+    public static MovieDB_Fanart? ToClientFanart(this TMDB_Image image)
         => image == null ? null : new()
         {
-            MovieDB_FanartID = image.TMDB_ImageMetadataID,
+            MovieDB_FanartID = image.TMDB_ImageID,
             Enabled = image.IsEnabled ? 1 : 0,
             ImageHeight = image.Height,
             ImageID = string.Empty,
@@ -293,10 +293,10 @@ public static class ModelClients
             URL = image.RemoteFileName,
         };
 
-    public static MovieDB_Poster? ToClientPoster(this TMDB_ImageMetadata image)
+    public static MovieDB_Poster? ToClientPoster(this TMDB_Image image)
         => image == null ? null : new()
         {
-            MovieDB_PosterID = image.TMDB_ImageMetadataID,
+            MovieDB_PosterID = image.TMDB_ImageID,
             Enabled = image.IsEnabled ? 1 : 0,
             ImageHeight = image.Height,
             ImageID = string.Empty,

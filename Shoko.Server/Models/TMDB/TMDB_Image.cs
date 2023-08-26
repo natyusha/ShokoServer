@@ -11,12 +11,12 @@ using TMDbLib.Objects.General;
 #nullable enable
 namespace Shoko.Models.Server.TMDB;
 
-public class TMDB_ImageMetadata : IImageMetadata
+public class TMDB_Image : IImageMetadata
 {
     /// <summary>
     /// Local id for image.
     /// </summary>
-    public int TMDB_ImageMetadataID { get; set; }
+    public int TMDB_ImageID { get; set; }
 
     /// <summary>
     /// Related TMDB Movie entry id, if applicable.
@@ -130,9 +130,9 @@ public class TMDB_ImageMetadata : IImageMetadata
     /// </remarks>
     public int UserVotes { get; set; }
 
-    public TMDB_ImageMetadata() { }
+    public TMDB_Image() { }
 
-    public TMDB_ImageMetadata(ImageEntityType type)
+    public TMDB_Image(ImageEntityType type)
     {
         ImageType = type;
     }

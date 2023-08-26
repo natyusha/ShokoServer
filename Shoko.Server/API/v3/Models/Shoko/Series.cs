@@ -589,20 +589,20 @@ public class Series : BaseModel
         var tmdbIDs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(animeID);
 
         var defaultPoster = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndTypeAndSource(animeID, ImageEntityType.Poster, DataSourceType.TMDB);
-        var tmdbPosters = tmdbIDs.SelectMany(a => RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(a.TmdbMovieID, ImageEntityType.Poster)).ToList();
+        var tmdbPosters = tmdbIDs.SelectMany(a => RepoFactory.TMDB_Image.GetByTmdbMovieIDAndType(a.TmdbMovieID, ImageEntityType.Poster)).ToList();
         images.Posters.AddRange(tmdbPosters.Where(a => includeDisabled || a.IsEnabled).Select(a =>
         {
-            var preferred = defaultPoster != null && defaultPoster.ImageID == a.TMDB_ImageMetadataID;
-            return new Image(a.TMDB_ImageMetadataID, ImageEntityType.Poster, DataSourceType.TMDB, preferred, !a.IsEnabled);
+            var preferred = defaultPoster != null && defaultPoster.ImageID == a.TMDB_ImageID;
+            return new Image(a.TMDB_ImageID, ImageEntityType.Poster, DataSourceType.TMDB, preferred, !a.IsEnabled);
         }));
 
         var defaultFanart =
             RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndTypeAndSource(animeID, ImageEntityType.Backdrop, DataSourceType.TMDB);
-        var tmdbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.TMDB_ImageMetadata.GetByTmdbMovieIDAndType(xref.TmdbMovieID, ImageEntityType.Backdrop)).ToList();
+        var tmdbFanarts = tmdbIDs.SelectMany(xref => RepoFactory.TMDB_Image.GetByTmdbMovieIDAndType(xref.TmdbMovieID, ImageEntityType.Backdrop)).ToList();
         images.Fanarts.AddRange(tmdbFanarts.Where(a => includeDisabled || a.IsEnabled).Select(a =>
         {
-            var preferred = defaultFanart != null && defaultFanart.ImageID == a.TMDB_ImageMetadataID;
-            return new Image(a.TMDB_ImageMetadataID, ImageEntityType.Backdrop, DataSourceType.TMDB, preferred, !a.IsEnabled);
+            var preferred = defaultFanart != null && defaultFanart.ImageID == a.TMDB_ImageID;
+            return new Image(a.TMDB_ImageID, ImageEntityType.Backdrop, DataSourceType.TMDB, preferred, !a.IsEnabled);
         }));
     }
 

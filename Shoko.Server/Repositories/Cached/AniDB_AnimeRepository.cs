@@ -160,21 +160,21 @@ public class AniDB_AnimeRepository : BaseCachedRepository<SVR_AniDB_Anime, int>
                             ON tvdbPoster.TvDB_ImagePosterID = prefImg.ImageID AND prefImg.ImageSource = :tvdbSourceType AND prefImg.ImageType = :imagePosterType
                         LEFT OUTER JOIN TvDB_ImageFanart AS tvdbBackdrop
                             ON tvdbBackdrop.TvDB_ImageFanartID = prefImg.ImageID AND prefImg.ImageSource = :tvdbSourceType AND prefImg.ImageType = :imageBackdropType
-                        LEFT OUTER JOIN TMDB_ImageMetadata AS tmdbPoster
-                            ON tmdbPoster.ImageType = :imagePosterType AND tmdbPoster.TMDB_ImageMetadataID = prefImg.ImageID AND prefImg.ImageSource = :tmdbSourceType AND prefImg.ImageParentType = :imagePosterType
-                        LEFT OUTER JOIN TMDB_ImageMetadata AS tmdbBackdrop
-                            ON tmdbBackdrop.ImageType = :imageBackdropType AND tmdbBackdrop.TMDB_ImageMetadataID = prefImg.ImageID AND prefImg.ImageSource = :tmdbSourceType AND prefImg.ImageType = :imageBackdropType
+                        LEFT OUTER JOIN TMDB_Image AS tmdbPoster
+                            ON tmdbPoster.ImageType = :imagePosterType AND tmdbPoster.TMDB_ImageID = prefImg.ImageID AND prefImg.ImageSource = :tmdbSourceType AND prefImg.ImageParentType = :imagePosterType
+                        LEFT OUTER JOIN TMDB_Image AS tmdbBackdrop
+                            ON tmdbBackdrop.ImageType = :imageBackdropType AND tmdbBackdrop.TMDB_ImageID = prefImg.ImageID AND prefImg.ImageSource = :tmdbSourceType AND prefImg.ImageType = :imageBackdropType
                     WHERE prefImg.AnimeID IN (:animeIds) AND prefImg.ImageType IN (:imageBannerType, :imagePosterType, :imageBackdropType)"
                 )
                 .AddEntity("prefImg", typeof(AniDB_Anime_PreferredImage))
                 .AddEntity("tvdbBanner", typeof(TvDB_ImageWideBanner))
                 .AddEntity("tvdbPoster", typeof(TvDB_ImagePoster))
                 .AddEntity("tvdbBackdrop", typeof(TvDB_ImageFanart))
-                .AddEntity("movPoster", typeof(TMDB_ImageMetadata))
-                .AddEntity("tmdbBackdrop", typeof(TMDB_ImageMetadata))
+                .AddEntity("tmdbPoster", typeof(TMDB_Image))
+                .AddEntity("tmdbBackdrop", typeof(TMDB_Image))
                 .SetParameterList("animeIds", animeIds)
                 .SetInt32("tvdbSourceType", (int)DataSourceType.TvDB)
-                .SetInt32("tvdbSourceType", (int)DataSourceType.TMDB)
+                .SetInt32("tmdbSourceType", (int)DataSourceType.TMDB)
                 .SetInt32("imageBackdropType", (int)ImageEntityType.Backdrop)
                 .SetInt32("imageBannerType", (int)ImageEntityType.Banner)
                 .SetInt32("imagePosterType", (int)ImageEntityType.Poster)
@@ -197,10 +197,10 @@ public class AniDB_AnimeRepository : BaseCachedRepository<SVR_AniDB_Anime, int>
                     image = (IImageEntity)result[3];
                     break;
                 case CL_ImageEntityType.MovieDB_Poster:
-                    image = ((TMDB_ImageMetadata)result[4]).ToClientPoster();
+                    image = ((TMDB_Image)result[4]).ToClientPoster();
                     break;
                 case CL_ImageEntityType.MovieDB_FanArt:
-                    image = ((TMDB_ImageMetadata)result[5]).ToClientFanart();
+                    image = ((TMDB_Image)result[5]).ToClientFanart();
                     break;
             }
 

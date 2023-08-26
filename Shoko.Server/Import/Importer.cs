@@ -719,7 +719,7 @@ public static class Importer
         var seasonPosterCount = new Dictionary<int, int>();
         var showPosterCount = new Dictionary<int, int>();
         var collectionPosterCount = new Dictionary<int, int>();
-        var allImages = RepoFactory.TMDB_ImageMetadata.GetByType(type);
+        var allImages = RepoFactory.TMDB_Image.GetByType(type);
         foreach (var image in allImages)
         {
             var path = image.LocalPath;
@@ -770,7 +770,7 @@ public static class Importer
             {
                 commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
                 {
-                    c.EntityID = image.TMDB_ImageMetadataID;
+                    c.EntityID = image.TMDB_ImageID;
                     c.DataSourceEnum = DataSourceEnum.TMDB;
                 });
 

@@ -7,50 +7,50 @@ using Shoko.Server.Server;
 #nullable enable
 namespace Shoko.Server.Repositories.Cached;
 
-public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetadata, int>
+public class TMDB_ImageRepository : BaseCachedRepository<TMDB_Image, int>
 {
-    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbMovieIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbEpisodeIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbSeasonIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbShowIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbCollectionIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, ImageEntityType>? _tmdbTypes;
-    private PocoIndex<int, TMDB_ImageMetadata, (string filePath, ImageEntityType type)>? _tmdbRemoteFileNames;
+    private PocoIndex<int, TMDB_Image, int?>? _tmdbMovieIDs;
+    private PocoIndex<int, TMDB_Image, int?>? _tmdbEpisodeIDs;
+    private PocoIndex<int, TMDB_Image, int?>? _tmdbSeasonIDs;
+    private PocoIndex<int, TMDB_Image, int?>? _tmdbShowIDs;
+    private PocoIndex<int, TMDB_Image, int?>? _tmdbCollectionIDs;
+    private PocoIndex<int, TMDB_Image, ImageEntityType>? _tmdbTypes;
+    private PocoIndex<int, TMDB_Image, (string filePath, ImageEntityType type)>? _tmdbRemoteFileNames;
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbMovieID(int? movieId)
+    public IReadOnlyList<TMDB_Image> GetByTmdbMovieID(int? movieId)
         => ReadLock(() => _tmdbMovieIDs!.GetMultiple(movieId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbMovieIDAndType(int? movieId, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByTmdbMovieIDAndType(int? movieId, ImageEntityType type)
         => ReadLock(() => _tmdbMovieIDs!.GetMultiple(movieId))?.Where(image => image.ImageType == type).ToList() ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeID(int? episodeId)
+    public IReadOnlyList<TMDB_Image> GetByTmdbEpisodeID(int? episodeId)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeIDAndType(int? episodeId, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByTmdbEpisodeIDAndType(int? episodeId, ImageEntityType type)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId)).Where(image => image.ImageType == type).ToList();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonID(int? seasonId)
+    public IReadOnlyList<TMDB_Image> GetByTmdbSeasonID(int? seasonId)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonIDAndType(int? seasonId, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByTmdbSeasonIDAndType(int? seasonId, ImageEntityType type)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId))?.Where(image => image.ImageType == type).ToList() ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowID(int? showId)
+    public IReadOnlyList<TMDB_Image> GetByTmdbShowID(int? showId)
         => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowIDAndType(int? showId, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByTmdbShowIDAndType(int? showId, ImageEntityType type)
         => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId)).Where(image => image.ImageType == type).ToList();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbCollectionID(int? collectionId)
+    public IReadOnlyList<TMDB_Image> GetByTmdbCollectionID(int? collectionId)
         => ReadLock(() => _tmdbCollectionIDs!.GetMultiple(collectionId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbCollectionIDAndType(int? collectionId, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByTmdbCollectionIDAndType(int? collectionId, ImageEntityType type)
         => ReadLock(() => _tmdbCollectionIDs!.GetMultiple(collectionId)).Where(image => image.ImageType == type).ToList();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByType(ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByType(ImageEntityType type)
         => ReadLock(() => _tmdbTypes!.GetMultiple(type)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType type)
+    public IReadOnlyList<TMDB_Image> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType type)
         => foreignType switch
         {
             ForeignEntityType.Movie => GetByTmdbMovieIDAndType(id, type),
@@ -58,13 +58,13 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
             ForeignEntityType.Season => GetByTmdbSeasonIDAndType(id, type),
             ForeignEntityType.Show => GetByTmdbShowIDAndType(id, type),
             ForeignEntityType.Collection => GetByTmdbCollectionIDAndType(id, type),
-            _ => new List<TMDB_ImageMetadata>(),
+            _ => new List<TMDB_Image>(),
         };
 
-    public TMDB_ImageMetadata? GetByRemoteFileNameAndType(string fileName, ImageEntityType type)
+    public TMDB_Image? GetByRemoteFileNameAndType(string fileName, ImageEntityType type)
         => ReadLock(() => _tmdbRemoteFileNames!.GetOne((fileName, type)));
 
-    public ILookup<int, TMDB_ImageMetadata> GetByAnimeIDsAndType(int[] animeIds, ImageEntityType type)
+    public ILookup<int, TMDB_Image> GetByAnimeIDsAndType(int[] animeIds, ImageEntityType type)
     {
         return animeIds
             .SelectMany(animeId =>
@@ -75,8 +75,8 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
             .ToLookup(a => a.AnimeID, a => a.Image);
     }
 
-    protected override int SelectKey(TMDB_ImageMetadata entity)
-        => entity.TMDB_ImageMetadataID;
+    protected override int SelectKey(TMDB_Image entity)
+        => entity.TMDB_ImageID;
 
     public override void PopulateIndexes()
     {

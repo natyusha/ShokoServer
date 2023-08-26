@@ -362,7 +362,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
             case CL_ImageEntityType.MovieDB_Poster:
             case CL_ImageEntityType.MovieDB_FanArt:
                 {
-                    var mFanart = RepoFactory.TMDB_ImageMetadata.GetByID(imageId);
+                    var mFanart = RepoFactory.TMDB_Image.GetByID(imageId);
                     if (mFanart == null)
                         return null;
 
@@ -370,7 +370,7 @@ public class ShokoServiceImplementationImage : Controller, IShokoServerImage, IH
                     if (System.IO.File.Exists(path))
                         return path;
 
-                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", path);
+                    logger.Trace("Could not find TMDB_Image image: {0}", path);
                     return string.Empty;
                 }
 

@@ -987,12 +987,12 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
 
                 case CL_ImageEntityType.MovieDB_FanArt:
                 case CL_ImageEntityType.MovieDB_Poster:
-                    var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
+                    var tmdbImage = RepoFactory.TMDB_Image.GetByID(imageID);
                     if (tmdbImage == null)
                         return "Could not find image";
 
                     tmdbImage.IsEnabled = enabled;
-                    RepoFactory.TMDB_ImageMetadata.Save(tmdbImage);
+                    RepoFactory.TMDB_Image.Save(tmdbImage);
                     if (tmdbImage.TmdbShowID.HasValue)
                         foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(tmdbImage.TmdbShowID.Value))
                             animeIDs.Add(xref.AnidbAnimeID);

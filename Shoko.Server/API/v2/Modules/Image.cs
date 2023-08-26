@@ -306,7 +306,7 @@ public class Image : BaseController
             // 8 & 9
             case CL_ImageEntityType.MovieDB_FanArt:
             case CL_ImageEntityType.MovieDB_Poster:
-                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByID(id);
+                var mFanart = RepoFactory.TMDB_Image.GetByID(id);
                 if (mFanart == null)
                 {
                     return null;
@@ -321,7 +321,7 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.LocalPath);
+                    logger.Trace("Could not find TMDB_Image: {0}", mFanart.LocalPath);
                 }
 
                 break;
@@ -563,7 +563,7 @@ public class Image : BaseController
 
             // 8
             case CL_ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Backdrop).GetRandomElement();
+                var mFanart = RepoFactory.TMDB_Image.GetByType(ImageEntityType.Backdrop).GetRandomElement();
                 if (mFanart == null)
                 {
                     return null;
@@ -577,14 +577,14 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.LocalPath);
+                    logger.Trace("Could not find TMDB_Image: {0}", mFanart.LocalPath);
                 }
 
                 break;
 
             // 9
             case CL_ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Poster).GetRandomElement();
+                var mPoster = RepoFactory.TMDB_Image.GetByType(ImageEntityType.Poster).GetRandomElement();
                 if (mPoster == null)
                 {
                     return null;
@@ -598,7 +598,7 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", mPoster.LocalPath);
+                    logger.Trace("Could not find TMDB_Image image: {0}", mPoster.LocalPath);
                 }
 
                 break;
