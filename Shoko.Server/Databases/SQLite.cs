@@ -675,13 +675,13 @@ public class SQLite : BaseDatabase<SqliteConnection>
         new(105, 1, "CREATE TABLE CrossRef_AniDB_TMDB_Episode ( CrossRef_AniDB_TMDB_EpisodeID INTEGER PRIMARY KEY AUTOINCREMENT, AnidbEpisodeID INTEGER NOT NULL, TmdbEpisodeID INTEGER NOT NULL, Ordering INTEGER NOT NULL, MatchRating INTEGER NOT NULL);"),
         new(105, 2, "CREATE TABLE CrossRef_AniDB_TMDB_Movie ( CrossRef_AniDB_TMDB_MovieID INTEGER PRIMARY KEY AUTOINCREMENT, AnidbAnimeID INTEGER NOT NULL, AnidbEpisodeID INTEGER NULL, TmdbMovieID INTEGER NOT NULL, Source INTEGER NOT NULL);"),
         new(105, 3, "CREATE TABLE CrossRef_AniDB_TMDB_Show ( CrossRef_AniDB_TMDB_ShowID INTEGER PRIMARY KEY AUTOINCREMENT, AnidbAnimeID INTEGER NOT NULL, TmdbShowID INTEGER NOT NULL, TmdbSeasonID INTEGER NULL, Source INTEGER NOT NULL);"),
-        new(105, 4, "INSERT INTO CrossRef_AniDB_TMDB_Movie (AnidbAnimeID, TmdbMovieID, Source) SELECT AnimeID, CAST(CrossRefID AS INTEGER), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
-        new(105, 5, "DROP TABLE CrossRef_AniDB_Other;"),
-        new(105, 6, "CREATE TABLE TMDB_ImageMetadata ( TMDB_ImageMetadataID INTEGER PRIMARY KEY AUTOINCREMENT, TmdbMovieID INTEGER NULL, TmdbEpisodeID INTEGER NULL, TmdbSeasonID INTEGER NULL, TmdbShowID INTEGER NULL, TmdbCollectionID INTEGER NULL, ForeignType INTEGER NOT NULL, ImageType INTEGER NOT NULL, IsEnabled INTEGER NOT NULL, AspectRatio REAL NOT NULL, Width INTEGER NOT NULL, Height INTEGER NOT NULL, Language TEXT NOT NULL, RemoteFileName TEXT NOT NULL, UserRating REAL NOT NULL, UserVotes INT NOT NULL );"),
-        new(105, 7, "INSERT INTO TMDB_ImageMetadata (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFileName ) SELECT MovieId, 6, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Poster WHERE URL IS NOT NULL;"),
-        new(105, 8, "INSERT INTO TMDB_ImageMetadata (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFileName ) SELECT MovieId, 1, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Fanart WHERE URL IS NOT NULL;"),
-        new(105, 9, "DROP TABLE MovieDB_Fanart;"),
-        new(105, 10, "DROP TABLE MovieDB_Poster;"),
+        new(105, 4, "CREATE TABLE TMDB_ImageMetadata ( TMDB_ImageMetadataID INTEGER PRIMARY KEY AUTOINCREMENT, TmdbMovieID INTEGER NULL, TmdbEpisodeID INTEGER NULL, TmdbSeasonID INTEGER NULL, TmdbShowID INTEGER NULL, TmdbCollectionID INTEGER NULL, ForeignType INTEGER NOT NULL, ImageType INTEGER NOT NULL, IsEnabled INTEGER NOT NULL, AspectRatio REAL NOT NULL, Width INTEGER NOT NULL, Height INTEGER NOT NULL, Language TEXT NOT NULL, RemoteFileName TEXT NOT NULL, UserRating REAL NOT NULL, UserVotes INT NOT NULL );"),
+        new(105, 5, "CREATE TABLE AniDB_Anime_PreferredImage ( AniDB_Anime_PreferredImageID INTEGER PRIMARY KEY AUTOINCREMENT, AnidbAnimeID INTEGER NULL, ImageID INTEGER NOT NULL, ImageType INTEGER NOT NULL, ImageSource INTEGER NOT NULL );"),
+        new(105, 6, "INSERT INTO CrossRef_AniDB_TMDB_Movie (AnidbAnimeID, TmdbMovieID, Source) SELECT AnimeID, CAST(CrossRefID AS INTEGER), CrossRefSource FROM CrossRef_AniDB_Other WHERE CrossRefType = 1;"),
+        new(105, 7, "DROP TABLE CrossRef_AniDB_Other;"),
+        new(105, 8, "DROP TABLE MovieDB_Fanart;"),
+        new(105, 9, "DROP TABLE MovieDB_Poster;"),
+        new(105, 11, "DROP TABLE AniDB_Anime_DefaultImage;"),
     };
 
     private static Tuple<bool, string> DropLanguage(object connection)

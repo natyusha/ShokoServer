@@ -3,17 +3,13 @@ using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Serialization;
 using Microsoft.Extensions.Logging;
-using Shoko.Commons.Properties;
 using Shoko.Commons.Queue;
-using Shoko.Models.Enums;
 using Shoko.Models.Queue;
-using Shoko.Models.Server.TMDB;
 using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.ImageDownload;
 using Shoko.Server.Providers.AniDB.Interfaces;
-using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
@@ -30,9 +26,6 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
     [XmlIgnore, JsonIgnore]
     private readonly IUDPConnectionHandler _handler;
 
-    [XmlIgnore, JsonIgnore]
-    private readonly TMDBHelper _tmdbHelper;
-
     public virtual int EntityID { get; set; }
 
     public virtual int ImageType { get; set; } = 0;
@@ -42,9 +35,9 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
     public virtual bool ForceDownload { get; set; }
 
     [XmlIgnore, JsonIgnore]
-    public virtual ImageEntityType_New ImageTypeEnum
+    public virtual ImageEntityType ImageTypeEnum
     {
-        get => (ImageEntityType_New)ImageType;
+        get => (ImageEntityType)ImageType;
         set => ImageType = (int)value;
     }
 
@@ -76,7 +69,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
             case DataSourceEnum.AniDB:
                 switch (ImageTypeEnum)
                 {
-                    case ImageEntityType_New.Poster:
+                    case ImageEntityType.Poster:
                         var anime = RepoFactory.AniDB_Anime.GetByAnimeID(EntityID);
                         if (anime == null)
                         {
@@ -87,7 +80,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         req = new ImageDownloadRequest(anime, ForceDownload, _handler.ImageServerUrl);
                         break;
 
-                    case ImageEntityType_New.Character:
+                    case ImageEntityType.Character:
                         var character = RepoFactory.AniDB_Character.GetByCharID(EntityID);
                         if (character == null)
                         {
@@ -98,7 +91,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         req = new ImageDownloadRequest(character, ForceDownload, _handler.ImageServerUrl);
                         break;
 
-                    case ImageEntityType_New.Person:
+                    case ImageEntityType.Person:
                         var creator = RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(EntityID);
                         if (creator == null)
                         {
@@ -113,7 +106,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
             case DataSourceEnum.TvDB:
                 switch (ImageTypeEnum)
                 {
-                    case ImageEntityType_New.Thumbnail:
+                    case ImageEntityType.Thumbnail:
                         var ep = RepoFactory.TvDB_Episode.GetByID(EntityID);
                         if (string.IsNullOrEmpty(ep?.Filename))
                         {
@@ -124,7 +117,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         req = new ImageDownloadRequest(ep, ForceDownload);
                         break;
 
-                    case ImageEntityType_New.Backdrop:
+                    case ImageEntityType.Backdrop:
                         var tvdbBackdrop = RepoFactory.TvDB_ImageFanart.GetByID(EntityID);
                         if (string.IsNullOrEmpty(tvdbBackdrop?.BannerPath))
                         {
@@ -136,7 +129,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         req = new ImageDownloadRequest(tvdbBackdrop, ForceDownload);
                         break;
 
-                    case ImageEntityType_New.Poster:
+                    case ImageEntityType.Poster:
                         var tvdbPoster = RepoFactory.TvDB_ImagePoster.GetByID(EntityID);
                         if (string.IsNullOrEmpty(tvdbPoster?.BannerPath))
                         {
@@ -148,7 +141,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         req = new ImageDownloadRequest(tvdbPoster, ForceDownload);
                         break;
 
-                    case ImageEntityType_New.Banner:
+                    case ImageEntityType.Banner:
                         var tvdbBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(EntityID);
                         if (string.IsNullOrEmpty(tvdbBanner?.BannerPath))
                         {
@@ -170,7 +163,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                     return;
                 }
 
-                req = new ImageDownloadRequest(tmdbImage, ForceDownload, _tmdbHelper.ImageServerUrl);
+                req = new ImageDownloadRequest(tmdbImage, ForceDownload);
                 break;
         }
 
@@ -225,7 +218,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
             case DataSourceEnum.TvDB:
                 switch (ImageTypeEnum)
                 {
-                    case ImageEntityType_New.Backdrop:
+                    case ImageEntityType.Backdrop:
                         var backdrop = RepoFactory.TvDB_ImageFanart.GetByID(EntityID);
                         if (backdrop == null)
                             break;
@@ -233,7 +226,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         RepoFactory.TvDB_ImageFanart.Delete(backdrop);
                         return true;
 
-                    case ImageEntityType_New.Poster:
+                    case ImageEntityType.Poster:
                         var poster = RepoFactory.TvDB_ImagePoster.GetByID(EntityID);
                         if (poster == null)
                             break;
@@ -241,7 +234,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         RepoFactory.TvDB_ImagePoster.Delete(poster);
                         return true;
 
-                    case ImageEntityType_New.Banner:
+                    case ImageEntityType.Banner:
                         var banner = RepoFactory.TvDB_ImageWideBanner.GetByID(EntityID);
                         if (banner == null)
                             break;
@@ -250,7 +243,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         return true;
                 }
                 break;
-            
+
             case DataSourceEnum.TMDB:
                 var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(EntityID);
                 if (tmdbImage == null)
@@ -258,7 +251,6 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
 
                 RepoFactory.TMDB_ImageMetadata.Delete(tmdbImage);
                 return true;
-                
         }
         return false;
     }
@@ -285,11 +277,10 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
         return true;
     }
 
-    public CommandRequest_DownloadImage(ILoggerFactory loggerFactory, IUDPConnectionHandler handler, TMDBHelper tmdbHelper) : base(
+    public CommandRequest_DownloadImage(ILoggerFactory loggerFactory, IUDPConnectionHandler handler) : base(
         loggerFactory)
     {
         _handler = handler;
-        _tmdbHelper = tmdbHelper;
     }
 
     protected CommandRequest_DownloadImage()

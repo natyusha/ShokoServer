@@ -154,13 +154,13 @@ public class Image : BaseController
     /// <returns>string</returns>
     internal string GetImagePath(int type, int id)
     {
-        var imageType = (ImageEntityType)type;
+        var imageType = (CL_ImageEntityType)type;
         string path;
 
         switch (imageType)
         {
             // 1
-            case ImageEntityType.AniDB_Cover:
+            case CL_ImageEntityType.AniDB_Cover:
                 var anime = RepoFactory.AniDB_Anime.GetByAnimeID(id);
                 if (anime == null)
                 {
@@ -181,7 +181,7 @@ public class Image : BaseController
                 break;
 
             // 2
-            case ImageEntityType.AniDB_Character:
+            case CL_ImageEntityType.AniDB_Character:
                 var chr = RepoFactory.AniDB_Character.GetByCharID(id);
                 if (chr == null)
                 {
@@ -202,7 +202,7 @@ public class Image : BaseController
                 break;
 
             // 3
-            case ImageEntityType.AniDB_Creator:
+            case CL_ImageEntityType.AniDB_Creator:
                 var creator = RepoFactory.AniDB_Seiyuu.GetBySeiyuuID(id);
                 if (creator == null)
                 {
@@ -223,7 +223,7 @@ public class Image : BaseController
                 break;
 
             // 4
-            case ImageEntityType.TvDB_Banner:
+            case CL_ImageEntityType.TvDB_Banner:
                 var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(id);
                 if (wideBanner == null)
                 {
@@ -244,7 +244,7 @@ public class Image : BaseController
                 break;
 
             // 5
-            case ImageEntityType.TvDB_Cover:
+            case CL_ImageEntityType.TvDB_Cover:
                 var poster = RepoFactory.TvDB_ImagePoster.GetByID(id);
                 if (poster == null)
                 {
@@ -265,7 +265,7 @@ public class Image : BaseController
                 break;
 
             // 6
-            case ImageEntityType.TvDB_Episode:
+            case CL_ImageEntityType.TvDB_Episode:
                 var ep = RepoFactory.TvDB_Episode.GetByID(id);
                 if (ep == null)
                 {
@@ -286,7 +286,7 @@ public class Image : BaseController
                 break;
 
             // 7
-            case ImageEntityType.TvDB_FanArt:
+            case CL_ImageEntityType.TvDB_FanArt:
                 var fanart = RepoFactory.TvDB_ImageFanart.GetByID(id);
                 if (fanart == null)
                 {
@@ -304,8 +304,8 @@ public class Image : BaseController
                 break;
 
             // 8 & 9
-            case ImageEntityType.MovieDB_FanArt:
-            case ImageEntityType.MovieDB_Poster:
+            case CL_ImageEntityType.MovieDB_FanArt:
+            case CL_ImageEntityType.MovieDB_Poster:
                 var mFanart = RepoFactory.TMDB_ImageMetadata.GetByID(id);
                 if (mFanart == null)
                 {
@@ -313,7 +313,7 @@ public class Image : BaseController
                 }
 
 
-                path = mFanart.AbsolutePath;
+                path = mFanart.LocalPath ?? string.Empty;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -321,12 +321,12 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.AbsolutePath);
+                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.LocalPath);
                 }
 
                 break;
 
-            case ImageEntityType.Character:
+            case CL_ImageEntityType.Character:
                 var character = RepoFactory.AnimeCharacter.GetByID(id);
                 if (character == null)
                 {
@@ -348,7 +348,7 @@ public class Image : BaseController
 
                 break;
 
-            case ImageEntityType.Staff:
+            case CL_ImageEntityType.Staff:
                 var staff = RepoFactory.AnimeStaff.GetByID(id);
                 if (staff == null)
                 {
@@ -398,13 +398,13 @@ public class Image : BaseController
 
     private string GetRandomImagePath(int type)
     {
-        var imageType = (ImageEntityType)type;
+        var imageType = (CL_ImageEntityType)type;
         string path;
 
         switch (imageType)
         {
             // 1
-            case ImageEntityType.AniDB_Cover:
+            case CL_ImageEntityType.AniDB_Cover:
                 var anime = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a?.PosterPath != null && !a.GetAllTags().Contains("18 restricted"))
                     .GetRandomElement();
@@ -427,7 +427,7 @@ public class Image : BaseController
                 break;
 
             // 2
-            case ImageEntityType.AniDB_Character:
+            case CL_ImageEntityType.AniDB_Character:
                 var chr = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                     .SelectMany(a => a.GetAnimeCharacters()).Select(a => a.GetCharacter()).Where(a => a != null)
@@ -451,7 +451,7 @@ public class Image : BaseController
                 break;
 
             // 3 -- this will likely be slow
-            case ImageEntityType.AniDB_Creator:
+            case CL_ImageEntityType.AniDB_Creator:
                 var creator = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                     .SelectMany(a => a.GetAnimeCharacters())
@@ -477,7 +477,7 @@ public class Image : BaseController
                 break;
 
             // 4
-            case ImageEntityType.TvDB_Banner:
+            case CL_ImageEntityType.TvDB_Banner:
                 // TvDB doesn't allow H content, so we get to skip the check!
                 var wideBanner = RepoFactory.TvDB_ImageWideBanner.GetAll().GetRandomElement();
                 if (wideBanner == null)
@@ -499,7 +499,7 @@ public class Image : BaseController
                 break;
 
             // 5
-            case ImageEntityType.TvDB_Cover:
+            case CL_ImageEntityType.TvDB_Cover:
                 // TvDB doesn't allow H content, so we get to skip the check!
                 var poster = RepoFactory.TvDB_ImagePoster.GetAll().GetRandomElement();
                 if (poster == null)
@@ -521,7 +521,7 @@ public class Image : BaseController
                 break;
 
             // 6
-            case ImageEntityType.TvDB_Episode:
+            case CL_ImageEntityType.TvDB_Episode:
                 // TvDB doesn't allow H content, so we get to skip the check!
                 var ep = RepoFactory.TvDB_Episode.GetAll().GetRandomElement();
                 if (ep == null)
@@ -543,7 +543,7 @@ public class Image : BaseController
                 break;
 
             // 7
-            case ImageEntityType.TvDB_FanArt:
+            case CL_ImageEntityType.TvDB_FanArt:
                 // TvDB doesn't allow H content, so we get to skip the check!
                 var fanart = RepoFactory.TvDB_ImageFanart.GetAll().GetRandomElement();
                 if (fanart == null)
@@ -562,14 +562,14 @@ public class Image : BaseController
                 break;
 
             // 8
-            case ImageEntityType.MovieDB_FanArt:
-                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType_New.Backdrop).GetRandomElement();
+            case CL_ImageEntityType.MovieDB_FanArt:
+                var mFanart = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Backdrop).GetRandomElement();
                 if (mFanart == null)
                 {
                     return null;
                 }
 
-                path = mFanart.AbsolutePath;
+                path = mFanart.LocalPath ?? string.Empty;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -577,20 +577,20 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.AbsolutePath);
+                    logger.Trace("Could not find TMDB_ImageMetadata: {0}", mFanart.LocalPath);
                 }
 
                 break;
 
             // 9
-            case ImageEntityType.MovieDB_Poster:
-                var mPoster = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType_New.Poster).GetRandomElement();
+            case CL_ImageEntityType.MovieDB_Poster:
+                var mPoster = RepoFactory.TMDB_ImageMetadata.GetByType(ImageEntityType.Poster).GetRandomElement();
                 if (mPoster == null)
                 {
                     return null;
                 }
 
-                path = mPoster.AbsolutePath;
+                path = mPoster.LocalPath ?? string.Empty;
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -598,12 +598,12 @@ public class Image : BaseController
                 else
                 {
                     path = string.Empty;
-                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", mPoster.AbsolutePath);
+                    logger.Trace("Could not find TMDB_ImageMetadata image: {0}", mPoster.LocalPath);
                 }
 
                 break;
 
-            case ImageEntityType.Character:
+            case CL_ImageEntityType.Character:
                 var character = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                     .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))
@@ -629,7 +629,7 @@ public class Image : BaseController
 
                 break;
 
-            case ImageEntityType.Staff:
+            case CL_ImageEntityType.Staff:
                 var staff = RepoFactory.AniDB_Anime.GetAll()
                     .Where(a => a != null && !a.GetAllTags().Contains("18 restricted"))
                     .SelectMany(a => RepoFactory.CrossRef_Anime_Staff.GetByAnimeID(a.AnimeID))

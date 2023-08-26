@@ -14,43 +14,43 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbSeasonIDs;
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbShowIDs;
     private PocoIndex<int, TMDB_ImageMetadata, int?>? _tmdbCollectionIDs;
-    private PocoIndex<int, TMDB_ImageMetadata, ImageEntityType_New>? _tmdbTypes;
-    private PocoIndex<int, TMDB_ImageMetadata, (string filePath, ImageEntityType_New type)>? _tmdbRemoteFileNames;
+    private PocoIndex<int, TMDB_ImageMetadata, ImageEntityType>? _tmdbTypes;
+    private PocoIndex<int, TMDB_ImageMetadata, (string filePath, ImageEntityType type)>? _tmdbRemoteFileNames;
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbMovieID(int? movieId)
         => ReadLock(() => _tmdbMovieIDs!.GetMultiple(movieId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbMovieIDAndType(int? movieId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbMovieIDAndType(int? movieId, ImageEntityType type)
         => ReadLock(() => _tmdbMovieIDs!.GetMultiple(movieId))?.Where(image => image.ImageType == type).ToList() ?? new();
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeID(int? episodeId)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeIDAndType(int? episodeId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbEpisodeIDAndType(int? episodeId, ImageEntityType type)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId)).Where(image => image.ImageType == type).ToList();
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonID(int? seasonId)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonIDAndType(int? seasonId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbSeasonIDAndType(int? seasonId, ImageEntityType type)
         => ReadLock(() => _tmdbSeasonIDs!.GetMultiple(seasonId))?.Where(image => image.ImageType == type).ToList() ?? new();
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowID(int? showId)
         => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowIDAndType(int? showId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbShowIDAndType(int? showId, ImageEntityType type)
         => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId)).Where(image => image.ImageType == type).ToList();
 
     public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbCollectionID(int? collectionId)
         => ReadLock(() => _tmdbCollectionIDs!.GetMultiple(collectionId)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbCollectionIDAndType(int? collectionId, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByTmdbCollectionIDAndType(int? collectionId, ImageEntityType type)
         => ReadLock(() => _tmdbCollectionIDs!.GetMultiple(collectionId)).Where(image => image.ImageType == type).ToList();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByType(ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByType(ImageEntityType type)
         => ReadLock(() => _tmdbTypes!.GetMultiple(type)) ?? new();
 
-    public IReadOnlyList<TMDB_ImageMetadata> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType_New type)
+    public IReadOnlyList<TMDB_ImageMetadata> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType type)
         => foreignType switch
         {
             ForeignEntityType.Movie => GetByTmdbMovieIDAndType(id, type),
@@ -61,10 +61,10 @@ public class TMDB_ImageMetadataRepository : BaseCachedRepository<TMDB_ImageMetad
             _ => new List<TMDB_ImageMetadata>(),
         };
 
-    public TMDB_ImageMetadata? GetByRemoteFileNameAndType(string fileName, ImageEntityType_New type)
+    public TMDB_ImageMetadata? GetByRemoteFileNameAndType(string fileName, ImageEntityType type)
         => ReadLock(() => _tmdbRemoteFileNames!.GetOne((fileName, type)));
 
-    public ILookup<int, TMDB_ImageMetadata> GetByAnimeIDsAndType(int[] animeIds, ImageEntityType_New type)
+    public ILookup<int, TMDB_ImageMetadata> GetByAnimeIDsAndType(int[] animeIds, ImageEntityType type)
     {
         return animeIds
             .SelectMany(animeId =>

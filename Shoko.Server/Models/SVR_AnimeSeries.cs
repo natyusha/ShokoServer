@@ -1012,7 +1012,7 @@ public class SVR_AnimeSeries : AnimeSeries
 
                     aniDbAnime.DefaultImagePoster = defImages.GetPosterContractNoBlanks();
                     aniDbAnime.DefaultImageFanart = defImages.GetFanartContractNoBlanks(aniDbAnime);
-                    aniDbAnime.DefaultImageWideBanner = defImages.WideBanner?.ToContract();
+                    aniDbAnime.DefaultImageWideBanner = defImages.Banner;
                 }
 
                 // TvDB contracts
@@ -1996,8 +1996,8 @@ public class SVR_AnimeSeries : AnimeSeries
         if (completelyRemove)
         {
             // episodes, anime, characters, images, staff relations, tag relations, titles
-            var images = RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeID(AniDB_ID);
-            RepoFactory.AniDB_Anime_DefaultImage.Delete(images);
+            var images = RepoFactory.AniDB_Anime_PreferredImage.GetByAnimeID(AniDB_ID);
+            RepoFactory.AniDB_Anime_PreferredImage.Delete(images);
 
             var characterXrefs = RepoFactory.AniDB_Anime_Character.GetByAnimeID(AniDB_ID);
             var characters = characterXrefs.Select(a => RepoFactory.AniDB_Character.GetByCharID(a.CharID)).ToList();

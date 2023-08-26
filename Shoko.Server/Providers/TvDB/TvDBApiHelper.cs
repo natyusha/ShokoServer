@@ -690,7 +690,7 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImageFanartID;
-                        c.ImageTypeEnum = ImageEntityType_New.Backdrop;
+                        c.ImageTypeEnum = ImageEntityType.Backdrop;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
@@ -729,7 +729,7 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImagePosterID;
-                        c.ImageTypeEnum = ImageEntityType_New.Poster;
+                        c.ImageTypeEnum = ImageEntityType.Poster;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
@@ -767,7 +767,7 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = img.TvDB_ImageWideBannerID;
-                        c.ImageTypeEnum = ImageEntityType_New.Banner;
+                        c.ImageTypeEnum = ImageEntityType.Banner;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceDownload;
                     }
@@ -903,7 +903,7 @@ public class TvDBApiHelper
                     c =>
                     {
                         c.EntityID = ep.TvDB_EpisodeID;
-                        c.ImageTypeEnum = ImageEntityType_New.Thumbnail;
+                        c.ImageTypeEnum = ImageEntityType.Thumbnail;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                         c.ForceDownload = forceRefresh;
                     }
@@ -959,6 +959,16 @@ public class TvDBApiHelper
         if (xref == null)
         {
             return;
+        }
+
+        // check if there are default images used associated
+        var images = RepoFactory.AniDB_Anime_PreferredImage.GetByAnimeID(animeID);
+        foreach (var image in images)
+        {
+            if (image.ImageSource == DataSourceType.TvDB && image.ImageID == xref.TvDBID)
+            {
+                RepoFactory.AniDB_Anime_PreferredImage.Delete(image);
+            }
         }
 
         RepoFactory.CrossRef_AniDB_TvDB.Delete(xref);

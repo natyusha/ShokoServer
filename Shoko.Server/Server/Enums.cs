@@ -135,7 +135,7 @@ public enum FileHashType
     CRC32 = 3
 }
 
-public enum ImageEntityType_New
+public enum ImageEntityType
 {
     None = 0,
     Backdrop = 1,

@@ -51,7 +51,7 @@ public static class RepoFactory
     public static AniDB_Character_SeiyuuRepository AniDB_Character_Seiyuu { get; } = new();
     public static AniDB_Anime_SimilarRepository AniDB_Anime_Similar { get; } = new();
     public static AniDB_Anime_RelationRepository AniDB_Anime_Relation { get; } = new();
-    public static AniDB_Anime_DefaultImageRepository AniDB_Anime_DefaultImage { get; } = new();
+    public static AniDB_Anime_PreferredImageRepository AniDB_Anime_PreferredImage { get; } = new();
     public static AniDB_Anime_CharacterRepository AniDB_Anime_Character { get; } = new();
     public static AniDB_Anime_StaffRepository AniDB_Anime_Staff { get; } = new();
     public static ScanRepository Scan { get; } = new();

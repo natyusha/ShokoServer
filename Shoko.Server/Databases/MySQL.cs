@@ -740,13 +740,13 @@ public class MySQL : BaseDatabase<MySqlConnection>
         new(119, 1, "CREATE TABLE `CrossRef_AniDB_TMDB_Episode` ( `CrossRef_AniDB_TMDB_EpisodeID` INT NOT NULL AUTO_INCREMENT, `AnidbEpisodeID` INT NOT NULL, `TmdbEpisodeID` INT NOT NULL, `Ordering` INT NOT NULL, `MatchRating` INT NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_EpisodeID`) );"),
         new(119, 2, "CREATE TABLE `CrossRef_AniDB_TMDB_Movie` ( `CrossRef_AniDB_TMDB_MovieID` INT NOT NULL AUTO_INCREMENT, `AnidbAnimeID` INT NOT NULL, `AnidbEpisodeID` INT NULL, `TmdbMovieID` INT NOT NULL, `Source` INT NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_MovieID`) );"),
         new(119, 3, "CREATE TABLE `CrossRef_AniDB_TMDB_Show` ( `CrossRef_AniDB_TMDB_ShowID` INT NOT NULL AUTO_INCREMENT, `AnidbAnimeID` INT NOT NULL, `TmdbShowID` INT NOT NULL, `TmdbSeasonID` INT NULL, `Source` INT NOT NULL, PRIMARY KEY (`CrossRef_AniDB_TMDB_ShowID`) );"),
-        new(119, 4, "INSERT INTO `CrossRef_AniDB_TMDB_Movie` ( AnidbAnimeID, TmdbMovieID, Source ) SELECT AnimeID, CAST ( CrossRefID AS INTEGER ), CrossRefSource FROM `CrossRef_AniDB_Other` WHERE CrossRefType = 1;"),
-        new(119, 5, "DROP TABLE `CrossRef_AniDB_Other`;"),
-        new(119, 6, "CREATE TABLE `TMDB_ImageMetadata` ( `TMDB_ImageMetadataID` INT NOT NULL AUTO_INCREMENT, `TmdbMovieID` INT NULL, `TmdbEpisodeID` INT NULL, `TmdbSeasonID` INT NULL, `TmdbShowID` INT NULL, `TmdbCollectionID` INT NULL, `ForeignType` INT NOT NULL, `ImageType` INT NOT NULL, `IsEnabled` INT NOT NULL, `AspectRatio` DOUBLE(3) NOT NULL, `Width` INT NOT NULL, `Height` INT NOT NULL, `Language` NVARCHAR(64) NOT NULL, `RemoteFileName` NVARCHAR(128) NOT NULL, UserRating DOUBLE(3) NOT NULL, UserVotes INT NOT NULL, PRIMARY KEY (`TMDB_ImageMetadataID`) );"),
-        new(119, 7, "INSERT INTO `TMDB_ImageMetadata` (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFileName ) SELECT MovieId, 6, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Poster WHERE URL IS NOT NULL;"),
-        new(119, 8, "INSERT INTO TMDB_ImageMetadata (TmdbMovieID, ForeignType, ImageType, IsEnabled, Width, Height, AspectRatio, Language, RemoteFileName ) SELECT MovieId, 1, 2, Enabled, ImageWidth, ImageHeight, 0, 'None', URL FROM MovieDB_Fanart WHERE URL IS NOT NULL;"),
-        new(119, 9, "DROP TABLE MovieDB_Fanart;"),
-        new(119, 10, "DROP TABLE MovieDB_Poster;"),
+        new(119, 4, "CREATE TABLE `TMDB_ImageMetadata` ( `TMDB_ImageMetadataID` INT NOT NULL AUTO_INCREMENT, `TmdbMovieID` INT NULL, `TmdbEpisodeID` INT NULL, `TmdbSeasonID` INT NULL, `TmdbShowID` INT NULL, `TmdbCollectionID` INT NULL, `ForeignType` INT NOT NULL, `ImageType` INT NOT NULL, `IsEnabled` INT NOT NULL, `AspectRatio` DOUBLE(3) NOT NULL, `Width` INT NOT NULL, `Height` INT NOT NULL, `Language` NVARCHAR(64) NOT NULL, `RemoteFileName` NVARCHAR(128) NOT NULL, UserRating DOUBLE(3) NOT NULL, UserVotes INT NOT NULL, PRIMARY KEY (`TMDB_ImageMetadataID`) );"),
+        new(119, 5, "CREATE TABLE `AniDB_Anime_PreferredImage` ( `AniDB_Anime_PreferredImageID` INT NOT NULL AUTO_INCREMENT, `AnidbAnimeID` INT NULL, `ImageID` INT NOT NULL, `ImageType` INT NOT NULL, `ImageSource` INT NOT NULL, PRIMARY KEY (`AniDB_Anime_PreferredImageID`) );"),
+        new(119, 6, "INSERT INTO `CrossRef_AniDB_TMDB_Movie` ( AnidbAnimeID, TmdbMovieID, Source ) SELECT AnimeID, CAST ( CrossRefID AS INTEGER ), CrossRefSource FROM `CrossRef_AniDB_Other` WHERE CrossRefType = 1;"),
+        new(119, 7, "DROP TABLE `CrossRef_AniDB_Other`;"),
+        new(119, 8, "DROP TABLE `MovieDB_Fanart`;"),
+        new(119, 9, "DROP TABLE `MovieDB_Poster`;"),
+        new(119, 10, "DROP TABLE `AniDB_Anime_DefaultImage`;"),
     };
 
     private DatabaseCommand linuxTableVersionsFix = new("RENAME TABLE versions TO Versions;");

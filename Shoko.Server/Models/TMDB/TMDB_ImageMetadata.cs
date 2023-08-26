@@ -1,14 +1,17 @@
 using System.IO;
+using System.Net.Http;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.ImageDownload;
+using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 
 #nullable enable
 namespace Shoko.Models.Server.TMDB;
 
-public class TMDB_ImageMetadata
+public class TMDB_ImageMetadata : IImageMetadata
 {
     /// <summary>
     /// Local id for image.
@@ -61,69 +64,54 @@ public class TMDB_ImageMetadata
     /// </summary>
     public ForeignEntityType ForeignType { get; set; }
 
-    /// <summary>
-    /// Image type.
-    /// </summary>
-    public ImageEntityType_New ImageType { get; set; }
+    /// <inheritdoc/>
+    public ImageEntityType ImageType { get; set; }
 
-    /// <summary>
-    /// Indicates that the image is enabled for use.
-    /// </summary>
+    /// <inheritdoc/>
     public bool IsEnabled { get; set; }
 
-    /// <summary>
-    /// Image size.
-    /// </summary>
-    public string ImageSize
-        => $"{Width}x{Height}";
+    /// <inheritdoc/>
+    public bool IsLocked
+        => false;
 
-    /// <summary>
-    /// Image aspect ratio.
-    /// </summary>
+    /// <inheritdoc/>
+    public bool IsAvailable
+        => !string.IsNullOrEmpty(LocalPath) || !string.IsNullOrEmpty(RemoteURL);
+
+    /// <inheritdoc/>
     public double AspectRatio { get; set; }
 
-    /// <summary>
-    /// Width of the image, in pixels.
-    /// </summary>
+    /// <inheritdoc/>
     public int Width { get; set; }
 
-    /// <summary>
-    /// Height of the image, in pixels.
-    /// </summary>
+    /// <inheritdoc/>
     public int Height { get; set; }
 
-    /// <summary>
-    /// The title language detrived from the <see cref="LanguageCode"/> below.
-    /// </summary>
+    /// <inheritdoc/>
     public TitleLanguage Language { get; set; }
 
-    /// <summary>
-    /// Language code for the language used for the text in the image, if any.
-    /// </summary>
+    /// <inheritdoc/>
     public string? LanguageCode
     {
         get => Language == TitleLanguage.None ? null : Language.GetString();
         set => Language = string.IsNullOrEmpty(value) ? TitleLanguage.None : value.GetTitleLanguage();
     }
 
-    /// <summary>
-    /// The remote file name to fetch.
-    /// </summary>
+    /// <inheritdoc/>
     public string RemoteFileName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Remote path relative a provided base to fetch the image.
-    /// </summary>
-    public string RemoteURL
-        => string.IsNullOrEmpty(RemoteFileName) ? string.Empty : $"/original/{RemoteFileName}";
+    /// <inheritdoc/>
+    public string? RemoteURL
+        => string.IsNullOrEmpty(RemoteFileName) || string.IsNullOrEmpty(TMDBHelper.ImageServerUrl) ? null : $"{TMDBHelper.ImageServerUrl}/original/{RemoteFileName}";
 
     /// <summary>
-    /// Absolute path to the image stored locally.
+    /// Relative path to the image stored locally.
     /// </summary>
-    public string RelativePath
-        => string.IsNullOrEmpty(RemoteFileName) ? string.Empty : Path.Join("TMDB", ImageType.ToString(), RemoteFileName);
+    public string? RelativePath
+        => string.IsNullOrEmpty(RemoteFileName) ? null : Path.Join("TMDB", ImageType.ToString(), RemoteFileName);
 
-    public string AbsolutePath
+    /// <inheritdoc/>
+    public string? LocalPath
         => ImageUtils.ResolvePath(RelativePath);
 
     /// <summary>
@@ -144,7 +132,7 @@ public class TMDB_ImageMetadata
 
     public TMDB_ImageMetadata() { }
 
-    public TMDB_ImageMetadata(ImageEntityType_New type)
+    public TMDB_ImageMetadata(ImageEntityType type)
     {
         ImageType = type;
     }
@@ -186,5 +174,37 @@ public class TMDB_ImageMetadata
         LanguageCode = data.Iso_639_1;
         UserRating = data.VoteAverage;
         UserVotes = data.VoteCount;
+    }
+
+    public int? GetForeignID(ForeignEntityType foreignType)
+        => foreignType switch
+        {
+            ForeignEntityType.Movie => TmdbMovieID,
+            ForeignEntityType.Episode => TmdbEpisodeID,
+            ForeignEntityType.Season => TmdbSeasonID,
+            ForeignEntityType.Show => TmdbShowID,
+            ForeignEntityType.Collection => TmdbCollectionID,
+            _ => null,
+        };
+
+    public Stream? GetStream()
+    {
+        var localPath = LocalPath;
+        if (!string.IsNullOrEmpty(localPath) && File.Exists(localPath))
+            return new FileStream(localPath, FileMode.Open, FileAccess.Read);
+
+        var remoteURL = RemoteURL;
+        if (!string.IsNullOrEmpty(remoteURL))
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", $"ShokoServer/v4");
+                return client.GetStreamAsync(remoteURL).ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            catch { }
+        }
+
+        return null;
     }
 }

@@ -37,7 +37,7 @@ public class TMDBHelper
 
     private static string _imageServerUrl = null;
 
-    public string ImageServerUrl =>
+    public static string ImageServerUrl =>
         _imageServerUrl;
 
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
@@ -53,7 +53,7 @@ public class TMDBHelper
         if (string.IsNullOrEmpty(_imageServerUrl))
         {
             var config = _client.GetAPIConfiguration().Result;
-            _imageServerUrl = config.Images.SecureBaseUrl + "/{0}";
+            _imageServerUrl = config.Images.SecureBaseUrl;
         }
     }
 
@@ -177,7 +177,7 @@ public class TMDBHelper
 
     private void RemoveMovieLink(CrossRef_AniDB_TMDB_Movie xref)
     {
-        // TODO: Reset default image for the anime if it belongs to the movie.
+        ResetPreferredImage(xref.AnidbAnimeID, ForeignEntityType.Movie, xref.TmdbMovieID);
 
         _logger.LogInformation("Removing TMDB Movie Link: AniDB ({AnidbID}) → TMDB Movie (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbMovieID);
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Delete(xref);
@@ -239,11 +239,11 @@ public class TMDBHelper
         var settings = _settingsProvider.GetSettings();
         var images = await _client.GetMovieImagesAsync(movieId);
         if (settings.TMDB.AutoDownloadPosters)
-            DownloadImagesByType(images.Posters, ImageEntityType_New.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
         if (settings.TMDB.AutoDownloadLogos)
-            DownloadImagesByType(images.Logos, ImageEntityType_New.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
         if (settings.TMDB.AutoDownloadBackdrops)
-            DownloadImagesByType(images.Backdrops, ImageEntityType_New.Backdrop, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
     }
 
     #endregion
@@ -390,7 +390,9 @@ public class TMDBHelper
 
     private void RemoveShowLink(CrossRef_AniDB_TMDB_Show xref)
     {
-        // TODO: Reset default images if any are set.
+        ResetPreferredImage(xref.AnidbAnimeID, ForeignEntityType.Show, xref.TmdbShowID);
+        if (xref.TmdbSeasonID.HasValue)
+            ResetPreferredImage(xref.AnidbAnimeID, ForeignEntityType.Season, xref.TmdbSeasonID.Value);
 
         _logger.LogInformation("Removing TMDB Show Link: AniDB ({AnidbID}) → TMDB Show (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbShowID);
         RepoFactory.CrossRef_AniDB_TMDB_Show.Delete(xref);
@@ -463,11 +465,11 @@ public class TMDBHelper
         var settings = _settingsProvider.GetSettings();
         var images = await _client.GetTvShowImagesAsync(showId);
         if (settings.TMDB.AutoDownloadPosters)
-            DownloadImagesByType(images.Posters, ImageEntityType_New.Poster, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
         if (settings.TMDB.AutoDownloadLogos)
-            DownloadImagesByType(images.Logos, ImageEntityType_New.Logo, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
         if (settings.TMDB.AutoDownloadBackdrops)
-            DownloadImagesByType(images.Backdrops, ImageEntityType_New.Backdrop, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
     }
 
     #endregion
@@ -543,7 +545,7 @@ public class TMDBHelper
 
     #region Image
 
-    private void DownloadImagesByType(IReadOnlyList<ImageData> images, ImageEntityType_New type, ForeignEntityType foreignType, int maxCount, int episodeId, bool forceDownload = false)
+    private void DownloadImagesByType(IReadOnlyList<ImageData> images, ImageEntityType type, ForeignEntityType foreignType, int maxCount, int episodeId, bool forceDownload = false)
     {
         var count = 0;
         foreach (var imageData in images)
@@ -555,14 +557,14 @@ public class TMDBHelper
             image.Populate(imageData, foreignType, episodeId);
             RepoFactory.TMDB_ImageMetadata.Save(image);
 
-            var path = image.AbsolutePath;
+            var path = image.LocalPath;
             if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 count++;
         }
 
         foreach (var image in RepoFactory.TMDB_ImageMetadata.GetByForeignIDAndType(episodeId, foreignType, type))
         {
-            var path = image.AbsolutePath;
+            var path = image.LocalPath;
             if (count < maxCount)
             {
                 // Clean up outdated entries.
@@ -608,8 +610,8 @@ public class TMDBHelper
         // Only delete the image metadata and/or file if all references were removed.
         if (image.ForeignType == ForeignEntityType.None)
         {
-            if (removeFile && !string.IsNullOrEmpty(image.AbsolutePath) && File.Exists(image.AbsolutePath))
-                File.Delete(image.AbsolutePath);
+            if (removeFile && !string.IsNullOrEmpty(image.LocalPath) && File.Exists(image.LocalPath))
+                File.Delete(image.LocalPath);
 
             RepoFactory.TMDB_ImageMetadata.Delete(image.TMDB_ImageMetadataID);
         }
@@ -633,6 +635,28 @@ public class TMDBHelper
                 case ForeignEntityType.Collection:
                     image.TmdbCollectionID = null;
                     break;
+            }
+        }
+    }
+
+    private void ResetPreferredImage(int anidbAnimeId, ForeignEntityType foreignType, int foreignId)
+    {
+        var images = RepoFactory.AniDB_Anime_PreferredImage.GetByAnimeID(anidbAnimeId);
+        foreach (var defaultImage in images)
+        {
+            if (defaultImage.ImageSource == DataSourceType.TMDB)
+            {
+                var image = RepoFactory.TMDB_ImageMetadata.GetByID(defaultImage.ImageID);
+                if (image == null)
+                {
+                    _logger.LogTrace("Removing preferred image for anime {AnimeId} because the preferred image could not be found.", anidbAnimeId);
+                    RepoFactory.AniDB_Anime_PreferredImage.Delete(defaultImage);
+                }
+                else if (image.ForeignType.HasFlag(foreignType) && image.GetForeignID(foreignType) == foreignId)
+                {
+                    _logger.LogTrace("Removing preferred image for anime {AnimeId} because it belongs to now TMDB {Type} {Id}", anidbAnimeId, foreignType.ToString(), foreignId);
+                    RepoFactory.AniDB_Anime_PreferredImage.Delete(defaultImage);
+                }
             }
         }
     }

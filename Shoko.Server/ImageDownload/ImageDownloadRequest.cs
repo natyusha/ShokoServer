@@ -60,13 +60,13 @@ public class ImageDownloadRequest
 
     private string? _filePath { get; set; } = null;
 
-    public string FilePath
+    public string? FilePath
         => _filePath ??= ImageData switch
         {
             AniDB_Character character => character.GetPosterPath(),
             AniDB_Seiyuu creator => creator.GetPosterPath(),
             SVR_AniDB_Anime anime => anime.PosterPath,
-            TMDB_ImageMetadata tmdbImage => tmdbImage.AbsolutePath,
+            TMDB_ImageMetadata tmdbImage => tmdbImage.LocalPath,
             TvDB_Episode episode => episode.GetFullImagePath(),
             TvDB_ImageFanart image => image.GetFullImagePath(),
             TvDB_ImagePoster image => image.GetFullImagePath(),
@@ -76,13 +76,13 @@ public class ImageDownloadRequest
 
     private string? _downloadUrl { get; set; } = null;
 
-    public string DownloadUrl
+    public string? DownloadUrl
         => _downloadUrl ??= ImageData switch
         {
             AniDB_Character character => string.Format(ImageServerUrl, character.PicName),
             AniDB_Seiyuu creator => string.Format(ImageServerUrl, creator.PicName),
             SVR_AniDB_Anime anime => string.Format(ImageServerUrl, anime.Picname),
-            TMDB_ImageMetadata tmdbImage => string.Format(ImageServerUrl, tmdbImage.RemoteURL),
+            TMDB_ImageMetadata tmdbImage => tmdbImage.RemoteURL,
             TvDB_Episode ep => string.Format(Constants.URLS.TvDB_Episode_Images, ep.Filename),
             TvDB_ImageFanart fanart => string.Format(Constants.URLS.TvDB_Images, fanart.BannerPath),
             TvDB_ImagePoster poster => string.Format(Constants.URLS.TvDB_Images, poster.BannerPath),

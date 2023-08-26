@@ -19,6 +19,7 @@ using Shoko.Server.API.v3.Helpers;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Commands;
+using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.TMDB;
@@ -1352,19 +1353,19 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(SeriesForbiddenForUser);
 
-        var imageSizeType = Image.GetImageSizeTypeFromType(imageType);
-        var defaultBanner = Series.GetDefaultImage(series.AniDB_ID, imageSizeType);
+        var imageEntityType = imageType.ToServer();
+        var defaultBanner = Series.GetDefaultImage(series.AniDB_ID, imageEntityType);
         if (defaultBanner != null)
         {
             return defaultBanner;
         }
 
         var images = Series.GetArt(series.AniDB_ID);
-        return imageSizeType switch
+        return imageEntityType switch
         {
-            ImageSizeType.Poster => images.Posters.FirstOrDefault(),
-            ImageSizeType.WideBanner => images.Banners.FirstOrDefault(),
-            ImageSizeType.Fanart => images.Fanarts.FirstOrDefault(),
+            ImageEntityType.Poster => images.Posters.FirstOrDefault(),
+            ImageEntityType.Banner => images.Banners.FirstOrDefault(),
+            ImageEntityType.Backdrop => images.Fanarts.FirstOrDefault(),
             _ => null
         };
     }
@@ -1391,29 +1392,22 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(SeriesForbiddenForUser);
 
-        var imageEntityType = Image.GetImageTypeFromSourceAndType(body.Source, imageType);
-        if (!imageEntityType.HasValue)
-            return ValidationProblem("Invalid body source");
-
-        // All dynamic ids are stringified ints, so extract the image id from the body.
-        if (!int.TryParse(body.ID, out var imageID))
-            return ValidationProblem("Invalid body id. Id must be a stringified int.");
+        var dataSource = body.Source.ToServer();
+        var imageEntityType = imageType.ToServer();
 
         // Check if the id is valid for the given type and source.
 
-        switch (imageEntityType.Value)
+        switch (imageEntityType.ToClient(dataSource))
         {
             // Posters
-            case ImageEntityType.AniDB_Cover:
-                if (imageID != series.AniDB_ID)
-                {
+            case CL_ImageEntityType.AniDB_Cover:
+                if (body.ID != series.AniDB_ID)
                     return ValidationProblem(InvalidIDForSource);
-                }
 
                 break;
-            case ImageEntityType.TvDB_Cover:
+            case CL_ImageEntityType.TvDB_Cover:
                 {
-                    var tvdbPoster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
+                    var tvdbPoster = RepoFactory.TvDB_ImagePoster.GetByID(body.ID);
                     if (tvdbPoster == null)
                         return ValidationProblem(InvalidIDForSource);
 
@@ -1424,8 +1418,8 @@ public class SeriesController : BaseController
                 }
 
             // Banners
-            case ImageEntityType.TvDB_Banner:
-                var tvdbBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
+            case CL_ImageEntityType.TvDB_Banner:
+                var tvdbBanner = RepoFactory.TvDB_ImageWideBanner.GetByID(body.ID);
                 if (tvdbBanner == null)
                     return ValidationProblem(InvalidIDForSource);
 
@@ -1435,8 +1429,8 @@ public class SeriesController : BaseController
                 break;
 
             // Fanart
-            case ImageEntityType.TvDB_FanArt:
-                var tvdbFanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
+            case CL_ImageEntityType.TvDB_FanArt:
+                var tvdbFanart = RepoFactory.TvDB_ImageFanart.GetByID(body.ID);
                 if (tvdbFanart == null)
                     return ValidationProblem(InvalidIDForSource);
 
@@ -1444,9 +1438,9 @@ public class SeriesController : BaseController
                     return ValidationProblem(InvalidImageIsDisabled);
 
                 break;
-            case ImageEntityType.MovieDB_Poster:
-            case ImageEntityType.MovieDB_FanArt:
-                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
+            case CL_ImageEntityType.MovieDB_Poster:
+            case CL_ImageEntityType.MovieDB_FanArt:
+                var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(body.ID);
                 if (tmdbImage == null)
                     return ValidationProblem(InvalidIDForSource);
 
@@ -1460,20 +1454,18 @@ public class SeriesController : BaseController
                 return ValidationProblem("Invalid source and/or type.");
         }
 
-        var imageSizeType = Image.GetImageSizeTypeFromType(imageType);
-        var defaultImage =
-            RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeType(series.AniDB_ID, imageSizeType) ??
-            new AniDB_Anime_DefaultImage { AnimeID = series.AniDB_ID, ImageType = (int)imageSizeType };
-        defaultImage.ImageParentID = imageID;
-        defaultImage.ImageParentType = (int)imageEntityType.Value;
+        var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(series.AniDB_ID, imageEntityType) ??
+            new() { AnidbAnimeID = series.AniDB_ID, ImageType = imageEntityType };
+        defaultImage.ImageID = body.ID;
+        defaultImage.ImageSource = dataSource;
 
         // Create or update the entry.
-        RepoFactory.AniDB_Anime_DefaultImage.Save(defaultImage);
+        RepoFactory.AniDB_Anime_PreferredImage.Save(defaultImage);
 
         // Update the contract data (used by Shoko Desktop).
         RepoFactory.AnimeSeries.Save(series, false);
 
-        return new Image(imageID, imageEntityType.Value, true);
+        return new Image(body.ID, imageEntityType, dataSource, true);
     }
 
     /// <summary>
@@ -1497,14 +1489,13 @@ public class SeriesController : BaseController
             return Forbid(SeriesForbiddenForUser);
 
         // Check if a default image is set.
-        var imageSizeType = Image.GetImageSizeTypeFromType(imageType);
-        var defaultImage =
-            RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeType(series.AniDB_ID, imageSizeType);
+        var imageEntityType = imageType.ToServer();
+        var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(series.AniDB_ID, imageEntityType);
         if (defaultImage == null)
             return ValidationProblem("No default banner.");
 
         // Delete the entry.
-        RepoFactory.AniDB_Anime_DefaultImage.Delete(defaultImage);
+        RepoFactory.AniDB_Anime_PreferredImage.Delete(defaultImage);
 
         // Update the contract data (used by Shoko Desktop).
         RepoFactory.AnimeSeries.Save(series, false);

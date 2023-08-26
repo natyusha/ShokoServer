@@ -20,7 +20,7 @@ public class TMDB_ImageMetadataMap : ClassMap<TMDB_ImageMetadata>
         Map(x => x.TmdbShowID);
         Map(x => x.TmdbCollectionID);
         Map(x => x.ForeignType).Not.Nullable().CustomType<ForeignEntityType>();
-        Map(x => x.ImageType).Not.Nullable().CustomType<ImageEntityType_New>();
+        Map(x => x.ImageType).Not.Nullable().CustomType<ImageEntityType>();
         Map(x => x.AspectRatio).Not.Nullable();
         Map(x => x.Width).Not.Nullable();
         Map(x => x.Height).Not.Nullable();

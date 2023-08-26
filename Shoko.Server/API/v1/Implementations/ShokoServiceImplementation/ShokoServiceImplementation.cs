@@ -938,28 +938,24 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            var imgType = (ImageEntityType)imageType;
+            var imgType = (CL_ImageEntityType)imageType;
             var animeIDs = new HashSet<int>();
 
             switch (imgType)
             {
-                case ImageEntityType.AniDB_Cover:
+                case CL_ImageEntityType.AniDB_Cover:
                     var anime = RepoFactory.AniDB_Anime.GetByAnimeID(imageID);
                     if (anime == null)
-                    {
                         return "Could not find anime";
-                    }
 
                     anime.ImageEnabled = enabled ? 1 : 0;
                     RepoFactory.AniDB_Anime.Save(anime);
                     break;
 
-                case ImageEntityType.TvDB_Banner:
+                case CL_ImageEntityType.TvDB_Banner:
                     var banner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
                     if (banner == null)
-                    {
                         return "Could not find image";
-                    }
 
                     banner.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImageWideBanner.Save(banner);
@@ -967,12 +963,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         animeIDs.Add(xref.AniDBID);
                     break;
 
-                case ImageEntityType.TvDB_Cover:
+                case CL_ImageEntityType.TvDB_Cover:
                     var poster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
                     if (poster == null)
-                    {
                         return "Could not find image";
-                    }
 
                     poster.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImagePoster.Save(poster);
@@ -980,12 +974,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         animeIDs.Add(xref.AniDBID);
                     break;
 
-                case ImageEntityType.TvDB_FanArt:
+                case CL_ImageEntityType.TvDB_FanArt:
                     var fanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
                     if (fanart == null)
-                    {
                         return "Could not find image";
-                    }
 
                     fanart.Enabled = enabled ? 1 : 0;
                     RepoFactory.TvDB_ImageFanart.Save(fanart);
@@ -993,8 +985,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
                         animeIDs.Add(xref.AniDBID);
                     break;
 
-                case ImageEntityType.MovieDB_FanArt:
-                case ImageEntityType.MovieDB_Poster:
+                case CL_ImageEntityType.MovieDB_FanArt:
+                case CL_ImageEntityType.MovieDB_Poster:
                     var tmdbImage = RepoFactory.TMDB_ImageMetadata.GetByID(imageID);
                     if (tmdbImage == null)
                         return "Could not find image";
@@ -1026,54 +1018,25 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            var imgType = (ImageEntityType)imageType;
-            var sizeType = ImageSizeType.Poster;
+            var imageEntityType = ((CL_ImageEntityType)imageType).ToServerType();
+            var dataSource = ((CL_ImageEntityType)imageType).ToServerSource();
 
-            switch (imgType)
-            {
-                case ImageEntityType.AniDB_Cover:
-                case ImageEntityType.TvDB_Cover:
-                case ImageEntityType.MovieDB_Poster:
-                    sizeType = ImageSizeType.Poster;
-                    break;
-
-                case ImageEntityType.TvDB_Banner:
-                    sizeType = ImageSizeType.WideBanner;
-                    break;
-
-                case ImageEntityType.TvDB_FanArt:
-                case ImageEntityType.MovieDB_FanArt:
-                    sizeType = ImageSizeType.Fanart;
-                    break;
-            }
-
+            // Reset the image preference.
             if (!isDefault)
             {
-                // this mean we are removing an image as default
-                // which essential means deleting the record
-
-                var img =
-                    RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeType(animeID, sizeType);
-                if (img != null)
-                {
-                    RepoFactory.AniDB_Anime_DefaultImage.Delete(img.AniDB_Anime_DefaultImageID);
-                }
+                var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(animeID, imageEntityType);
+                if (defaultImage != null)
+                    RepoFactory.AniDB_Anime_PreferredImage.Delete(defaultImage);
             }
+            // Mark the image as the preferred/default for it's type.
             else
             {
-                // making the image the default for it's type (poster, fanart etc)
-                var img =
-                    RepoFactory.AniDB_Anime_DefaultImage.GetByAnimeIDAndImagezSizeType(animeID, sizeType);
-                if (img == null)
-                {
-                    img = new AniDB_Anime_DefaultImage();
-                }
-
-                img.AnimeID = animeID;
-                img.ImageParentID = imageID;
-                img.ImageParentType = (int)imgType;
-                img.ImageType = (int)sizeType;
-                RepoFactory.AniDB_Anime_DefaultImage.Save(img);
+                var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(animeID, imageEntityType) ?? new();
+                defaultImage.AnidbAnimeID = animeID;
+                defaultImage.ImageID = imageID;
+                defaultImage.ImageType = imageEntityType;
+                defaultImage.ImageSource = dataSource;
+                RepoFactory.AniDB_Anime_PreferredImage.Save(defaultImage);
             }
 
             SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);

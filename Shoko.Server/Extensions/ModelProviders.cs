@@ -179,7 +179,7 @@ public static class ModelProviders
             CharKanjiName = character.CharKanjiName,
             CharDescription = character.CharDescription,
             CharType = charRel.CharType,
-            ImageType = (int)ImageEntityType.AniDB_Character,
+            ImageType = (int)CL_ImageEntityType.AniDB_Character,
             ImageID = character.AniDB_CharacterID
         };
         var seiyuu = character.GetSeiyuu();
@@ -187,7 +187,7 @@ public static class ModelProviders
         {
             contract.SeiyuuID = seiyuu.AniDB_SeiyuuID;
             contract.SeiyuuName = seiyuu.SeiyuuName;
-            contract.SeiyuuImageType = (int)ImageEntityType.AniDB_Creator;
+            contract.SeiyuuImageType = (int)CL_ImageEntityType.AniDB_Creator;
             contract.SeiyuuImageID = seiyuu.AniDB_SeiyuuID;
         }
 

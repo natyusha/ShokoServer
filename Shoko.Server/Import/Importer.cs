@@ -461,7 +461,7 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvPoster.TvDB_ImagePosterID;
-                        c.ImageTypeEnum = ImageEntityType_New.Poster;
+                        c.ImageTypeEnum = ImageEntityType.Poster;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
@@ -531,7 +531,7 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvFanart.TvDB_ImageFanartID;
-                        c.ImageTypeEnum = ImageEntityType_New.Backdrop;
+                        c.ImageTypeEnum = ImageEntityType.Backdrop;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
@@ -602,7 +602,7 @@ public static class Importer
                     c =>
                     {
                         c.EntityID = tvBanner.TvDB_ImageWideBannerID;
-                        c.ImageTypeEnum = ImageEntityType_New.Banner;
+                        c.ImageTypeEnum = ImageEntityType.Banner;
                         c.DataSourceEnum = DataSourceEnum.TvDB;
                     }
                 );
@@ -637,7 +637,7 @@ public static class Importer
                 c =>
                 {
                     c.EntityID = tvEpisode.TvDB_EpisodeID;
-                    c.ImageTypeEnum = ImageEntityType_New.Thumbnail;
+                    c.ImageTypeEnum = ImageEntityType.Thumbnail;
                     c.DataSourceEnum = DataSourceEnum.TvDB;
                 }
             );
@@ -645,11 +645,11 @@ public static class Importer
 
         // TMDB Images
         if (settings.TMDB.AutoDownloadPosters)
-            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Poster, settings.TMDB.MaxAutoPosters);
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType.Poster, settings.TMDB.MaxAutoPosters);
         if (settings.TMDB.AutoDownloadLogos)
-            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Logo, settings.TMDB.MaxAutoLogos);
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType.Logo, settings.TMDB.MaxAutoLogos);
         if (settings.TMDB.AutoDownloadBackdrops)
-            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType_New.Backdrop, settings.TMDB.MaxAutoBackdrops);
+            RunImport_DownloadTmdbImagesForType(commandFactory, ImageEntityType.Backdrop, settings.TMDB.MaxAutoBackdrops);
 
         // AniDB Characters
         if (settings.AniDb.DownloadCharacters)
@@ -712,7 +712,7 @@ public static class Importer
         }
     }
 
-    private static void RunImport_DownloadTmdbImagesForType(ICommandRequestFactory commandFactory, ImageEntityType_New type, int maxCount)
+    private static void RunImport_DownloadTmdbImagesForType(ICommandRequestFactory commandFactory, ImageEntityType type, int maxCount)
     {
         // Build a few dictionaries to check how many images exist for each type.
         var moviePosterCount = new Dictionary<int, int>();
@@ -722,7 +722,7 @@ public static class Importer
         var allImages = RepoFactory.TMDB_ImageMetadata.GetByType(type);
         foreach (var image in allImages)
         {
-            var path = image.AbsolutePath;
+            var path = image.LocalPath;
             if (string.IsNullOrEmpty(path))
                 continue;
 
@@ -753,7 +753,7 @@ public static class Importer
 
         foreach (var image in allImages)
         {
-            var path = image.AbsolutePath;
+            var path = image.LocalPath;
             if (string.IsNullOrEmpty(path) || File.Exists(path))
                 continue;
 
