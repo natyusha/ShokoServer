@@ -19,7 +19,7 @@ public class TMDB_Image : IImageMetadata
     public int TMDB_ImageID { get; set; }
 
     /// <summary>
-    /// Related TMDB Movie entry id, if applicable.
+    /// Related TMDB Movie entity id, if applicable.
     /// </summary>
     /// <remarks>
     /// An image can be linked to multiple entries at once.
@@ -27,7 +27,7 @@ public class TMDB_Image : IImageMetadata
     public int? TmdbMovieID { get; set; }
 
     /// <summary>
-    /// Related TMDB Episode entry id, if applicable.
+    /// Related TMDB Episode entity id, if applicable.
     /// </summary>
     /// <remarks>
     /// An image can be linked to multiple entries at once.
@@ -35,7 +35,7 @@ public class TMDB_Image : IImageMetadata
     public int? TmdbEpisodeID { get; set; }
 
     /// <summary>
-    /// Related TMDB Season entry id, if applicable.
+    /// Related TMDB Season entity id, if applicable.
     /// </summary>
     /// <remarks>
     /// An image can be linked to multiple entries at once.
@@ -43,7 +43,7 @@ public class TMDB_Image : IImageMetadata
     public int? TmdbSeasonID { get; set; }
 
     /// <summary>
-    /// Related TMDB Show entry id, if applicable.
+    /// Related TMDB Show entity id, if applicable.
     /// </summary>
     /// <remarks>
     /// An image can be linked to multiple entries at once.
@@ -51,12 +51,36 @@ public class TMDB_Image : IImageMetadata
     public int? TmdbShowID { get; set; }
 
     /// <summary>
-    /// Related TMDB Collection entry id, if applicable.
+    /// Related TMDB Collection entity id, if applicable.
     /// </summary>
     /// <remarks>
     /// An image can be linked to multiple entries at once.
     /// </remarks>
     public int? TmdbCollectionID { get; set; }
+
+    /// <summary>
+    /// Related TMDB Network entity id, if applicable.
+    /// </summary>
+    /// <remarks>
+    /// An image can be linked to multiple entries at once.
+    /// </remarks>
+    public int? TmdbNetworkID { get; set; }
+
+    /// <summary>
+    /// Related TMDB Company entity id, if applicable.
+    /// </summary>
+    /// <remarks>
+    /// An image can be linked to multiple entries at once.
+    /// </remarks>
+    public int? TmdbCompanyID { get; set; }
+
+    /// <summary>
+    /// Related TMDB Person entity id, if applicable.
+    /// </summary>
+    /// <remarks>
+    /// An image can be linked to multiple entries at once.
+    /// </remarks>
+    public int? TmdbPersonID { get; set; }
 
     /// <summary>
     /// Foreign type. Determines if the data is for movies or tv shows, and if
@@ -79,7 +103,8 @@ public class TMDB_Image : IImageMetadata
         => !string.IsNullOrEmpty(LocalPath) || !string.IsNullOrEmpty(RemoteURL);
 
     /// <inheritdoc/>
-    public double AspectRatio { get; set; }
+    public double AspectRatio
+        => Width / Height;
 
     /// <inheritdoc/>
     public int Width { get; set; }
@@ -162,13 +187,24 @@ public class TMDB_Image : IImageMetadata
                 TmdbCollectionID = foreignId;
                 ForeignType |= foreignType;
                 break;
+            case ForeignEntityType.Network:
+                TmdbNetworkID = foreignId;
+                ForeignType |= foreignType;
+                break;
+            case ForeignEntityType.Company:
+                TmdbCompanyID = foreignId;
+                ForeignType |= foreignType;
+                break;
+            case ForeignEntityType.Person:
+                TmdbPersonID = foreignId;
+                ForeignType |= foreignType;
+                break;
         }
     }
 
     private void Populate(ImageData data)
     {
         RemoteFileName = data.FilePath;
-        AspectRatio = data.AspectRatio;
         Width = data.Width;
         Height = data.Height;
         LanguageCode = data.Iso_639_1;
@@ -184,6 +220,9 @@ public class TMDB_Image : IImageMetadata
             ForeignEntityType.Season => TmdbSeasonID,
             ForeignEntityType.Show => TmdbShowID,
             ForeignEntityType.Collection => TmdbCollectionID,
+            ForeignEntityType.Network => TmdbNetworkID,
+            ForeignEntityType.Company => TmdbCompanyID,
+            ForeignEntityType.Person => TmdbPersonID,
             _ => null,
         };
 
