@@ -462,7 +462,7 @@ public static class Importer
                     {
                         c.EntityID = tvPoster.TvDB_ImagePosterID;
                         c.ImageTypeEnum = ImageEntityType.Poster;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                     }
                 );
 
@@ -532,7 +532,7 @@ public static class Importer
                     {
                         c.EntityID = tvFanart.TvDB_ImageFanartID;
                         c.ImageTypeEnum = ImageEntityType.Backdrop;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                     }
                 );
 
@@ -603,7 +603,7 @@ public static class Importer
                     {
                         c.EntityID = tvBanner.TvDB_ImageWideBannerID;
                         c.ImageTypeEnum = ImageEntityType.Banner;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                     }
                 );
 
@@ -638,7 +638,7 @@ public static class Importer
                 {
                     c.EntityID = tvEpisode.TvDB_EpisodeID;
                     c.ImageTypeEnum = ImageEntityType.Thumbnail;
-                    c.DataSourceEnum = DataSourceEnum.TvDB;
+                    c.DataSourceEnum = DataSourceType.TvDB;
                 }
             );
         }
@@ -771,7 +771,7 @@ public static class Importer
                 commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
                 {
                     c.EntityID = image.TMDB_ImageID;
-                    c.DataSourceEnum = DataSourceEnum.TMDB;
+                    c.DataSourceEnum = DataSourceType.TMDB;
                 });
 
                 if (image.TmdbMovieID.HasValue)

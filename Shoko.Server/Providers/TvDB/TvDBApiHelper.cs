@@ -691,7 +691,7 @@ public class TvDBApiHelper
                     {
                         c.EntityID = img.TvDB_ImageFanartID;
                         c.ImageTypeEnum = ImageEntityType.Backdrop;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -730,7 +730,7 @@ public class TvDBApiHelper
                     {
                         c.EntityID = img.TvDB_ImagePosterID;
                         c.ImageTypeEnum = ImageEntityType.Poster;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -768,7 +768,7 @@ public class TvDBApiHelper
                     {
                         c.EntityID = img.TvDB_ImageWideBannerID;
                         c.ImageTypeEnum = ImageEntityType.Banner;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                         c.ForceDownload = forceDownload;
                     }
                 );
@@ -904,7 +904,7 @@ public class TvDBApiHelper
                     {
                         c.EntityID = ep.TvDB_EpisodeID;
                         c.ImageTypeEnum = ImageEntityType.Thumbnail;
-                        c.DataSourceEnum = DataSourceEnum.TvDB;
+                        c.DataSourceEnum = DataSourceType.TvDB;
                         c.ForceDownload = forceRefresh;
                     }
                 );

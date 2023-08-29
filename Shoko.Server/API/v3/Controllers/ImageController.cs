@@ -1,9 +1,8 @@
-using System.IO;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Models.Enums;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.v3.Models.Common;
-using Shoko.Server.Properties;
+using Shoko.Server.ImageDownload;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
@@ -48,7 +47,7 @@ public class ImageController : BaseController
         }
 
         // All other type/source combinations
-        var path = Image.GetImagePath(imageEntityType, dataSource, value);
+        var path = ImageUtils.GetLocalPath(dataSource, imageEntityType, value);
         if (string.IsNullOrEmpty(path))
             return NotFound(ImageNotFound);
 
@@ -74,11 +73,11 @@ public class ImageController : BaseController
         if (imageEntityType == ImageEntityType.None)
             return InternalError("Could not generate a valid image type to fetch.");
 
-        var id = Image.GetRandomImageID(imageEntityType, dataSource);
+        var id = ImageUtils.GetRandomImageID(dataSource, imageEntityType);
         if (!id.HasValue)
             return InternalError("Unable to find a random image to send.");
 
-        var path = Image.GetImagePath(imageEntityType, dataSource, id.Value);
+        var path = ImageUtils.GetLocalPath(dataSource, imageEntityType, id.Value);
         if (string.IsNullOrEmpty(path))
             return InternalError("Unable to load image from disk.");
 
@@ -108,16 +107,16 @@ public class ImageController : BaseController
         var tries = 0;
         do
         {
-            var id = Image.GetRandomImageID(imageEntityType, dataSource);
+            var id = ImageUtils.GetRandomImageID(dataSource, imageEntityType);
             if (!id.HasValue)
                 break;
 
-            var path = Image.GetImagePath(imageEntityType, dataSource, id.Value);
+            var path = ImageUtils.GetLocalPath(dataSource, imageEntityType, id.Value);
             if (string.IsNullOrEmpty(path))
                 continue;
 
             var image = new Image(id.Value, imageEntityType, dataSource, false, false);
-            var series = Image.GetFirstSeriesForImage(imageEntityType, dataSource, id.Value);
+            var series = ImageUtils.GetFirstSeriesForImage(dataSource, imageEntityType, id.Value);
             if (series == null)
                 continue;
             image.Series = new(series.AnimeSeriesID, series.GetSeriesName());

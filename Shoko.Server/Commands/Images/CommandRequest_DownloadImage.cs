@@ -4,8 +4,8 @@ using System.Xml;
 using System.Xml.Serialization;
 using Microsoft.Extensions.Logging;
 using Shoko.Commons.Queue;
+using Shoko.Models.Enums;
 using Shoko.Models.Queue;
-using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.ImageDownload;
@@ -42,9 +42,9 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
     }
 
     [XmlIgnore, JsonIgnore]
-    public virtual DataSourceEnum DataSourceEnum
+    public virtual DataSourceType DataSourceEnum
     {
-        get => (DataSourceEnum)DataSource;
+        get => (DataSourceType)DataSource;
         set => DataSource = (int)value;
     }
 
@@ -66,7 +66,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
 
         switch (DataSourceEnum)
         {
-            case DataSourceEnum.AniDB:
+            case DataSourceType.AniDB:
                 switch (ImageTypeEnum)
                 {
                     case ImageEntityType.Poster:
@@ -103,7 +103,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         break;
                 }
                 break;
-            case DataSourceEnum.TvDB:
+            case DataSourceType.TvDB:
                 switch (ImageTypeEnum)
                 {
                     case ImageEntityType.Thumbnail:
@@ -154,9 +154,9 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                         break;
                 }
                 break;
-            case DataSourceEnum.TMDB:
+            case DataSourceType.TMDB:
                 var tmdbImage = RepoFactory.TMDB_Image.GetByID(EntityID);
-                if (string.IsNullOrEmpty(tmdbImage.RemoteURL))
+                if (string.IsNullOrEmpty(tmdbImage?.RemoteURL))
                 {
                     Logger.LogWarning(FailedToDownloadNoID, $"TMDB {ImageTypeEnum}", EntityID);
                     RemoveImageRecord();
@@ -215,7 +215,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
     {
         switch (DataSourceEnum)
         {
-            case DataSourceEnum.TvDB:
+            case DataSourceType.TvDB:
                 switch (ImageTypeEnum)
                 {
                     case ImageEntityType.Backdrop:
@@ -244,7 +244,7 @@ public class CommandRequest_DownloadImage : CommandRequestImplementation
                 }
                 break;
 
-            case DataSourceEnum.TMDB:
+            case DataSourceType.TMDB:
                 var tmdbImage = RepoFactory.TMDB_Image.GetByID(EntityID);
                 if (tmdbImage == null)
                     break;

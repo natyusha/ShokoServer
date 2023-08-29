@@ -20,6 +20,14 @@ public class AniDB_Anime_PreferredImage
 
     public DataSourceType ImageSource { get; set; }
 
+    public AniDB_Anime_PreferredImage() { }
+
+    public AniDB_Anime_PreferredImage(int anidbAnimeId, ImageEntityType imageType)
+    {
+        AnidbAnimeID = anidbAnimeId;
+        ImageType = imageType;
+    }
+
     public IImageEntity? GetImageEntity()
         => ImageSource switch
         {

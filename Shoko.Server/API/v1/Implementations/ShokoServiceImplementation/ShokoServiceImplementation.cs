@@ -18,6 +18,7 @@ using Shoko.Server.API.Annotations;
 using Shoko.Server.Commands;
 using Shoko.Server.Commands.AniDB;
 using Shoko.Server.Extensions;
+using Shoko.Server.ImageDownload;
 using Shoko.Server.Models;
 using Shoko.Server.Plex;
 using Shoko.Server.Providers.AniDB.Interfaces;
@@ -938,72 +939,10 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
     {
         try
         {
-            var imgType = (CL_ImageEntityType)imageType;
-            var animeIDs = new HashSet<int>();
+            var it = (CL_ImageEntityType)imageType;
+            if (!ImageUtils.SetEnabled(it.ToServerSource(), it.ToServerType(), imageID, enabled))
+                return "Could not find image";
 
-            switch (imgType)
-            {
-                case CL_ImageEntityType.AniDB_Cover:
-                    var anime = RepoFactory.AniDB_Anime.GetByAnimeID(imageID);
-                    if (anime == null)
-                        return "Could not find anime";
-
-                    anime.ImageEnabled = enabled ? 1 : 0;
-                    RepoFactory.AniDB_Anime.Save(anime);
-                    break;
-
-                case CL_ImageEntityType.TvDB_Banner:
-                    var banner = RepoFactory.TvDB_ImageWideBanner.GetByID(imageID);
-                    if (banner == null)
-                        return "Could not find image";
-
-                    banner.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImageWideBanner.Save(banner);
-                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(banner.SeriesID))
-                        animeIDs.Add(xref.AniDBID);
-                    break;
-
-                case CL_ImageEntityType.TvDB_Cover:
-                    var poster = RepoFactory.TvDB_ImagePoster.GetByID(imageID);
-                    if (poster == null)
-                        return "Could not find image";
-
-                    poster.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImagePoster.Save(poster);
-                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(poster.SeriesID))
-                        animeIDs.Add(xref.AniDBID);
-                    break;
-
-                case CL_ImageEntityType.TvDB_FanArt:
-                    var fanart = RepoFactory.TvDB_ImageFanart.GetByID(imageID);
-                    if (fanart == null)
-                        return "Could not find image";
-
-                    fanart.Enabled = enabled ? 1 : 0;
-                    RepoFactory.TvDB_ImageFanart.Save(fanart);
-                    foreach (var xref in RepoFactory.CrossRef_AniDB_TvDB.GetByTvDBID(fanart.SeriesID))
-                        animeIDs.Add(xref.AniDBID);
-                    break;
-
-                case CL_ImageEntityType.MovieDB_FanArt:
-                case CL_ImageEntityType.MovieDB_Poster:
-                    var tmdbImage = RepoFactory.TMDB_Image.GetByID(imageID);
-                    if (tmdbImage == null)
-                        return "Could not find image";
-
-                    tmdbImage.IsEnabled = enabled;
-                    RepoFactory.TMDB_Image.Save(tmdbImage);
-                    if (tmdbImage.TmdbShowID.HasValue)
-                        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(tmdbImage.TmdbShowID.Value))
-                            animeIDs.Add(xref.AnidbAnimeID);
-                    if (tmdbImage.TmdbMovieID.HasValue)
-                        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(tmdbImage.TmdbMovieID.Value))
-                            animeIDs.Add(xref.AnidbAnimeID);
-                    break;
-            }
-
-            foreach (var animeID in animeIDs)
-                SVR_AniDB_Anime.UpdateStatsByAnimeID(animeID);
             return string.Empty;
         }
         catch (Exception ex)
@@ -1031,10 +970,8 @@ public partial class ShokoServiceImplementation : Controller, IShokoServer
             // Mark the image as the preferred/default for it's type.
             else
             {
-                var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(animeID, imageEntityType) ?? new();
-                defaultImage.AnidbAnimeID = animeID;
+                var defaultImage = RepoFactory.AniDB_Anime_PreferredImage.GetByAnidbAnimeIDAndType(animeID, imageEntityType) ?? new(animeID, imageEntityType);
                 defaultImage.ImageID = imageID;
-                defaultImage.ImageType = imageEntityType;
                 defaultImage.ImageSource = dataSource;
                 RepoFactory.AniDB_Anime_PreferredImage.Save(defaultImage);
             }

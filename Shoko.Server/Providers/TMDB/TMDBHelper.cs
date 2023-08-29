@@ -585,7 +585,7 @@ public class TMDBHelper
                 _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
                 {
                     c.EntityID = image.TMDB_ImageID;
-                    c.DataSourceEnum = DataSourceEnum.TMDB;
+                    c.DataSourceEnum = DataSourceType.TMDB;
                     c.ForceDownload = forceDownload;
                 });
                 count++;

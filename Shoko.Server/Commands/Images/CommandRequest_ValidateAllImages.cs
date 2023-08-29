@@ -7,13 +7,10 @@ using Shoko.Commons.Queue;
 using Shoko.Commons.Utils;
 using Shoko.Models.Enums;
 using Shoko.Models.Queue;
-using Shoko.Models.Server;
-using Shoko.Models.Server.TMDB;
-using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Extensions;
-using Shoko.Server.Models;
+using Shoko.Server.ImageDownload;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
@@ -58,7 +55,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
         Logger.LogInformation(FoundCorruptedOfType, episodes.Count, episodes.Count == 1 ? "TvDB episode thumbnail" : "TvDB episode thumbnails");
         foreach (var episode in episodes)
         {
-            RemoveImageAndQueueRedownload(DataSourceEnum.TvDB, ImageEntityType.Thumbnail, episode.TvDB_EpisodeID, episode);
+            RemoveImageAndQueueRedownload(DataSourceType.TvDB, ImageEntityType.Thumbnail, episode.TvDB_EpisodeID);
             if (++count % 10 == 0)
             {
                 Logger.LogInformation(ReQueueingForDownload, count, episodes.Count);
@@ -78,7 +75,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, posters.Count, posters.Count == 1 ? "TvDB poster" : "TvDB posters");
             foreach (var poster in posters)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TvDB, ImageEntityType.Poster, poster.TvDB_ImagePosterID, poster);
+                RemoveImageAndQueueRedownload(DataSourceType.TvDB, ImageEntityType.Poster, poster.TvDB_ImagePosterID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, posters.Count);
@@ -99,7 +96,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, fanartList.Count, "TvDB fanart");
             foreach (var fanart in fanartList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TvDB, ImageEntityType.Backdrop, fanart.TvDB_ImageFanartID, fanart);
+                RemoveImageAndQueueRedownload(DataSourceType.TvDB, ImageEntityType.Backdrop, fanart.TvDB_ImageFanartID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, fanartList.Count);
@@ -120,7 +117,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, wideBanners.Count, wideBanners.Count == 1 ? "TvDB wide-banner" : "TvDB wide-banners");
             foreach (var wideBanner in wideBanners)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TvDB, ImageEntityType.Banner, wideBanner.TvDB_ImageWideBannerID, wideBanner);
+                RemoveImageAndQueueRedownload(DataSourceType.TvDB, ImageEntityType.Banner, wideBanner.TvDB_ImageWideBannerID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, wideBanners.Count);
@@ -141,7 +138,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB poster" : "TMDB posters");
             foreach (var image in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Poster, image.TMDB_ImageID, image);
+                RemoveImageAndQueueRedownload(DataSourceType.TMDB, ImageEntityType.Poster, image.TMDB_ImageID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -162,7 +159,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB backdrop" : "TMDB backdrops");
             foreach (var fanart in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Backdrop, fanart.TMDB_ImageID, fanart);
+                RemoveImageAndQueueRedownload(DataSourceType.TMDB, ImageEntityType.Backdrop, fanart.TMDB_ImageID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -183,7 +180,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, imageList.Count, imageList.Count == 1 ? "TMDB logo" : "TMDB logos");
             foreach (var image in imageList)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.TMDB, ImageEntityType.Logo, image.TMDB_ImageID, image);
+                RemoveImageAndQueueRedownload(DataSourceType.TMDB, ImageEntityType.Logo, image.TMDB_ImageID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, imageList.Count);
@@ -202,7 +199,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
         Logger.LogInformation(FoundCorruptedOfType, animeList.Count, animeList.Count == 1 ? "AniDB poster" : "AniDB posters");
         foreach (var anime in animeList)
         {
-            RemoveImageAndQueueRedownload(DataSourceEnum.AniDB, ImageEntityType.Poster, anime.AnimeID, anime);
+            RemoveImageAndQueueRedownload(DataSourceType.AniDB, ImageEntityType.Poster, anime.AnimeID);
             if (++count % 10 == 0)
             {
                 Logger.LogInformation(ReQueueingForDownload, count, animeList.Count);
@@ -222,7 +219,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, characters.Count, characters.Count == 1 ? "AniDB character" : "AniDB characters");
             foreach (var character in characters)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.AniDB, ImageEntityType.Character, character.AniDB_CharacterID, character);
+                RemoveImageAndQueueRedownload(DataSourceType.AniDB, ImageEntityType.Character, character.AniDB_CharacterID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count, characters.Count);
@@ -243,7 +240,7 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
             Logger.LogInformation(FoundCorruptedOfType, staff.Count, staff.Count == 1 ? "AniDB voice actor" : "AniDB voice actors");
             foreach (var fanart in staff)
             {
-                RemoveImageAndQueueRedownload(DataSourceEnum.AniDB, ImageEntityType.Person, fanart.SeiyuuID, fanart);
+                RemoveImageAndQueueRedownload(DataSourceType.AniDB, ImageEntityType.Person, fanart.SeiyuuID);
                 if (++count % 10 == 0)
                 {
                     Logger.LogInformation(ReQueueingForDownload, count,
@@ -254,21 +251,9 @@ public class CommandRequest_ValidateAllImages : CommandRequestImplementation
         }
     }
 
-    private void RemoveImageAndQueueRedownload(DataSourceEnum dataSource, ImageEntityType imageType, int entityID, object entity)
+    private void RemoveImageAndQueueRedownload(DataSourceType dataSource, ImageEntityType imageType, int entityID)
     {
-        var fullPath = entity switch
-        {
-            AniDB_Character character => character.GetPosterPath(),
-            AniDB_Seiyuu creator => creator.GetPosterPath(),
-            SVR_AniDB_Anime anime => anime.PosterPath,
-            TMDB_Image tmdbImage => tmdbImage.LocalPath,
-            TvDB_Episode episode => episode.GetFullImagePath(),
-            TvDB_ImageFanart image => image.GetFullImagePath(),
-            TvDB_ImagePoster image => image.GetFullImagePath(),
-            TvDB_ImageWideBanner image => image.GetFullImagePath(),
-            _ => string.Empty,
-        };
-
+        var fullPath = ImageUtils.GetLocalPath(dataSource, imageType, entityID);
         if (string.IsNullOrEmpty(fullPath))
             return;
 
