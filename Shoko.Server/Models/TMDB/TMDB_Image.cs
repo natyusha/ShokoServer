@@ -13,6 +13,8 @@ namespace Shoko.Models.Server.TMDB;
 
 public class TMDB_Image : IImageMetadata
 {
+    #region Properties
+
     /// <summary>
     /// Local id for image.
     /// </summary>
@@ -155,12 +157,20 @@ public class TMDB_Image : IImageMetadata
     /// </remarks>
     public int UserVotes { get; set; }
 
+    #endregion
+
+    #region Constructors
+
     public TMDB_Image() { }
 
     public TMDB_Image(ImageEntityType type)
     {
         ImageType = type;
     }
+
+    #endregion
+
+    #region Methods
 
     public void Populate(ImageData data, ForeignEntityType foreignType, int foreignId)
     {
@@ -204,10 +214,12 @@ public class TMDB_Image : IImageMetadata
 
     private void Populate(ImageData data)
     {
-        RemoteFileName = data.FilePath;
+        RemoteFileName = data.FilePath?.Trim() ?? string.Empty;
+        if (RemoteFileName.EndsWith(".svg"))
+            RemoteFileName = RemoteFileName[..^4] + ".png";
         Width = data.Width;
         Height = data.Height;
-        LanguageCode = data.Iso_639_1;
+        LanguageCode = string.IsNullOrEmpty(data.Iso_639_1) ? null : data.Iso_639_1;
         UserRating = data.VoteAverage;
         UserVotes = data.VoteCount;
     }
@@ -246,4 +258,6 @@ public class TMDB_Image : IImageMetadata
 
         return null;
     }
+
+    #endregion
 }

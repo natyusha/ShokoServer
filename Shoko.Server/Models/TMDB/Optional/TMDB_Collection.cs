@@ -1,0 +1,111 @@
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Server;
+using TMDbLib.Objects.Collections;
+using TMDbLib.Objects.General;
+
+#nullable enable
+namespace Shoko.Server.Models.TMDB;
+
+public class TMDB_Collection
+{
+    #region Properties
+
+    /// <summary>
+    /// Local ID.
+    /// </summary>
+    public int TMDB_CollectionID { get; set; }
+
+    /// <summary>
+    /// TMDB Collection ID.
+    /// </summary>
+    public int TmdbCollectionID { get; set; }
+
+    /// <summary>
+    /// The english title of the collection, used as a fallback for when no
+    /// title is available in the preferred language.
+    /// </summary>
+    public string EnglishTitle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The english overview, used as a fallback for when no overview is
+    /// available in the preferred language.
+    /// </summary>
+    public string EnglishOverview { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Number of movies in the collection.
+    /// </summary>
+    public int MovieCount { get; set; }
+
+    /// <summary>
+    /// When the metadata was first downloaded.
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the metadata was last syncronized with the remote.
+    /// </summary>
+    public DateTime LastUpdatedAt { get; set; }
+
+    #endregion
+
+    #region Constructors
+
+    public TMDB_Collection() { }
+
+    public TMDB_Collection(int collectionId)
+    {
+        TmdbCollectionID = collectionId;
+        CreatedAt = DateTime.Now;
+        LastUpdatedAt = CreatedAt;
+    }
+
+    #endregion
+
+    #region Methods
+
+    public void Populate(Collection collection, TranslationsContainer translations)
+    {
+        var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
+
+        EnglishTitle = string.IsNullOrEmpty(translation?.Data.Name) ? collection.Name : translation.Data.Name;
+        EnglishOverview = string.IsNullOrEmpty(translation?.Data.Overview) ? collection.Overview : translation.Data.Overview;
+        MovieCount = collection.Parts.Count;
+        LastUpdatedAt = DateTime.Now;
+    }
+
+    public TMDB_Title? GetPreferredTitle(bool useFallback = false)
+    {
+        // TODO: Implement this logic once the repositories are added.
+
+        // Fallback.
+        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishTitle, TitleLanguage.English) : null;
+    }
+
+    public IReadOnlyList<TMDB_Title> GetAllTitles()
+    {
+        // TODO: Implement this logic once the repositories are added.
+
+        return new List<TMDB_Title>();
+    }
+
+    public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
+    {
+        // TODO: Implement this logic once the repositories are added.
+
+        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishOverview, TitleLanguage.English) : null;
+    }
+
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews()
+    {
+        // TODO: Implement this logic once the repositories are added.
+
+        return new List<TMDB_Overview>();
+    }
+
+    #endregion
+}
