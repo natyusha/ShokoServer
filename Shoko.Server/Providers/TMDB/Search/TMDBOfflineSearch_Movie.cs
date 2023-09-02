@@ -19,14 +19,27 @@ public class TMDBOfflineSearch_Movie
     public string Title = string.Empty;
 
     /// <summary>
-    /// Indicates that the movie is restricted to an adult audience (because
-    /// it's pornographic production).
+    /// Indicates the movie is restricted to an age group above the legal age,
+    /// because it's a pornography.
     /// </summary>
     [JsonProperty("adult")]
     public bool IsRestricted = false;
 
     /// <summary>
-    /// Indicates that it's a video and not a movie(???).
+    /// Indicates the entry is not truly a movie, including but not limited to
+    /// the types:
+    ///
+    /// - official compilations,
+    /// - best of,
+    /// - filmed sport events,
+    /// - music concerts,
+    /// - plays or stand-up show,
+    /// - fitness video,
+    /// - health video,
+    /// - live movie theater events (art, music),
+    /// - and how-to DVDs,
+    ///
+    /// among others.
     /// </summary>
     [JsonProperty("video")]
     public bool IsVideo = false;

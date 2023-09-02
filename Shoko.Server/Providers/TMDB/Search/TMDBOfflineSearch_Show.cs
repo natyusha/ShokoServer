@@ -19,10 +19,9 @@ public class TMDBOfflineSearch_Show
     public string Title = string.Empty;
 
     /// <summary>
-    /// Indicates that the movie is restricted to an adult audience (because
-    /// it's pornographic production).
+    /// Indicates the show is restricted to an age group above the legal age,
+    /// because it's a pornography.
     /// </summary>
-    [JsonProperty("adult")]
     public bool IsRestricted = false;
 
     /// <summary>

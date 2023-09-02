@@ -11,8 +11,6 @@ public static class Constants
     public static readonly string AniDBTitlesURL = @"http://anidb.net/api/anime-titles.xml.gz";
     public static readonly string AnonWebCacheUsername = @"AnonymousWebCacheUser";
 
-    public const string TMDB_DumpURL = @"https://https://files.tmdb.org/p/exports/{0}_ids_{1}_{2}_{3}.json.gz";
-
     public const string DatabaseTypeKey = "Database";
 
     public static readonly int ForceLogoutPeriod = 300;
@@ -176,6 +174,8 @@ public static class Constants
         public static readonly string Trakt_Series = @"https://trakt.tv/show/{0}";
 
         public static readonly string TMDB_Images = @"https://image.tmdb.org/t/p/original{0}";
+
+        public const string TMDB_Export = @"https://https://files.tmdb.org/p/exports/{0}_ids_{1}_{2}_{3}.json.gz";
     }
 
     public struct GroupLabelStyle

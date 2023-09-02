@@ -114,11 +114,13 @@ public class TMDBOfflineSearch
 
         // Download the file
         var yesterday = DateTime.UtcNow.AddDays(-1);
-        var movies = DownloadList<TMDBOfflineSearch_Movie>(string.Format(Constants.TMDB_DumpURL, "movie", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
+        var movies = DownloadList<TMDBOfflineSearch_Movie>(string.Format(Constants.URLS.TMDB_Export, "movie", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
         if (movies == null)
             return;
 
-        var nsfwMovies = DownloadList<TMDBOfflineSearch_Movie>(string.Format(Constants.TMDB_DumpURL, "adult_movie", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
+        // We have a fallback since we don't know when they will be adding the daily exports that supposedly will be running for the adult movies.
+        var nsfwMovies = DownloadList<TMDBOfflineSearch_Movie>(string.Format(Constants.URLS.TMDB_Export, "adult_movie", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000"))) ??
+            DownloadList<TMDBOfflineSearch_Movie>(string.Format(Constants.URLS.TMDB_Export, "adult_movie", "07", "05", "2023"));
         if (nsfwMovies == null)
             return;
 
@@ -238,13 +240,19 @@ public class TMDBOfflineSearch
     {
         // Download the file
         var yesterday = DateTime.UtcNow.AddDays(-1);
-        var shows = DownloadList<TMDBOfflineSearch_Show>(string.Format(Constants.TMDB_DumpURL, "tv_series", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
+        var shows = DownloadList<TMDBOfflineSearch_Show>(string.Format(Constants.URLS.TMDB_Export, "tv_series", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
         if (shows == null)
             return;
 
-        var nsfwShows = DownloadList<TMDBOfflineSearch_Show>(string.Format(Constants.TMDB_DumpURL, "adult_tv_series", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000")));
+        // We have a fallback since we don't know when they will be adding the daily exports that supposedly will be running for the adult shows.
+        var nsfwShows = DownloadList<TMDBOfflineSearch_Show>(string.Format(Constants.URLS.TMDB_Export, "adult_tv_series", yesterday.Month.ToString("00"), yesterday.Day.ToString("00"), yesterday.Year.ToString("0000"))) ??
+            DownloadList<TMDBOfflineSearch_Show>(string.Format(Constants.URLS.TMDB_Export, "adult_tv_series", "07", "05", "2023"));
         if (nsfwShows == null)
             return;
+
+        // Monkey-patch the nsfw shows since the field is not in the raw list.
+        foreach (var show in nsfwShows)
+            show.IsRestricted = true;
 
         shows.AddRange(nsfwShows);
 
@@ -275,23 +283,31 @@ public class TMDBOfflineSearch
 
     #endregion
 
-    private static List<T>? DownloadList<T>(string url)
+    private List<T>? DownloadList<T>(string url)
     {
-        using var client = new HttpClient();
-        client.DefaultRequestHeaders.Clear();
-        client.DefaultRequestHeaders.UserAgent.Add(new("Shoko Server", Utils.GetApplicationVersion()));
-        var stream = client.GetStreamAsync(url).Result;
-        if (stream == null)
-            return null;
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.UserAgent.Add(new("Shoko Server", Utils.GetApplicationVersion()));
+            var stream = client.GetStreamAsync(url).Result;
+            if (stream == null)
+                return null;
 
-        var gzip = new GZipStream(stream, CompressionMode.Decompress);
-        var textResponse = new StreamReader(gzip).ReadToEnd();
-        if (string.IsNullOrEmpty(textResponse))
-            return null;
+            var gzip = new GZipStream(stream, CompressionMode.Decompress);
+            var textResponse = new StreamReader(gzip).ReadToEnd();
+            if (string.IsNullOrEmpty(textResponse))
+                return null;
 
-        return textResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(line => JsonConvert.DeserializeObject<T>(line)!)
-            .Where(movie => movie != null)
-            .ToList();
+            return textResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => JsonConvert.DeserializeObject<T>(line)!)
+                .Where(movie => movie != null)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to download list; {Message}", ex.Message);
+            return null;
+        }
     }
 }
