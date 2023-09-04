@@ -1,9 +1,8 @@
-
-#nullable enable
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Server;
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Title

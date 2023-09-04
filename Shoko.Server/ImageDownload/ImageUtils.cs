@@ -14,7 +14,7 @@ namespace Shoko.Server.ImageDownload;
 
 public class ImageUtils
 {
-    public static string? ResolvePath(string relativePath)
+    public static string? ResolvePath(string? relativePath)
     {
         if (string.IsNullOrEmpty(relativePath))
             return null;

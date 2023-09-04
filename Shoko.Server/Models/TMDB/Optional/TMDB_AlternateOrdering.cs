@@ -1,7 +1,6 @@
-
-#nullable enable
 using Shoko.Server.Providers.TMDB;
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 /// <summary>

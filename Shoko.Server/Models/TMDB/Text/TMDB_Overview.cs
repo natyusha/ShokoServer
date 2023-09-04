@@ -1,9 +1,8 @@
-
-#nullable enable
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Server;
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Overview
@@ -23,6 +22,8 @@ public class TMDB_Overview
     }
 
     public string Value { get; set; } = string.Empty;
+
+    public TMDB_Overview() { }
 
     public TMDB_Overview(ForeignEntityType parentType, int parentId, string value, TitleLanguage language)
     {

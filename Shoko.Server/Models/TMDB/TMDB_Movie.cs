@@ -1,15 +1,12 @@
-
-#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Server;
-using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
-using TMDbLib.Objects.TvShows;
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Movie

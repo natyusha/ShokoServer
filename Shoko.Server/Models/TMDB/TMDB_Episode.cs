@@ -1,5 +1,3 @@
-
-#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +6,7 @@ using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.TvShows;
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Episode
@@ -59,7 +58,7 @@ public class TMDB_Episode
     /// <summary>
     /// Episode run-time.
     /// </summary>
-    public TimeSpan Runtime { get; set; }
+    public TimeSpan? Runtime { get; set; }
 
     /// <summary>
     /// Average user rating across all <see cref="UserVotes"/>.
@@ -114,7 +113,7 @@ public class TMDB_Episode
         SeasonNumber = episode.SeasonNumber;
         EpisodeNumber = episode.EpisodeNumber;
         // TODO: Waiting for https://github.com/LordMike/TMDbLib/pull/442 to be merged to uncomment the next line.
-        Runtime = TimeSpan.FromMinutes(0); // TimeSpan.FromMinutes(episode.Runtime);
+        Runtime = null; // TimeSpan.FromMinutes(episode.Runtime);
         UserRating = episode.VoteAverage;
         UserVotes = episode.VoteCount;
         AiredAt = episode.AirDate.HasValue ? DateOnly.FromDateTime(episode.AirDate.Value) : null;

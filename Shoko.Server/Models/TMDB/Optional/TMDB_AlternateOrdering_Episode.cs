@@ -1,4 +1,5 @@
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_AlternateOrdering_Episode
@@ -14,21 +15,21 @@ public class TMDB_AlternateOrdering_Episode
     public int TmdbShowID { get; set; }
 
     /// <summary>
-    /// TMDB Episode ID.
+    /// TMDB Episode Group ID.
     /// </summary>
-    public int TmdbEpisodeID { get; set; }
+    /// <value></value>
+    public string TmdbEpisodeGroupID { get; set; } = string.Empty;
 
     /// <summary>
     /// TMDB Episode Group Season ID.
     /// </summary>
     /// <value></value>
-    public string TmdbEpisodeGroupSeasonID { get; set; }
+    public string TmdbEpisodeGroupSeasonID { get; set; } = string.Empty;
 
     /// <summary>
-    /// TMDB Episode Group ID.
+    /// TMDB Episode ID.
     /// </summary>
-    /// <value></value>
-    public string TmdbEpisodeGroupID { get; set; }
+    public int TmdbEpisodeID { get; set; }
 
     /// <summary>
     /// Overridden season number for alternate ordering.

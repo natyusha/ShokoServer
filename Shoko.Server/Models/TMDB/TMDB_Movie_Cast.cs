@@ -1,4 +1,5 @@
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Movie_Cast
@@ -21,12 +22,12 @@ public class TMDB_Movie_Cast
     /// <summary>
     /// TMDB Credit ID for the acting job.
     /// </summary>
-    public string TmdbCreditID { get; set; }
+    public string TmdbCreditID { get; set; } = string.Empty;
 
     /// <summary>
     /// Character name.
     /// </summary>
-    public string CharacterName { get; set; }
+    public string CharacterName { get; set; } = string.Empty;
 
     /// <summary>
     /// Indicates the role is not a recurring role within the season.

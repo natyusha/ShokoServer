@@ -1,4 +1,5 @@
 
+#nullable enable
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Company
@@ -16,10 +17,10 @@ public class TMDB_Company
     /// <summary>
     /// Main name of the company on TMDB.
     /// </summary>
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// The country the company originates from.
     /// </summary>
-    public string CountryOfOrigin { get; set; }
+    public string CountryOfOrigin { get; set; } = string.Empty;
 }

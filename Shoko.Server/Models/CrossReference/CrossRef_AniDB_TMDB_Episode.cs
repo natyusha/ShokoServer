@@ -1,5 +1,6 @@
 using Shoko.Models.Enums;
 
+#nullable enable
 namespace Shoko.Server.Models.CrossReference;
 
 public class CrossRef_AniDB_TMDB_Episode
