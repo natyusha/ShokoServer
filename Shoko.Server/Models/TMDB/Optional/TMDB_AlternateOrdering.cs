@@ -35,12 +35,12 @@ public class TMDB_AlternateOrdering
     /// <summary>
     /// The name of the alternate ordering scheme.
     /// </summary>
-    public string Title { get; set; } = string.Empty;
+    public string EnglishTitle { get; set; } = string.Empty;
 
     /// <summary>
     /// A short overview about what the scheme entails.
     /// </summary>
-    public string Overview { get; set; } = string.Empty;
+    public string EnglishOverview { get; set; } = string.Empty;
 
     /// <summary>
     /// Number of episodes within the episode group.

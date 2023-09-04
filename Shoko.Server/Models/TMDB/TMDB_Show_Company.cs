@@ -22,5 +22,5 @@ public class TMDB_Show_Company
     /// <summary>
     /// Ordering.
     /// </summary>
-    public int Order { get; set; }
+    public int Ordering { get; set; }
 }

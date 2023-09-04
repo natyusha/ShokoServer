@@ -22,5 +22,5 @@ public class TMDB_Movie_Company
     /// <summary>
     /// Ordering.
     /// </summary>
-    public int Order { get; set; }
+    public int Ordering { get; set; }
 }

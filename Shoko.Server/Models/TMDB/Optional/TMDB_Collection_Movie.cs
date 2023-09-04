@@ -22,5 +22,5 @@ public class TMDB_Collection_Movie
     /// <summary>
     /// Ordering of movies within the collection.
     /// </summary>
-    public int Order { get; set; }
+    public int Ordering { get; set; }
 }

@@ -50,5 +50,5 @@ public class TMDB_Episode_Cast
     /// <summary>
     /// Ordering.
     /// </summary>
-    public int Order { get; set; }
+    public int Ordering { get; set; }
 }

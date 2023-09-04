@@ -30,7 +30,7 @@ public class TMDB_AlternateOrdering_Season
     /// Episode Group Season name.
     /// </summary>
     /// <value></value>
-    public string Name { get; set; } = string.Empty;
+    public string EnglishTitle { get; set; } = string.Empty;
 
     /// <summary>
     /// Overridden season number for alternate ordering.
