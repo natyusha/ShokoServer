@@ -99,11 +99,8 @@ public class ImageUtils
         var sid = charID.ToString();
         var subFolder = sid.Length == 1 ? sid : sid[..2];
         var dirPath = Path.Combine(GetBaseAniDBCharacterImagesPath(), subFolder);
-
         if (!Directory.Exists(dirPath))
-        {
             Directory.CreateDirectory(dirPath);
-        }
 
         return dirPath;
     }
