@@ -75,15 +75,6 @@ public class ImageUtils
         return dirPath;
     }
 
-    public static string GetBaseMovieDBImagesPath()
-    {
-        var dirPath = Path.Combine(GetBaseImagesPath(), "MovieDB");
-        if (!Directory.Exists(dirPath))
-            Directory.CreateDirectory(dirPath);
-
-        return dirPath;
-    }
-
     public static string GetBaseTraktImagesPath()
     {
         var dirPath = Path.Combine(GetBaseImagesPath(), "Trakt");
@@ -142,15 +133,6 @@ public class ImageUtils
     public static string GetTvDBImagePath()
     {
         var dirPath = GetBaseTvDBImagesPath();
-        if (!Directory.Exists(dirPath))
-            Directory.CreateDirectory(dirPath);
-
-        return dirPath;
-    }
-
-    public static string GetMovieDBImagePath()
-    {
-        var dirPath = GetBaseMovieDBImagesPath();
         if (!Directory.Exists(dirPath))
             Directory.CreateDirectory(dirPath);
 
