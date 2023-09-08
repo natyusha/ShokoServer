@@ -1134,7 +1134,6 @@ public class DatabaseFixes
     {
         // TODO: Cleanup afterwards
         var helper = Utils.ServiceContainer.GetRequiredService<TMDBHelper>();
-        var settings = Utils.SettingsProvider.GetSettings();
 
         // Remove the "MovieDB" directory in the image directory, since it's no longer used,
         var dir = new DirectoryInfo(Path.Join(ImageUtils.GetBaseImagesPath(), "MovieDB"));
@@ -1143,9 +1142,6 @@ public class DatabaseFixes
 
         // Schedule commands to get the new movie info for existing cross-reference
         helper.UpdateAllMovies(true, true);
-
-        // Sync the tmdb and trakt auto linking settings with tvdb
-        settings.TMDB.AutoLink = settings.TraktTv.AutoLink = settings.TvDB.AutoLink;
 
         // Schedule tmdb searches if we have auto linking enabled.
         helper.ScanForMatches();
