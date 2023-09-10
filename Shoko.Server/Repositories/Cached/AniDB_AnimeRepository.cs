@@ -9,11 +9,11 @@ using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Interfaces;
 using Shoko.Models.Server;
-using Shoko.Models.Server.TMDB;
 using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Models.AniDB;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Repositories.NHibernate;
 using Shoko.Server.Server;
 

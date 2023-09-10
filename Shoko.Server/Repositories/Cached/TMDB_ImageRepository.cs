@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NutzCode.InMemoryIndex;
-using Shoko.Models.Server.TMDB;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Server;
 
 #nullable enable

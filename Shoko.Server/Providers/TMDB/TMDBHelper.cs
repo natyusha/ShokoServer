@@ -1,16 +1,13 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
-using Shoko.Models.Server;
-using Shoko.Models.Server.TMDB;
 using Shoko.Server.Commands;
-using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models.CrossReference;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.TMDB.Search;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
@@ -18,7 +15,6 @@ using TMDbLib.Client;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.TvShows;
 using TMDbLib.Objects.General;
-using Shoko.Plugin.Abstractions.Enums;
 using Shoko.Server.Server;
 
 namespace Shoko.Server.Providers.TMDB;

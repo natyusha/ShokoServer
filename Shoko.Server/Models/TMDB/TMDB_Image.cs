@@ -9,7 +9,7 @@ using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 
 #nullable enable
-namespace Shoko.Models.Server.TMDB;
+namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Image : IImageMetadata
 {

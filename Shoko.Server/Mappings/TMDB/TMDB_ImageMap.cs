@@ -1,6 +1,6 @@
 using FluentNHibernate.Mapping;
-using Shoko.Models.Server.TMDB;
 using Shoko.Server.Databases.TypeConverters;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Server;
 
 namespace Shoko.Server.Mappings;

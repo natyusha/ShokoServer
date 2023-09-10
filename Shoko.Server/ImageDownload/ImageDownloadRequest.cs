@@ -3,11 +3,11 @@ using System.IO;
 using System.Threading;
 using System.Net.Http;
 using Shoko.Models.Server;
-using Shoko.Models.Server.TMDB;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
 using Shoko.Server.Server;
 using Shoko.Commons.Utils;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.TMDB;
 
