@@ -17,13 +17,11 @@ public class TMDB_AlternateOrdering_Episode
     /// <summary>
     /// TMDB Episode Group ID.
     /// </summary>
-    /// <value></value>
     public string TmdbEpisodeGroupID { get; set; } = string.Empty;
 
     /// <summary>
     /// TMDB Episode Group Season ID.
     /// </summary>
-    /// <value></value>
     public string TmdbEpisodeGroupSeasonID { get; set; } = string.Empty;
 
     /// <summary>

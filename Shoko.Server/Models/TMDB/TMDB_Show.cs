@@ -99,7 +99,7 @@ public class TMDB_Show
     /// <summary>
     /// First aired episode date.
     /// </summary>
-    public DateOnly FirstAiredAt { get; set; }
+    public DateOnly? FirstAiredAt { get; set; }
 
     /// <summary>
     /// Last aired episode date for the show, or null if the show is still
@@ -153,6 +153,9 @@ public class TMDB_Show
         AlternateOrderingCount = show.EpisodeGroups.Results.Count;
         UserRating = show.VoteAverage;
         UserVotes = show.VoteCount;
+        FirstAiredAt = show.FirstAirDate.HasValue ? DateOnly.FromDateTime(show.FirstAirDate.Value) : null;
+        LastAiredAt = !string.IsNullOrEmpty(show.Status) && show.Status.Equals("Ended", StringComparison.InvariantCultureIgnoreCase) && show.LastAirDate.HasValue ?
+            DateOnly.FromDateTime(show.LastAirDate.Value) : null;
         LastUpdatedAt = DateTime.Now;
     }
 

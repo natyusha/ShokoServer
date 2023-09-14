@@ -41,6 +41,11 @@ public class TMDB_Season
     public string EnglishOverview { get; set; } = string.Empty;
 
     /// <summary>
+    /// Number of episodes within the season.
+    /// </summary>
+    public int EpisodeCount { get; set; }
+
+    /// <summary>
     /// Season number for default ordering.
     /// </summary>
     public int SeasonNumber { get; set; }
@@ -79,6 +84,7 @@ public class TMDB_Season
         TmdbShowID = show.Id;
         EnglishTitle = translation?.Data.Name ?? season.Name;
         EnglishOverview = translation?.Data.Overview ?? season.Overview;
+        EpisodeCount = season.Episodes.Count;
         SeasonNumber = season.SeasonNumber;
         LastUpdatedAt = DateTime.Now;
     }

@@ -56,6 +56,15 @@ public class TMDB_Episode
     public int EpisodeNumber { get; set; }
 
     /// <summary>
+    /// Episode run-time in minutes.
+    /// </summary>
+    public int? RuntimeMintues
+    {
+        get => Runtime.HasValue ? (int)Math.Floor(Runtime.Value.TotalMinutes) : null;
+        set => Runtime = value.HasValue ? TimeSpan.FromMinutes(value.Value) : null;
+    }
+
+    /// <summary>
     /// Episode run-time.
     /// </summary>
     public TimeSpan? Runtime { get; set; }

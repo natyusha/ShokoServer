@@ -94,6 +94,14 @@ public class TMDB_Movie
     public List<TMDB_ContentRating> ContentRatings { get; set; } = new();
 
     /// <summary>
+    /// Movie run-time in minutes.
+    /// </summary>
+    public int? RuntimeMintues
+    {
+        get => Runtime.HasValue ? (int)Math.Floor(Runtime.Value.TotalMinutes) : null;
+        set => Runtime = value.HasValue ? TimeSpan.FromMinutes(value.Value) : null;
+    }
+    /// <summary>
     /// Movie run-time.
     /// </summary>
     public TimeSpan? Runtime { get; set; }
