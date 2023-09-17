@@ -13,31 +13,31 @@ public class TMDB_Title
 
     public ForeignEntityType ParentType { get; set; }
 
-    public TitleLanguage Language { get; set; }
-
-    public string? LanguageCode
+    public TitleLanguage Language
     {
-        get => Language == TitleLanguage.None ? null : Language.GetString();
-        set => Language = string.IsNullOrEmpty(value) ? TitleLanguage.None : value.GetTitleLanguage();
+        get => string.IsNullOrEmpty(LanguageCode) ? TitleLanguage.None : LanguageCode.GetTitleLanguage();
     }
+
+    /// <summary>
+    /// ISO 639-1 alpha-2 language code.
+    /// </summary>
+    public string? LanguageCode { get; set; }
+
+    /// <summary>
+    /// ISO 3166-1 alpha-2 country code.
+    /// </summary>
+    public string? CountryCode { get; set; }
 
     public string Value { get; set; } = string.Empty;
 
     public TMDB_Title() { }
 
-    public TMDB_Title(ForeignEntityType parentType, int parentId, string value, TitleLanguage language)
+    public TMDB_Title(ForeignEntityType parentType, int parentId, string value, string? languageCode, string? countryCode)
     {
         ParentType = parentType;
         ParentID = parentId;
         Value = value;
-        Language = language;
-    }
-
-    public TMDB_Title(ForeignEntityType parentType, int parentId, string value, string? language)
-    {
-        ParentType = parentType;
-        ParentID = parentId;
-        Value = value;
-        LanguageCode = language;
+        LanguageCode = languageCode;
+        CountryCode = countryCode;
     }
 }

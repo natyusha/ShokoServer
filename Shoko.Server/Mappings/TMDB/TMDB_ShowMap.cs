@@ -1,5 +1,4 @@
 using FluentNHibernate.Mapping;
-using Shoko.Server.Databases.TypeConverters;
 using Shoko.Server.Models.TMDB;
 
 namespace Shoko.Server.Mappings;
@@ -17,7 +16,7 @@ public class TMDB_ShowMap : ClassMap<TMDB_Show>
         Map(x => x.EnglishTitle).Not.Nullable();
         Map(x => x.EnglishOverview).Not.Nullable();
         Map(x => x.OriginalTitle).Not.Nullable();
-        Map(x => x.OriginalLanguage).Not.Nullable().CustomType<TitleLanguageConverter>();
+        Map(x => x.OriginalLanguageCode).Not.Nullable();
         Map(x => x.IsRestricted).Not.Nullable();
         Map(x => x.Genres).Not.Nullable();
         Map(x => x.ContentRatings).Not.Nullable();

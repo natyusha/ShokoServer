@@ -94,7 +94,7 @@ public class TMDB_Season
         // TODO: Implement this logic once the repositories are added.
 
         // Fallback.
-        return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishTitle, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishTitle, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Title> GetAllTitles()
@@ -108,7 +108,7 @@ public class TMDB_Season
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishOverview, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishOverview, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews()

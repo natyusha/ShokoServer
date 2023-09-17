@@ -94,7 +94,7 @@ public class TMDB_Person
     {
         var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
         EnglishName = person.Name;
-        // TODO: Waiting for https://github.com/LordMike/TMDbLib/pull/444 to close, but we don't need to do anything to the code for it to work afterwards.
+        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/444 to close, but we don't need to do anything to the code for it to work afterwards.
         EnglishBiography = translation?.Data.Overview ?? person.Biography;
         IsRestricted = person.Adult;
         BirthDay = person.Birthday.HasValue ? DateOnly.FromDateTime(person.Birthday.Value) : null;
@@ -107,7 +107,7 @@ public class TMDB_Person
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Person, TmdbPersonID, EnglishBiography, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Person, TmdbPersonID, EnglishBiography, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllBiographies()

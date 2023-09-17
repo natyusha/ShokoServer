@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Server;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.General;
@@ -9,9 +11,11 @@ using TMDbLib.Objects.General;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Collection
+public class TMDB_Collection : TMDB_Base, IEntityMetatadata
 {
     #region Properties
+
+    public override int Id => TmdbCollectionID;
 
     /// <summary>
     /// Local ID.
@@ -67,14 +71,19 @@ public class TMDB_Collection
 
     #region Methods
 
-    public void Populate(Collection collection, TranslationsContainer translations)
+    public bool Populate(Collection collection)
     {
-        var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
+        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
+        TranslationsContainer translations = null!; //  = collection.Translations;
+        var translation = translations?.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
+        var updates = new[]
+        {
+            UpdateProperty(EnglishTitle, string.IsNullOrEmpty(translation?.Data.Name) ? collection.Name : translation.Data.Name, v => EnglishTitle = v),
+            UpdateProperty(EnglishOverview, string.IsNullOrEmpty(translation?.Data.Overview) ? collection.Overview : translation.Data.Overview, v => EnglishOverview = v),
+            UpdateProperty(MovieCount, collection.Parts.Count, v => MovieCount = v),
+        };
 
-        EnglishTitle = string.IsNullOrEmpty(translation?.Data.Name) ? collection.Name : translation.Data.Name;
-        EnglishOverview = string.IsNullOrEmpty(translation?.Data.Overview) ? collection.Overview : translation.Data.Overview;
-        MovieCount = collection.Parts.Count;
-        LastUpdatedAt = DateTime.Now;
+        return updates.Any(updated => updated);
     }
 
     public TMDB_Title? GetPreferredTitle(bool useFallback = false)
@@ -82,7 +91,7 @@ public class TMDB_Collection
         // TODO: Implement this logic once the repositories are added.
 
         // Fallback.
-        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishTitle, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishTitle, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Title> GetAllTitles()
@@ -96,7 +105,7 @@ public class TMDB_Collection
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishOverview, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishOverview, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews()
@@ -105,6 +114,20 @@ public class TMDB_Collection
 
         return new List<TMDB_Overview>();
     }
+
+    #endregion
+
+    #region IEntityMetadata
+
+    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Collection;
+
+    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+
+    string? IEntityMetatadata.OriginalTitle => null;
+
+    TitleLanguage? IEntityMetatadata.OriginalLanguage => null;
+
+    string? IEntityMetatadata.OriginalLanguageCode => null;
 
     #endregion
 }

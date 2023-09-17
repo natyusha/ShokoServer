@@ -41,18 +41,18 @@ public class TMDB_Show
     public string OriginalTitle { get; set; } = string.Empty;
 
     /// <summary>
-    /// The original language this show was shot in.
+    /// The original language this show was shot in, just as a title language
+    /// enum instead.
     /// </summary>
-    public TitleLanguage OriginalLanguage { get; set; }
+    public TitleLanguage OriginalLanguage
+    {
+        get => string.IsNullOrEmpty(OriginalLanguageCode) ? TitleLanguage.None : OriginalLanguageCode.GetTitleLanguage();
+    }
 
     /// <summary>
-    /// Same as <seealso cref="OriginalLanguage"/>, just in text form.
+    /// The original language this show was shot in.
     /// </summary>
-    public string OriginalLanguageCode
-    {
-        get => OriginalLanguage.GetString();
-        private set => OriginalLanguage = value.GetTitleLanguage();
-    }
+    public string OriginalLanguageCode { get; set; } = string.Empty;
 
     /// <summary>
     /// Indicates the show is restricted to an age group above the legal age,
@@ -144,7 +144,7 @@ public class TMDB_Show
         OriginalLanguageCode = show.OriginalLanguage;
         EnglishTitle = translation?.Data.Name ?? show.Name;
         EnglishOverview = translation?.Data.Overview ?? show.Name;
-        // TODO: Waiting for https://github.com/LordMike/TMDbLib/pull/443 to be merged to uncomment the next line.
+        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/443 to be merged to uncomment the next line.
         IsRestricted = false; // show.Adult;
         Genres = show.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList();
         ContentRatings = show.ContentRatings.Results.Select(rating => new TMDB_ContentRating(rating.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), rating.Rating)).ToList();
@@ -164,7 +164,7 @@ public class TMDB_Show
         // TODO: Implement this logic once the repositories are added.
 
         // Fallback.
-        return useFallback ? new(ForeignEntityType.Show, TmdbShowID, EnglishTitle, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Show, TmdbShowID, EnglishTitle, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Title> GetAllTitles()
@@ -178,7 +178,7 @@ public class TMDB_Show
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Show, TmdbShowID, EnglishOverview, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Show, TmdbShowID, EnglishOverview, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews()

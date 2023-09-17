@@ -121,7 +121,7 @@ public class TMDB_Episode
         EnglishOverview = translation?.Data.Overview ?? episode.Overview;
         SeasonNumber = episode.SeasonNumber;
         EpisodeNumber = episode.EpisodeNumber;
-        // TODO: Waiting for https://github.com/LordMike/TMDbLib/pull/442 to be merged to uncomment the next line.
+        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/442 to be merged to uncomment the next line.
         Runtime = null; // TimeSpan.FromMinutes(episode.Runtime);
         UserRating = episode.VoteAverage;
         UserVotes = episode.VoteCount;
@@ -134,7 +134,7 @@ public class TMDB_Episode
         // TODO: Implement this logic once the repositories are added.
 
         // Fallback.
-        return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishTitle, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishTitle, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Title> GetAllTitles()
@@ -148,7 +148,7 @@ public class TMDB_Episode
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishOverview, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishOverview, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews()

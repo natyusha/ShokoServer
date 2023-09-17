@@ -1,17 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Server;
 using TMDbLib.Objects.Movies;
 
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Movie
+public class TMDB_Movie : TMDB_Base, IEntityMetatadata
 {
     #region Properties
+
+    public override int Id => TmdbMovieID;
 
     /// <summary>
     /// Local ID.
@@ -46,18 +50,18 @@ public class TMDB_Movie
     public string OriginalTitle { get; set; } = string.Empty;
 
     /// <summary>
-    /// The original language this show was shot in.
+    /// The original language this show was shot in, just as a title language
+    /// enum instead.
     /// </summary>
-    public TitleLanguage OriginalLanguage { get; set; }
+    public TitleLanguage OriginalLanguage
+    {
+        get => string.IsNullOrEmpty(OriginalLanguageCode) ? TitleLanguage.None : OriginalLanguageCode.GetTitleLanguage();
+    }
 
     /// <summary>
-    /// Same as <seealso cref="OriginalLanguage"/>, just in text form.
+    /// The original language this show was shot in.
     /// </summary>
-    public string OriginalLanguageCode
-    {
-        get => OriginalLanguage.GetString();
-        private set => OriginalLanguage = value.GetTitleLanguage();
-    }
+    public string OriginalLanguageCode { get; set; } = string.Empty;
 
     /// <summary>
     /// Indicates the movie is restricted to an age group above the legal age,
@@ -149,22 +153,26 @@ public class TMDB_Movie
 
     #region Methods
 
-    public void Populate(Movie movie)
+    public bool Populate(Movie movie)
     {
         var translation = movie.Translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
-        EnglishTitle = translation?.Data.Name ?? movie.Title;
-        EnglishOverview = translation?.Data.Overview ?? movie.Overview;
-        OriginalTitle = movie.OriginalTitle;
-        OriginalLanguageCode = movie.OriginalLanguage;
-        IsRestricted = movie.Adult;
-        IsVideo = movie.Video;
-        Genres = movie.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList();
-        ContentRatings = movie.ReleaseDates.Results.Select(releaseDate => new TMDB_ContentRating(releaseDate.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), releaseDate.ReleaseDates.First().Certification)).ToList();
-        Runtime = movie.Runtime.HasValue ? TimeSpan.FromMinutes(movie.Runtime.Value) : null;
-        UserRating = movie.VoteAverage;
-        UserVotes = movie.VoteCount;
-        ReleasedAt = movie.ReleaseDate.HasValue ? DateOnly.FromDateTime(movie.ReleaseDate.Value) : null;
-        LastUpdatedAt = DateTime.Now;
+        var updatedList = new[]
+        {
+            UpdateProperty(EnglishTitle, translation?.Data.Name ?? movie.Title, v => EnglishTitle = v),
+            UpdateProperty(EnglishOverview, translation?.Data.Overview ?? movie.Overview, v => EnglishOverview = v),
+            UpdateProperty(OriginalTitle, movie.OriginalTitle, v => OriginalTitle = v),
+            UpdateProperty(OriginalLanguageCode, movie.OriginalLanguage, v => OriginalLanguageCode = v),
+            UpdateProperty(IsRestricted, movie.Adult, v => IsRestricted = v),
+            UpdateProperty(IsVideo, movie.Video, v => IsVideo = v),
+            UpdateProperty(Genres, movie.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList(), v => Genres = v),
+            UpdateProperty(ContentRatings, movie.ReleaseDates.Results.Select(releaseDate => new TMDB_ContentRating(releaseDate.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), releaseDate.ReleaseDates.First().Certification)).ToList(), v => ContentRatings = v),
+            UpdateProperty(Runtime, movie.Runtime.HasValue ? TimeSpan.FromMinutes(movie.Runtime.Value) : null, v => Runtime = v),
+            UpdateProperty(UserRating, movie.VoteAverage, v => UserRating = v),
+            UpdateProperty(UserVotes, movie.VoteCount, v => UserVotes = v),
+            UpdateProperty(ReleasedAt, movie.ReleaseDate.HasValue ? DateOnly.FromDateTime(movie.ReleaseDate.Value) : null, v => ReleasedAt = v),
+        };
+
+        return updatedList.Any(updated => updated);
     }
 
     public TMDB_Title? GetPreferredTitle(bool useFallback = false)
@@ -172,7 +180,7 @@ public class TMDB_Movie
         // TODO: Implement this logic once the repositories are added.
 
         // Fallback.
-        return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishTitle, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishTitle, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Title> GetAllTitles()
@@ -186,7 +194,7 @@ public class TMDB_Movie
     {
         // TODO: Implement this logic once the repositories are added.
 
-        return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishOverview, TitleLanguage.English) : null;
+        return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishOverview, "en", "US") : null;
     }
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews()
@@ -195,6 +203,16 @@ public class TMDB_Movie
 
         return new List<TMDB_Overview>();
     }
+
+    #endregion
+
+    #region IEntityMetadata
+
+    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Movie;
+
+    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+
+    TitleLanguage? IEntityMetatadata.OriginalLanguage => OriginalLanguage;
 
     #endregion
 }

@@ -1,21 +1,22 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
 using Shoko.Server.Commands;
-using Shoko.Server.Extensions;
 using Shoko.Server.Models.CrossReference;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.TMDB.Search;
 using Shoko.Server.Repositories;
+using Shoko.Server.Server;
 using Shoko.Server.Settings;
 using TMDbLib.Client;
+using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.TvShows;
-using TMDbLib.Objects.General;
-using Shoko.Server.Server;
 
 namespace Shoko.Server.Providers.TMDB;
 
@@ -198,36 +199,96 @@ public class TMDBHelper
             );
     }
 
-    public async Task UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false, bool downloadCollections = false)
+    public async Task<bool> UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false, bool downloadCollections = false)
     {
-        // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
+        // Abort if we're within a certain time frame as to not try and get us rate-limited.
+        var tmdbMovie = RepoFactory.TMDB_Movie.GetByTmdbMovieId(movieId) ?? new();
+        if (!forceRefresh && tmdbMovie.CreatedAt != tmdbMovie.LastUpdatedAt && tmdbMovie.LastUpdatedAt < DateTime.Now.AddHours(-1))
+            return false;
 
-        var tmdbMovie = await _client.GetMovieAsync(movieId, "en");
-        // save to the DB
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(tmdbMovie.Id) ?? new();
-        movie.Populate(tmdbMovie);
+        // Abort if we couldn't find the movie by id.
+        var movie = await _client.GetMovieAsync(movieId, "en", null, MovieMethods.Translations);
+        if (movie == null)
+            return false;
 
-        RepoFactory.MovieDb_Movie.Save(movie);
+        var updated = tmdbMovie.Populate(movie);
+        updated |= UpdateTitlesAndOverviews(tmdbMovie, movie.Translations);
+        if (updated)
+        {
+            tmdbMovie.LastUpdatedAt = DateTime.Now;
+            RepoFactory.TMDB_Movie.Save(tmdbMovie);
+        }
 
-        await Task.WhenAll(
-            UpdateMovieTitlesAndOverviews(tmdbMovie),
-            downloadCollections ? UpdateMovieCollections(tmdbMovie) : Task.CompletedTask,
-            downloadImages ? DownloadMovieImages(movieId) : Task.CompletedTask
-        );
-    }
+        if (downloadImages && downloadCollections)
+            await Task.WhenAll(
+                DownloadMovieImages(movieId),
+                UpdateMovieCollections(movie)
+            );
+        else if (downloadImages)
+            await DownloadMovieImages(movieId);
+        else if (downloadCollections)
+            await UpdateMovieCollections(movie);
 
-    private async Task UpdateMovieTitlesAndOverviews(Movie movie)
-    {
-        var translations = await _client.GetMovieTranslationsAsync(movie.Id);
-
-        // TODO: Add/update/remove titles and overviews.
+        return updated;
     }
 
     private async Task UpdateMovieCollections(Movie movie)
     {
-        var collection = movie.BelongsToCollection;
+        var collectionId = movie.BelongsToCollection?.Id;
+        if (collectionId.HasValue)
+        {
+            var movieXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(collectionId.Value);
+            var tmdbCollection = RepoFactory.TMDB_Collection.GetByTmdbCollectionId(collectionId.Value) ?? new(collectionId.Value);
+            var collection = await _client.GetCollectionAsync(collectionId.Value, TMDbLib.Objects.Collections.CollectionMethods.Images);
+            if (collection == null)
+            {
+                PurgeMovieCollection(collectionId.Value);
+                return;
+            }
 
-        // TODO: Add/update/remove movie collections.
+            var updated = tmdbCollection.Populate(collection);
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
+            updated |= UpdateTitlesAndOverviews(tmdbCollection, null); // collection.Translations);
+
+            var xrefsToAdd = 0;
+            var xrefsToSave = new List<TMDB_Collection_Movie>();
+            var xrefsToRemove = movieXRefs.Where(xref => collection.Parts.Any(part => xref.TmdbMovieID == part.Id)).ToList();
+            var movieXref = movieXRefs.FirstOrDefault(xref => xref.TmdbMovieID == movie.Id);
+            var index = collection.Parts.FindIndex(part => part.Id == movie.Id);
+            if (index == -1)
+                index = collection.Parts.Count;
+            if (movieXref == null)
+            {
+                xrefsToAdd++;
+                xrefsToSave.Add(new(collectionId.Value, movie.Id, index + 1));
+            }
+            else if (movieXref.Ordering != index + 1)
+            {
+                movieXref.Ordering = index + 1;
+                xrefsToSave.Add(movieXref);
+            }
+
+            _logger.LogDebug(
+                "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} movie cross-references for movie collection {CollectionTitle} (Id={CollectionId})",
+                xrefsToAdd,
+                xrefsToSave.Count - xrefsToAdd,
+                xrefsToRemove.Count,
+                movieXRefs.Count + xrefsToAdd - xrefsToRemove.Count - xrefsToSave.Count,
+                tmdbCollection.EnglishTitle,
+                tmdbCollection.Id);
+            RepoFactory.TMDB_Collection_Movie.Save(xrefsToSave);
+            RepoFactory.TMDB_Collection_Movie.Delete(xrefsToRemove);
+
+            if (updated || xrefsToSave.Count > 0 || xrefsToRemove.Count > 0)
+            {
+                tmdbCollection.LastUpdatedAt = DateTime.Now;
+                RepoFactory.TMDB_Collection.Save(tmdbCollection);
+            }
+        }
+        else
+        {
+            CleanupMovieCollection(movie.Id);
+        }
     }
 
     public async Task DownloadMovieImages(int movieId, bool forceDownload = false)
@@ -235,9 +296,11 @@ public class TMDBHelper
         var settings = _settingsProvider.GetSettings();
         var images = await _client.GetMovieImagesAsync(movieId);
         if (settings.TMDB.AutoDownloadPosters)
-            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoPosters, movieId, forceDownload);
+
         if (settings.TMDB.AutoDownloadLogos)
-            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoLogos, movieId, forceDownload);
+
         if (settings.TMDB.AutoDownloadBackdrops)
             DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
     }
@@ -268,7 +331,7 @@ public class TMDBHelper
     /// </summary>
     /// <param name="movieId">TMDB Movie ID.</param>
     /// <param name="removeImageFiles">Remove image files.</param>
-    public bool PurgeMovie(int movieId, bool removeImageFiles = true)
+    public void PurgeMovie(int movieId, bool removeImageFiles = true)
     {
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieId);
         if (xrefs != null && xrefs.Count > 0)
@@ -276,25 +339,66 @@ public class TMDBHelper
             foreach (var xref in xrefs)
                 RemoveMovieLink(xref);
         }
-
-        PurgeMovieImages(movieId, removeImageFiles);
-
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieId);
+        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieId(movieId);
         if (movie != null)
         {
-            _logger.LogTrace("Removing movie {MovieName} ({MovieID})", movie.OriginalName, movie.MovieId);
-            RepoFactory.MovieDb_Movie.Delete(movie);
+            _logger.LogTrace("Removing movie {MovieName} ({MovieID})", movie.OriginalTitle, movie.Id);
+            RepoFactory.TMDB_Movie.Delete(movie);
         }
 
-        return false;
-    }
-
-    private static void PurgeMovieImages(int movieId, bool removeFiles = true)
-    {
         var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
         if (images != null & images.Count > 0)
             foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Movie, removeFiles);
+                PurgeImage(image, ForeignEntityType.Movie, removeImageFiles);
+
+        CleanupMovieCollection(movieId);
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Movie, movieId);
+    }
+
+    private void CleanupMovieCollection(int movieId, bool removeImageFiles = true)
+    {
+        var xref = RepoFactory.TMDB_Collection_Movie.GetByTmdbMovieId(movieId);
+        if (xref == null)
+            return;
+
+        var allXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(xref.TmdbCollectionID);
+        if (allXRefs.Count > 1)
+            RepoFactory.TMDB_Collection_Movie.Delete(xref);
+        else
+            PurgeMovieCollection(xref.TmdbCollectionID, removeImageFiles);
+    }
+
+    private void PurgeMovieCollection(int collectionId, bool removeImageFiles = true)
+    {
+        var images = RepoFactory.TMDB_Image.GetByTmdbCollectionID(collectionId);
+        if (images != null & images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
+
+        var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionId(collectionId);
+        if (collection != null)
+        {
+            _logger.LogTrace(
+                "Removing movie collection {MovieName} ({MovieID})",
+                collection.EnglishTitle,
+                collectionId
+            );
+            RepoFactory.TMDB_Collection.Delete(collection);
+        }
+
+        var collectionXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(collectionId);
+        if (collectionXRefs.Count > 0)
+        {
+            _logger.LogTrace(
+                "Removing {Count} cross-references for movie collection {CollectionName} ({MovieID})",
+                collectionXRefs.Count, collection?.EnglishTitle ?? string.Empty,
+                collectionId
+            );
+            RepoFactory.TMDB_Collection_Movie.Delete(collectionXRefs);
+        }
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Collection, collectionId);
     }
 
     #endregion
@@ -655,6 +759,125 @@ public class TMDBHelper
                 }
             }
         }
+    }
+
+    #endregion
+
+    #region Titles & Overviews
+
+    private bool UpdateTitlesAndOverviews(IEntityMetatadata tmdbEntity, TranslationsContainer translations)
+    {
+        var existingOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
+        var existingTitles = RepoFactory.TMDB_Title.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
+        var overviewsToAdd = 0;
+        var overviewsToSkip = 0;
+        var overviewsToRemove = new List<TMDB_Overview>();
+        var overviewsToSave = new List<TMDB_Overview>();
+        var titlesToAdd = 0;
+        var titlesToSkip = 0;
+        var titlesToRemove = new List<TMDB_Title>();
+        var titlesToSave = new List<TMDB_Title>();
+        foreach (var translation in translations.Translations)
+        {
+            var languageCode = translation.Iso_639_1?.ToLowerInvariant();
+            var countryCode = translation.Iso_3166_1?.ToUpperInvariant();
+
+            var currentTitle = languageCode == tmdbEntity.OriginalLanguageCode ? (
+                tmdbEntity.OriginalTitle
+            ) : languageCode == "en" && countryCode == "US" ? (
+                tmdbEntity.EnglishTitle ?? translation.Name ?? string.Empty
+            ) : (
+                translation.Name ?? string.Empty
+            );
+            var existingTitle = existingTitles.FirstOrDefault(title => title.LanguageCode == languageCode && title.CountryCode == countryCode);
+            if (!string.IsNullOrEmpty(currentTitle))
+            {
+                if (existingTitle == null)
+                {
+                    titlesToAdd++;
+                    titlesToSave.Add(new(tmdbEntity.Type, tmdbEntity.Id, currentTitle, languageCode, countryCode));
+                }
+                else if (!string.Equals(existingTitle.Value, currentTitle))
+                {
+                    existingTitle.Value = currentTitle;
+                    titlesToSave.Add(existingTitle);
+                }
+                else
+                {
+                    titlesToSkip++;
+                }
+            }
+            else if (existingTitle != null)
+            {
+                titlesToRemove.Add(existingTitle);
+            }
+
+            var currentOverview = languageCode == "en" && countryCode == "US" ? (
+                tmdbEntity.EnglishOverview ?? translation.Data.Overview ?? string.Empty
+            ) : (
+                translation.Data.Overview ?? string.Empty
+            );
+            var existingOverview = existingOverviews.FirstOrDefault(overview => overview.LanguageCode == languageCode && overview.CountryCode == countryCode);
+            if (!string.IsNullOrEmpty(currentOverview))
+            {
+                if (existingOverview == null)
+                {
+                    overviewsToAdd++;
+                    overviewsToSave.Add(new(tmdbEntity.Type, tmdbEntity.Id, currentOverview, languageCode, countryCode));
+                }
+                else if (!string.Equals(existingOverview.Value, currentOverview))
+                {
+                    existingOverview.Value = currentOverview;
+                    overviewsToSave.Add(existingOverview);
+                }
+                else
+                {
+                    overviewsToSkip++;
+                }
+            }
+            else if (existingOverview != null)
+            {
+                overviewsToRemove.Add(existingOverview);
+            }
+        }
+
+        _logger.LogDebug(
+            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {MovieTitle} (Id={MovieId})",
+            titlesToAdd,
+            titlesToSave.Count - titlesToAdd,
+            titlesToRemove.Count,
+            titlesToSkip,
+            overviewsToAdd,
+            overviewsToSave.Count - overviewsToAdd,
+            overviewsToRemove.Count,
+            overviewsToSkip,
+            tmdbEntity.Type.ToString().ToLowerInvariant(),
+            tmdbEntity.OriginalTitle,
+            tmdbEntity.Id);
+        RepoFactory.TMDB_Overview.Save(overviewsToSave);
+        RepoFactory.TMDB_Overview.Delete(overviewsToRemove);
+        RepoFactory.TMDB_Title.Save(titlesToSave);
+        RepoFactory.TMDB_Title.Delete(titlesToRemove);
+
+        return overviewsToSave.Count > 0 ||
+            overviewsToRemove.Count > 0 ||
+            titlesToSave.Count > 0 ||
+            titlesToRemove.Count > 0;
+    }
+
+    private void PurgeTitlesAndOverviews(ForeignEntityType foreignType, int foreignId)
+    {
+        var overviewsToRemove = RepoFactory.TMDB_Overview.GetByParentTypeAndId(foreignType, foreignId);
+        var titlesToRemove = RepoFactory.TMDB_Title.GetByParentTypeAndId(foreignType, foreignId);
+
+        _logger.LogDebug(
+            "Removed {tr} titles and {or} overviews for {type} with id {EntityId}",
+            titlesToRemove.Count,
+            overviewsToRemove.Count,
+            foreignType.ToString().ToLowerInvariant(),
+            foreignId);
+        RepoFactory.TMDB_Overview.Delete(overviewsToRemove);
+        RepoFactory.TMDB_Title.Delete(titlesToRemove);
     }
 
     #endregion
