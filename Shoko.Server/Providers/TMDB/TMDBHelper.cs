@@ -765,17 +765,22 @@ public class TMDBHelper
 
     #region Titles & Overviews
 
+    /// <summary>
+    /// Updates the titles and overviews for the <paramref name="tmdbEntity"/>
+    /// using the translation data available in the <paramref name="translations"/>.
+    /// </summary>
+    /// <param name="tmdbEntity">The local TMDB Entity to update titles and overviews for.</param>
+    /// <param name="translations">The translations container returned from the API.</param>
+    /// <returns>A boolean indicating if any changes were made to the titles and/or overviews.</returns>
     private bool UpdateTitlesAndOverviews(IEntityMetatadata tmdbEntity, TranslationsContainer translations)
     {
         var existingOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
         var existingTitles = RepoFactory.TMDB_Title.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
         var overviewsToAdd = 0;
-        var overviewsToSkip = 0;
-        var overviewsToRemove = new List<TMDB_Overview>();
+        var overviewsToSkip = new HashSet<int>();
         var overviewsToSave = new List<TMDB_Overview>();
         var titlesToAdd = 0;
-        var titlesToSkip = 0;
-        var titlesToRemove = new List<TMDB_Title>();
+        var titlesToSkip = new HashSet<int>();
         var titlesToSave = new List<TMDB_Title>();
         foreach (var translation in translations.Translations)
         {
@@ -797,19 +802,15 @@ public class TMDBHelper
                     titlesToAdd++;
                     titlesToSave.Add(new(tmdbEntity.Type, tmdbEntity.Id, currentTitle, languageCode, countryCode));
                 }
-                else if (!string.Equals(existingTitle.Value, currentTitle))
-                {
-                    existingTitle.Value = currentTitle;
-                    titlesToSave.Add(existingTitle);
-                }
                 else
                 {
-                    titlesToSkip++;
+                    if (!string.Equals(existingTitle.Value, currentTitle))
+                    {
+                        existingTitle.Value = currentTitle;
+                        titlesToSave.Add(existingTitle);
+                    }
+                    titlesToSkip.Add(existingTitle.TMDB_TitleID);
                 }
-            }
-            else if (existingTitle != null)
-            {
-                titlesToRemove.Add(existingTitle);
             }
 
             var currentOverview = languageCode == "en" && countryCode == "US" ? (
@@ -825,32 +826,30 @@ public class TMDBHelper
                     overviewsToAdd++;
                     overviewsToSave.Add(new(tmdbEntity.Type, tmdbEntity.Id, currentOverview, languageCode, countryCode));
                 }
-                else if (!string.Equals(existingOverview.Value, currentOverview))
-                {
-                    existingOverview.Value = currentOverview;
-                    overviewsToSave.Add(existingOverview);
-                }
                 else
                 {
-                    overviewsToSkip++;
+                    if (!string.Equals(existingOverview.Value, currentOverview))
+                    {
+                        existingOverview.Value = currentOverview;
+                        overviewsToSave.Add(existingOverview);
+                    }
+                    overviewsToSkip.Add(existingOverview.TMDB_OverviewID);
                 }
             }
-            else if (existingOverview != null)
-            {
-                overviewsToRemove.Add(existingOverview);
-            }
         }
+        var titlesToRemove = existingTitles.ExceptBy(titlesToSkip, t => t.TMDB_TitleID).ToList();
+        var overviewsToRemove = existingOverviews.ExceptBy(overviewsToSkip, o => o.TMDB_OverviewID).ToList();
 
         _logger.LogDebug(
             "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {MovieTitle} (Id={MovieId})",
             titlesToAdd,
             titlesToSave.Count - titlesToAdd,
             titlesToRemove.Count,
-            titlesToSkip,
+            titlesToSkip.Count + titlesToAdd - titlesToSave.Count,
             overviewsToAdd,
             overviewsToSave.Count - overviewsToAdd,
             overviewsToRemove.Count,
-            overviewsToSkip,
+            overviewsToSkip.Count + overviewsToAdd - overviewsToSave.Count,
             tmdbEntity.Type.ToString().ToLowerInvariant(),
             tmdbEntity.OriginalTitle,
             tmdbEntity.Id);
