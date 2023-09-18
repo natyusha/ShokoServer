@@ -18,6 +18,9 @@ using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.TvShows;
 
+using MovieCredits = TMDbLib.Objects.Movies.Credits;
+using ShowCredits = TMDbLib.Objects.TvShows.Credits;
+
 namespace Shoko.Server.Providers.TMDB;
 
 public class TMDBHelper
@@ -207,12 +210,13 @@ public class TMDBHelper
             return false;
 
         // Abort if we couldn't find the movie by id.
-        var movie = await _client.GetMovieAsync(movieId, "en", null, MovieMethods.Translations);
+        var movie = await _client.GetMovieAsync(movieId, "en", null, MovieMethods.Translations | MovieMethods.Credits);
         if (movie == null)
             return false;
 
         var updated = tmdbMovie.Populate(movie);
         updated |= UpdateTitlesAndOverviews(tmdbMovie, movie.Translations);
+        updated |= UpdateMovieCastAndCast(tmdbMovie, movie.Credits);
         if (updated)
         {
             tmdbMovie.LastUpdatedAt = DateTime.Now;
@@ -230,6 +234,13 @@ public class TMDBHelper
             await UpdateMovieCollections(movie);
 
         return updated;
+    }
+
+    private bool UpdateMovieCastAndCast(TMDB_Movie tmdbMovie, MovieCredits credits)
+    {
+        // TODO: Add cast / crew
+
+        return false;
     }
 
     private async Task UpdateMovieCollections(Movie movie)
