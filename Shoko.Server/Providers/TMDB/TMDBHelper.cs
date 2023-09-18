@@ -787,13 +787,11 @@ public class TMDBHelper
             var languageCode = translation.Iso_639_1?.ToLowerInvariant();
             var countryCode = translation.Iso_3166_1?.ToUpperInvariant();
 
-            string currentTitle;
+            var currentTitle = translation.Name ?? string.Empty;
             if (!string.IsNullOrEmpty(tmdbEntity.OriginalLanguageCode) && languageCode == tmdbEntity.OriginalLanguageCode)
                 currentTitle = tmdbEntity.OriginalTitle ?? translation.Name ?? string.Empty;
             else if (languageCode == "en" && countryCode == "US")
                 currentTitle = tmdbEntity.EnglishTitle ?? translation.Name ?? string.Empty;
-            else
-                currentTitle = translation.Name ?? string.Empty;
             var existingTitle = existingTitles.FirstOrDefault(title => title.LanguageCode == languageCode && title.CountryCode == countryCode);
             if (!string.IsNullOrEmpty(currentTitle))
             {
@@ -813,11 +811,9 @@ public class TMDBHelper
                 }
             }
 
-            string currentOverview;
+            var currentOverview = translation.Data.Overview ?? string.Empty;
             if (languageCode == "en" && countryCode == "US")
                 currentOverview = tmdbEntity.EnglishOverview ?? translation.Data.Overview ?? string.Empty;
-            else
-                currentOverview = translation.Data.Overview ?? string.Empty;
             var existingOverview = existingOverviews.FirstOrDefault(overview => overview.LanguageCode == languageCode && overview.CountryCode == countryCode);
             if (!string.IsNullOrEmpty(currentOverview))
             {
