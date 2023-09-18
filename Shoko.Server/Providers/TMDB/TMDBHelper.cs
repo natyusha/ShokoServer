@@ -787,8 +787,8 @@ public class TMDBHelper
             var languageCode = translation.Iso_639_1?.ToLowerInvariant();
             var countryCode = translation.Iso_3166_1?.ToUpperInvariant();
 
-            var currentTitle = languageCode == tmdbEntity.OriginalLanguageCode ? (
-                tmdbEntity.OriginalTitle
+            var currentTitle = !string.IsNullOrEmpty(tmdbEntity.OriginalLanguageCode) && languageCode == tmdbEntity.OriginalLanguageCode ? (
+                tmdbEntity.OriginalTitle ?? translation.Name ?? string.Empty
             ) : languageCode == "en" && countryCode == "US" ? (
                 tmdbEntity.EnglishTitle ?? translation.Name ?? string.Empty
             ) : (
