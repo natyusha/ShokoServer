@@ -358,14 +358,35 @@ public class TMDBHelper
             RepoFactory.TMDB_Movie.Delete(movie);
         }
 
-        var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
-        if (images != null & images.Count > 0)
-            foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Movie, removeImageFiles);
+        PurgeMovieImages(movieId, removeImageFiles);
+
+        PurgeMovieCompanies(movieId, removeImageFiles);
 
         CleanupMovieCollection(movieId);
 
         PurgeTitlesAndOverviews(ForeignEntityType.Movie, movieId);
+    }
+
+    private static void PurgeMovieImages(int movieId, bool removeImageFiles = true)
+    {
+        var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
+        if (images != null & images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Movie, removeImageFiles);
+    }
+
+    private void PurgeMovieCompanies(int movieId, bool removeImageFiles = true)
+    {
+        var xrefsToRemove = RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(ForeignEntityType.Movie, movieId);
+        foreach (var xref in xrefsToRemove)
+        {
+            // Delete xref or purge company.
+            var xrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbCompanyID(xref.TmdbCompanyID);
+            if (xrefs.Count > 1)
+                RepoFactory.TMDB_Company_Entity.Delete(xref);
+            else
+                PurgeCompany(xref.TmdbCompanyID, removeImageFiles);
+        }
     }
 
     private void CleanupMovieCollection(int movieId, bool removeImageFiles = true)
@@ -613,7 +634,9 @@ public class TMDBHelper
                 RemoveShowLink(xref);
         }
 
-        PurgeShowImages(showId);
+        PurgeShowImages(showId, removeImageFiles);
+
+        PurgeShowCompanies(showId, removeImageFiles);
 
         PurgeShowEpisodes(showId);
 
@@ -632,6 +655,20 @@ public class TMDBHelper
         if (images != null & images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Movie, removeFiles);
+    }
+
+    private void PurgeShowCompanies(int showId, bool removeImageFiles = true)
+    {
+        var xrefsToRemove = RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(ForeignEntityType.Show, showId);
+        foreach (var xref in xrefsToRemove)
+        {
+            // Delete xref or purge company.
+            var xrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbCompanyID(xref.TmdbCompanyID);
+            if (xrefs.Count > 1)
+                RepoFactory.TMDB_Company_Entity.Delete(xref);
+            else
+                PurgeCompany(xref.TmdbCompanyID, removeImageFiles);
+        }
     }
 
     private static void PurgeShowEpisodes(int showId, bool removeImageFiles = true)
