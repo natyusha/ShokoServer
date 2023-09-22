@@ -9,7 +9,7 @@ namespace Shoko.Server.Repositories.Direct;
 
 public class TMDB_OverviewRepository : BaseDirectRepository<TMDB_Overview, int>
 {
-    public IReadOnlyList<TMDB_Overview> GetByParentTypeAndId(ForeignEntityType parentType, int parentId)
+    public IReadOnlyList<TMDB_Overview> GetByParentTypeAndID(ForeignEntityType parentType, int parentId)
     {
         return Lock(() =>
         {

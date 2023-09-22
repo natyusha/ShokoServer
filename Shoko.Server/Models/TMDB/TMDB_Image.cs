@@ -163,8 +163,11 @@ public class TMDB_Image : IImageMetadata
 
     public TMDB_Image() { }
 
-    public TMDB_Image(ImageEntityType type)
+    public TMDB_Image(string filePath, ImageEntityType type)
     {
+        RemoteFileName = filePath?.Trim() ?? string.Empty;
+        if (RemoteFileName.EndsWith(".svg"))
+            RemoteFileName = RemoteFileName[..^4] + ".png";
         ImageType = type;
     }
 
@@ -175,6 +178,11 @@ public class TMDB_Image : IImageMetadata
     public void Populate(ImageData data, ForeignEntityType foreignType, int foreignId)
     {
         Populate(data);
+        Populate(foreignType, foreignId);
+    }
+
+    public void Populate(ForeignEntityType foreignType, int foreignId)
+    {
         switch (foreignType)
         {
             case ForeignEntityType.Movie:
@@ -214,9 +222,6 @@ public class TMDB_Image : IImageMetadata
 
     private void Populate(ImageData data)
     {
-        RemoteFileName = data.FilePath?.Trim() ?? string.Empty;
-        if (RemoteFileName.EndsWith(".svg"))
-            RemoteFileName = RemoteFileName[..^4] + ".png";
         Width = data.Width;
         Height = data.Height;
         LanguageCode = string.IsNullOrEmpty(data.Iso_639_1) ? null : data.Iso_639_1;

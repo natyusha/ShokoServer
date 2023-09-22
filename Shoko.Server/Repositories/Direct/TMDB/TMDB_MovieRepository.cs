@@ -7,7 +7,7 @@ namespace Shoko.Server.Repositories.Direct;
 
 public class TMDB_MovieRepository : BaseDirectRepository<TMDB_Movie, int>
 {
-    public TMDB_Movie? GetByTmdbMovieId(int tmdbMovieId)
+    public TMDB_Movie? GetByTmdbMovieID(int tmdbMovieId)
     {
         return Lock(() =>
         {

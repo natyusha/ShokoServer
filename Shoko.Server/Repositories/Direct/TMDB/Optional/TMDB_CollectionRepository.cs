@@ -7,7 +7,7 @@ namespace Shoko.Server.Repositories.Direct;
 
 public class TMDB_CollectionRepository : BaseDirectRepository<TMDB_Collection, int>
 {
-    public TMDB_Collection? GetByTmdbCollectionId(int collectionId)
+    public TMDB_Collection? GetByTmdbCollectionID(int collectionId)
     {
         return Lock(() =>
         {

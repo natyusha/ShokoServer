@@ -1,17 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Server;
 using TMDbLib.Objects.TvShows;
 
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Show
+public class TMDB_Show : TMDB_Base, IEntityMetatadata
 {
     #region Properties
+
+    public override int Id => TmdbShowID;
 
     /// <summary>
     /// Local id.
@@ -187,6 +191,18 @@ public class TMDB_Show
 
         return new List<TMDB_Overview>();
     }
+
+    #endregion
+
+    #region IEntityMetadata
+
+    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Show;
+
+    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+
+    TitleLanguage? IEntityMetatadata.OriginalLanguage => OriginalLanguage;
+
+    DateOnly? IEntityMetatadata.ReleasedAt => FirstAiredAt;
 
     #endregion
 }

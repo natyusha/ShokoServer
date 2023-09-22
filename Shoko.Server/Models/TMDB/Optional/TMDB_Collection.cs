@@ -129,5 +129,7 @@ public class TMDB_Collection : TMDB_Base, IEntityMetatadata
 
     string? IEntityMetatadata.OriginalLanguageCode => null;
 
+    DateOnly? IEntityMetatadata.ReleasedAt => null;
+
     #endregion
 }

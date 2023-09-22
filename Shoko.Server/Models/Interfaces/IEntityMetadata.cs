@@ -53,6 +53,11 @@ public interface IEntityMetatadata
     public string? OriginalLanguageCode { get; }
 
     /// <summary>
+    /// When the entity was first released.
+    /// </summary>
+    public DateOnly? ReleasedAt { get; }
+
+    /// <summary>
     /// When the metadata was first downloaded.
     /// </summary>
     public DateTime CreatedAt { get; set; }

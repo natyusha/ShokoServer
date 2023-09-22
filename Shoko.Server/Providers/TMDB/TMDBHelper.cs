@@ -205,7 +205,7 @@ public class TMDBHelper
     public async Task<bool> UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false, bool downloadCollections = false)
     {
         // Abort if we're within a certain time frame as to not try and get us rate-limited.
-        var tmdbMovie = RepoFactory.TMDB_Movie.GetByTmdbMovieId(movieId) ?? new();
+        var tmdbMovie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId) ?? new();
         if (!forceRefresh && tmdbMovie.CreatedAt != tmdbMovie.LastUpdatedAt && tmdbMovie.LastUpdatedAt < DateTime.Now.AddHours(-1))
             return false;
 
@@ -216,6 +216,7 @@ public class TMDBHelper
 
         var updated = tmdbMovie.Populate(movie);
         updated |= UpdateTitlesAndOverviews(tmdbMovie, movie.Translations);
+        updated |= UpdateCompanies(tmdbMovie, movie.ProductionCompanies);
         updated |= UpdateMovieCastAndCast(tmdbMovie, movie.Credits);
         if (updated)
         {
@@ -248,8 +249,8 @@ public class TMDBHelper
         var collectionId = movie.BelongsToCollection?.Id;
         if (collectionId.HasValue)
         {
-            var movieXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(collectionId.Value);
-            var tmdbCollection = RepoFactory.TMDB_Collection.GetByTmdbCollectionId(collectionId.Value) ?? new(collectionId.Value);
+            var movieXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(collectionId.Value);
+            var tmdbCollection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionId.Value) ?? new(collectionId.Value);
             var collection = await _client.GetCollectionAsync(collectionId.Value, TMDbLib.Objects.Collections.CollectionMethods.Images);
             if (collection == null)
             {
@@ -307,13 +308,13 @@ public class TMDBHelper
         var settings = _settingsProvider.GetSettings();
         var images = await _client.GetMovieImagesAsync(movieId);
         if (settings.TMDB.AutoDownloadPosters)
-            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Movie, settings.TMDB.MaxAutoPosters, movieId, forceDownload);
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Movie, movieId, settings.TMDB.MaxAutoPosters, forceDownload);
 
         if (settings.TMDB.AutoDownloadLogos)
-            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Movie, settings.TMDB.MaxAutoLogos, movieId, forceDownload);
+            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Movie, movieId, settings.TMDB.MaxAutoLogos, forceDownload);
 
         if (settings.TMDB.AutoDownloadBackdrops)
-            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Movie, settings.TMDB.MaxAutoBackdrops, movieId, forceDownload);
+            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Movie, movieId, settings.TMDB.MaxAutoBackdrops, forceDownload);
     }
 
     #endregion
@@ -350,7 +351,7 @@ public class TMDBHelper
             foreach (var xref in xrefs)
                 RemoveMovieLink(xref);
         }
-        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieId(movieId);
+        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId);
         if (movie != null)
         {
             _logger.LogTrace("Removing movie {MovieName} ({MovieID})", movie.OriginalTitle, movie.Id);
@@ -369,11 +370,11 @@ public class TMDBHelper
 
     private void CleanupMovieCollection(int movieId, bool removeImageFiles = true)
     {
-        var xref = RepoFactory.TMDB_Collection_Movie.GetByTmdbMovieId(movieId);
+        var xref = RepoFactory.TMDB_Collection_Movie.GetByTmdbMovieID(movieId);
         if (xref == null)
             return;
 
-        var allXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(xref.TmdbCollectionID);
+        var allXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(xref.TmdbCollectionID);
         if (allXRefs.Count > 1)
             RepoFactory.TMDB_Collection_Movie.Delete(xref);
         else
@@ -387,7 +388,7 @@ public class TMDBHelper
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
 
-        var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionId(collectionId);
+        var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionId);
         if (collection != null)
         {
             _logger.LogTrace(
@@ -398,7 +399,7 @@ public class TMDBHelper
             RepoFactory.TMDB_Collection.Delete(collection);
         }
 
-        var collectionXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionId(collectionId);
+        var collectionXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(collectionId);
         if (collectionXRefs.Count > 0)
         {
             _logger.LogTrace(
@@ -576,11 +577,11 @@ public class TMDBHelper
         var settings = _settingsProvider.GetSettings();
         var images = await _client.GetTvShowImagesAsync(showId);
         if (settings.TMDB.AutoDownloadPosters)
-            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Show, showId, settings.TMDB.MaxAutoBackdrops, forceDownload);
         if (settings.TMDB.AutoDownloadLogos)
-            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Show, showId, settings.TMDB.MaxAutoBackdrops, forceDownload);
         if (settings.TMDB.AutoDownloadBackdrops)
-            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Show, settings.TMDB.MaxAutoBackdrops, showId, forceDownload);
+            DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Show, showId, settings.TMDB.MaxAutoBackdrops, forceDownload);
     }
 
     #endregion
@@ -656,7 +657,21 @@ public class TMDBHelper
 
     #region Image
 
-    private void DownloadImagesByType(IReadOnlyList<ImageData> images, ImageEntityType type, ForeignEntityType foreignType, int maxCount, int episodeId, bool forceDownload = false)
+    private void DownloadImageByType(string filePath, ImageEntityType type, ForeignEntityType foreignType, int foreignId, bool forceDownload = false)
+    {
+        var image = RepoFactory.TMDB_Image.GetByRemoteFileNameAndType(filePath, type) ?? new(filePath, type);
+        image.Populate(foreignType, foreignId);
+        RepoFactory.TMDB_Image.Save(image);
+
+        _commandFactory.CreateAndSave<CommandRequest_DownloadImage>(c =>
+        {
+            c.EntityID = image.TMDB_ImageID;
+            c.DataSourceEnum = DataSourceType.TMDB;
+            c.ForceDownload = forceDownload;
+        });
+    }
+
+    private void DownloadImagesByType(IReadOnlyList<ImageData> images, ImageEntityType type, ForeignEntityType foreignType, int foreignId, int maxCount, bool forceDownload = false)
     {
         var count = 0;
         foreach (var imageData in images)
@@ -664,8 +679,8 @@ public class TMDBHelper
             if (count >= maxCount)
                 break;
 
-            var image = RepoFactory.TMDB_Image.GetByRemoteFileNameAndType(imageData.FilePath, type) ?? new(type);
-            image.Populate(imageData, foreignType, episodeId);
+            var image = RepoFactory.TMDB_Image.GetByRemoteFileNameAndType(imageData.FilePath, type) ?? new(imageData.FilePath, type);
+            image.Populate(imageData, foreignType, foreignId);
             RepoFactory.TMDB_Image.Save(image);
 
             var path = image.LocalPath;
@@ -673,7 +688,7 @@ public class TMDBHelper
                 count++;
         }
 
-        foreach (var image in RepoFactory.TMDB_Image.GetByForeignIDAndType(episodeId, foreignType, type))
+        foreach (var image in RepoFactory.TMDB_Image.GetByForeignIDAndType(foreignId, foreignType, type))
         {
             var path = image.LocalPath;
             if (count < maxCount)
@@ -785,8 +800,8 @@ public class TMDBHelper
     /// <returns>A boolean indicating if any changes were made to the titles and/or overviews.</returns>
     private bool UpdateTitlesAndOverviews(IEntityMetatadata tmdbEntity, TranslationsContainer translations)
     {
-        var existingOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
-        var existingTitles = RepoFactory.TMDB_Title.GetByParentTypeAndId(tmdbEntity.Type, tmdbEntity.Id);
+        var existingOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
+        var existingTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
         var overviewsToAdd = 0;
         var overviewsToSkip = new HashSet<int>();
         var overviewsToSave = new List<TMDB_Overview>();
@@ -848,7 +863,7 @@ public class TMDBHelper
         var titlesToRemove = existingTitles.ExceptBy(titlesToSkip, t => t.TMDB_TitleID).ToList();
         var overviewsToRemove = existingOverviews.ExceptBy(overviewsToSkip, o => o.TMDB_OverviewID).ToList();
         _logger.LogDebug(
-            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {MovieTitle} (Id={MovieId})",
+            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {EntityTitle} (Id={EntityId})",
             titlesToAdd,
             titlesToSave.Count - titlesToAdd,
             titlesToRemove.Count,
@@ -873,8 +888,8 @@ public class TMDBHelper
 
     private void PurgeTitlesAndOverviews(ForeignEntityType foreignType, int foreignId)
     {
-        var overviewsToRemove = RepoFactory.TMDB_Overview.GetByParentTypeAndId(foreignType, foreignId);
-        var titlesToRemove = RepoFactory.TMDB_Title.GetByParentTypeAndId(foreignType, foreignId);
+        var overviewsToRemove = RepoFactory.TMDB_Overview.GetByParentTypeAndID(foreignType, foreignId);
+        var titlesToRemove = RepoFactory.TMDB_Title.GetByParentTypeAndID(foreignType, foreignId);
 
         _logger.LogDebug(
             "Removed {tr} titles and {or} overviews for {type} with id {EntityId}",
@@ -884,6 +899,102 @@ public class TMDBHelper
             foreignId);
         RepoFactory.TMDB_Overview.Delete(overviewsToRemove);
         RepoFactory.TMDB_Title.Delete(titlesToRemove);
+    }
+
+    #endregion
+
+    #region Companies
+
+
+    private bool UpdateCompanies(IEntityMetatadata tmdbEntity, List<ProductionCompany> companies)
+    {
+        var existingXrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
+        var xrefsToAdd = 0;
+        var xrefsToSkip = new HashSet<int>();
+        var xrefsToSave = new List<TMDB_Company_Entity>();
+        var indexCounter = 0;
+        foreach (var company in companies)
+        {
+            var currentIndex = indexCounter++;
+            var existingXref = existingXrefs.FirstOrDefault(xref => xref.TmdbCompanyID == company.Id);
+            if (existingXref == null)
+            {
+                xrefsToAdd++;
+                xrefsToSave.Add(new(company.Id, tmdbEntity.Type, tmdbEntity.Id, currentIndex, tmdbEntity.ReleasedAt));
+            }
+            else
+            {
+                if (existingXref.Index != currentIndex || existingXref.ReleasedAt != tmdbEntity.ReleasedAt)
+                {
+                    existingXref.Index = currentIndex;
+                    existingXref.ReleasedAt = tmdbEntity.ReleasedAt;
+                    xrefsToSave.Add(existingXref);
+                }
+                xrefsToSkip.Add(existingXref.TMDB_Company_EntityID);
+            }
+
+            UpdateCompany(company);
+        }
+        var xrefsToRemove = existingXrefs.ExceptBy(xrefsToSkip, o => o.TMDB_Company_EntityID).ToList();
+
+        _logger.LogDebug(
+            "Added/updated/removed/skipped {oa}/{ou}/{or}/{os} company cross-references for {type} {EntityTitle} (Id={EntityId})",
+            xrefsToAdd,
+            xrefsToSave.Count - xrefsToAdd,
+            xrefsToRemove.Count,
+            xrefsToSkip.Count + xrefsToAdd - xrefsToSave.Count,
+            tmdbEntity.Type.ToString().ToLowerInvariant(),
+            tmdbEntity.OriginalTitle,
+            tmdbEntity.Id);
+
+        RepoFactory.TMDB_Company_Entity.Save(xrefsToSave);
+        foreach (var xref in xrefsToRemove)
+        {
+            // Delete xref or purge company.
+            var xrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbCompanyID(xref.TmdbCompanyID);
+            if (xrefs.Count > 1)
+                RepoFactory.TMDB_Company_Entity.Delete(xref);
+            else
+                PurgeCompany(xref.TmdbCompanyID);
+        }
+
+
+        return false;
+    }
+
+    private void UpdateCompany(ProductionCompany company)
+    {
+        var tmdbCompany = RepoFactory.TMDB_Company.GetByTmdbCompanyID(company.Id) ?? new(company.Id);
+        var updated = tmdbCompany.Populate(company);
+        if (updated)
+        {
+            _logger.LogDebug("");
+            RepoFactory.TMDB_Company.Save(tmdbCompany);
+        }
+
+        DownloadImageByType(company.LogoPath, ImageEntityType.Logo, ForeignEntityType.Company, company.Id);
+    }
+
+    private void PurgeCompany(int companyId, bool removeImageFiles = true)
+    {
+        var tmdbCompany = RepoFactory.TMDB_Company.GetByTmdbCompanyID(companyId);
+        if (tmdbCompany != null)
+        {
+            _logger.LogDebug("");
+            RepoFactory.TMDB_Company.Delete(tmdbCompany);
+        }
+
+        var images = RepoFactory.TMDB_Image.GetByTmdbCompanyID(companyId);
+        if (images != null & images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Company, removeImageFiles);
+
+        var xrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbCompanyID(companyId);
+        if (xrefs.Count > 0)
+        {
+            _logger.LogDebug("");
+            RepoFactory.TMDB_Company_Entity.Delete(xrefs);
+        }
     }
 
     #endregion

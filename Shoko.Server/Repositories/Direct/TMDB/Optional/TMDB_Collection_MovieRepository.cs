@@ -8,7 +8,7 @@ namespace Shoko.Server.Repositories.Direct;
 
 public class TMDB_Collection_MovieRepository : BaseDirectRepository<TMDB_Collection_Movie, int>
 {
-    public IReadOnlyList<TMDB_Collection_Movie> GetByTmdbCollectionId(int collectinoId)
+    public IReadOnlyList<TMDB_Collection_Movie> GetByTmdbCollectionID(int collectinoId)
     {
         return Lock(() =>
         {
@@ -20,7 +20,7 @@ public class TMDB_Collection_MovieRepository : BaseDirectRepository<TMDB_Collect
         });
     }
 
-    public TMDB_Collection_Movie? GetByTmdbMovieId(int movieId)
+    public TMDB_Collection_Movie? GetByTmdbMovieID(int movieId)
     {
         return Lock(() =>
         {

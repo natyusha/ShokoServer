@@ -10,6 +10,7 @@ using Shoko.Commons.Utils;
 using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Providers.TMDB;
+using Shoko.Server.Repositories;
 
 #nullable enable
 namespace Shoko.Server.ImageDownload;
@@ -180,6 +181,14 @@ public class ImageDownloadRequest
 
             // Move the temp file to it's final destination.
             File.Move(tempPath, FilePath);
+
+            if (ImageData is TMDB_Image tmdbImage && (tmdbImage.Width == 0 || tmdbImage.Height == 0))
+            {
+                var info = new ImageMagick.MagickImageInfo(FilePath);
+                tmdbImage.Width = info.Width;
+                tmdbImage.Height = info.Height;
+                RepoFactory.TMDB_Image.Save(tmdbImage);
+            }
 
             return ImageDownloadResult.Success;
         }
