@@ -130,14 +130,8 @@ public class TMDBHelper
         });
     }
 
-    public void RemoveMovieLink(int animeId, int movieId, bool purge = false)
+    public void RemoveMovieLink(int animeId, int movieId, bool purge = false, bool removeImageFiles = true)
     {
-        if (purge)
-        {
-            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c => c.TmdbMovieID = movieId);
-            return;
-        }
-
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId);
         if (xref == null)
             return;
@@ -150,14 +144,14 @@ public class TMDBHelper
             RepoFactory.AnimeSeries.Save(series, false, true, true);
         }
 
-        RemoveMovieLink(xref);
+        RemoveMovieLink(xref, removeImageFiles, purge ? true : null);
     }
 
-    public void RemoveAllMovieLinks(int animeId, bool purge = false)
+    public void RemoveAllMovieLinks(int animeId, bool purge = false, bool removeImageFiles = true)
     {
         _logger.LogInformation("Removing All TMDB Movie Links for: {AnimeID}", animeId);
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(animeId);
-        if (xrefs == null || xrefs.Count == 0)
+        if (xrefs.Count == 0)
             return;
 
         // Disable auto-matching when we remove an existing match for the series.
@@ -169,18 +163,22 @@ public class TMDBHelper
         }
 
         foreach (var xref in xrefs)
-            if (purge)
-                PurgeMovie(xref.TmdbMovieID);
-            else
-                RemoveMovieLink(xref);
+            RemoveMovieLink(xref, removeImageFiles, purge ? true : null);
     }
 
-    private void RemoveMovieLink(CrossRef_AniDB_TMDB_Movie xref)
+    private void RemoveMovieLink(CrossRef_AniDB_TMDB_Movie xref, bool removeImageFiles = true, bool? purge = null)
     {
         ResetPreferredImage(xref.AnidbAnimeID, ForeignEntityType.Movie, xref.TmdbMovieID);
 
         _logger.LogInformation("Removing TMDB Movie Link: AniDB ({AnidbID}) → TMDB Movie (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbMovieID);
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Delete(xref);
+
+        if (purge ?? RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(xref.TmdbMovieID).Count == 0)
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c =>
+            {
+                c.TmdbMovieID = xref.TmdbMovieID;
+                c.RemoveImageFiles = removeImageFiles;
+            });
     }
 
     #endregion
@@ -346,11 +344,10 @@ public class TMDBHelper
     public void PurgeMovie(int movieId, bool removeImageFiles = true)
     {
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieId);
-        if (xrefs != null && xrefs.Count > 0)
-        {
+        if (xrefs.Count > 0)
             foreach (var xref in xrefs)
-                RemoveMovieLink(xref);
-        }
+                RemoveMovieLink(xref, removeImageFiles, false);
+
         var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId);
         if (movie != null)
         {
@@ -476,14 +473,8 @@ public class TMDBHelper
         });
     }
 
-    public void RemoveShowLink(int animeId, int showId, bool purge = false)
+    public void RemoveShowLink(int animeId, int showId, bool purge = false, bool removeImageFiles = true)
     {
-        if (purge)
-        {
-            PurgeShow(showId);
-            return;
-        }
-
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeAndTmdbShowIDs(animeId, showId);
         if (xref == null)
             return;
@@ -496,10 +487,10 @@ public class TMDBHelper
             RepoFactory.AnimeSeries.Save(series, false, true, true);
         }
 
-        RemoveShowLink(xref);
+        RemoveShowLink(xref, removeImageFiles, purge ? true : null);
     }
 
-    public void RemoveAllShowLinks(int animeId, bool purge = false)
+    public void RemoveAllShowLinks(int animeId, bool purge = false, bool removeImageFiles = true)
     {
         _logger.LogInformation("Removing All TMDB Show Links for: {AnimeID}", animeId);
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(animeId);
@@ -515,13 +506,10 @@ public class TMDBHelper
         }
 
         foreach (var xref in xrefs)
-            if (purge)
-                PurgeShow(xref.TmdbShowID);
-            else
-                RemoveShowLink(xref);
+            RemoveShowLink(xref, removeImageFiles, purge ? true : null);
     }
 
-    private void RemoveShowLink(CrossRef_AniDB_TMDB_Show xref)
+    private void RemoveShowLink(CrossRef_AniDB_TMDB_Show xref, bool removeImageFiles = true, bool? purge = null)
     {
         ResetPreferredImage(xref.AnidbAnimeID, ForeignEntityType.Show, xref.TmdbShowID);
         if (xref.TmdbSeasonID.HasValue)
@@ -530,7 +518,22 @@ public class TMDBHelper
         _logger.LogInformation("Removing TMDB Show Link: AniDB ({AnidbID}) → TMDB Show (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbShowID);
         RepoFactory.CrossRef_AniDB_TMDB_Show.Delete(xref);
 
-        // TODO: Remove episode xrefs for anime episodes to show episodes.
+        var anidbEpisodes = RepoFactory.AniDB_Episode.GetByAnimeID(xref.AnidbAnimeID);
+        var tmdbEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(xref.TmdbShowID)
+            .Select(episode => episode.TmdbEpisodeID)
+            .ToHashSet();
+        var xrefs = anidbEpisodes
+            .SelectMany(episode => RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeID(episode.AniDB_EpisodeID).Where(xref => tmdbEpisodes.Contains(xref.TmdbEpisodeID)))
+            .ToList();
+        _logger.LogInformation("Removing {XRefsCount} Show Episodes for AniDB Anime ({AnidbID})", xrefs.Count, xref.AnidbAnimeID);
+        RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(xrefs);
+
+        if (purge ?? RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(xref.TmdbShowID).Count == 0)
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Purge>(c =>
+            {
+                c.TmdbShowID = xref.TmdbShowID;
+                c.RemoveImageFiles = removeImageFiles;
+            });
     }
 
     #endregion
@@ -628,11 +631,9 @@ public class TMDBHelper
     public bool PurgeShow(int showId, bool removeImageFiles = true)
     {
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(showId);
-        if (xrefs != null && xrefs.Count > 0)
-        {
+        if (xrefs.Count > 0)
             foreach (var xref in xrefs)
-                RemoveShowLink(xref);
-        }
+                RemoveShowLink(xref, removeImageFiles, false);
 
         PurgeShowImages(showId, removeImageFiles);
 
