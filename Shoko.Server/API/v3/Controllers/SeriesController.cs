@@ -1102,7 +1102,7 @@ public class SeriesController : BaseController
     [HttpGet("TMDB/Movie/{movieID}")]
     public ActionResult GetTMDBMovieByMovieID([FromRoute] int movieID)
     {
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
         if (movie == null)
             return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
 
@@ -1118,7 +1118,7 @@ public class SeriesController : BaseController
     [HttpGet("TMDB/Movie/{movieID}/Series")]
     public ActionResult<List<Series>> GetSeriesByTMDBMovieID([FromRoute] int movieID)
     {
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
         if (movie == null)
             return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
 
@@ -1159,7 +1159,7 @@ public class SeriesController : BaseController
     [HttpDelete("TMDB/Movie/{movieID}")]
     public ActionResult RemoveTMDBMovieByMovieID([FromRoute] int movieID)
     {
-        var movie = RepoFactory.MovieDb_Movie.GetByOnlineID(movieID);
+        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
         if (movie == null)
             return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
 

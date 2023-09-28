@@ -16,6 +16,7 @@ using Shoko.Server.Databases;
 using Shoko.Server.Extensions;
 using Shoko.Server.LZ4;
 using Shoko.Server.Models.CrossReference;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.AniDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.NHibernate;
@@ -954,8 +955,8 @@ public class SVR_AnimeSeries : AnimeSeries
         var animeIds = new Lazy<int[]>(() => seriesBatch.Select(s => s.AniDB_ID).ToArray(), false);
         var tvDbByAnime = new Lazy<ILookup<int, Tuple<CrossRef_AniDB_TvDB, TvDB_Series>>>(
             () => RepoFactory.TvDB_Series.GetByAnimeIDs(session, animeIds.Value), false);
-        var movieByAnime = new Lazy<Dictionary<int, Tuple<CrossRef_AniDB_TMDB_Movie, MovieDB_Movie>>>(
-            () => RepoFactory.MovieDb_Movie.GetByAnimeIDs(session, animeIds.Value), false);
+        var movieByAnime = new Lazy<Dictionary<int, Tuple<CrossRef_AniDB_TMDB_Movie, TMDB_Movie>>>(
+            () => RepoFactory.TMDB_Movie.GetByAnimeIDs(session, animeIds.Value), false);
         var malXrefByAnime = new Lazy<ILookup<int, CrossRef_AniDB_MAL>>(
             () => RepoFactory.CrossRef_AniDB_MAL.GetByAnimeIDs(session, animeIds.Value), false);
         var defImagesByAnime = new Lazy<Dictionary<int, DefaultAnimeImages>>(
@@ -1035,7 +1036,7 @@ public class SVR_AnimeSeries : AnimeSeries
                 if (movieByAnime.Value.TryGetValue(series.AniDB_ID, out var tmdbMovie))
                 {
                     contract.CrossRefAniDBMovieDB = tmdbMovie.Item1.ToClient();
-                    contract.MovieDB_Movie = tmdbMovie.Item2;
+                    contract.MovieDB_Movie = tmdbMovie.Item2.ToClient();
                 }
                 else
                 {
@@ -1106,7 +1107,7 @@ public class SVR_AnimeSeries : AnimeSeries
         var animeRec = GetAnime();
         var tvDBCrossRefs = GetCrossRefTvDB();
         var tmdbMovieXRef = CrossRefMovieDB.FirstOrDefault();
-        var tmdbMovie = tmdbMovieXRef?.GetMovieDB_Movie();
+        var tmdbMovie = tmdbMovieXRef?.GetTmdbMovie();
 
         var sers = new List<TvDB_Series>();
         foreach (var xref in tvDBCrossRefs)
@@ -1172,7 +1173,7 @@ public class SVR_AnimeSeries : AnimeSeries
         if (tmdbMovieXRef != null)
         {
             contract.CrossRefAniDBMovieDB = tmdbMovieXRef.ToClient();
-            contract.MovieDB_Movie = tmdbMovie;
+            contract.MovieDB_Movie = tmdbMovie?.ToClient();
         }
 
         contract.CrossRefAniDBMAL = CrossRefMAL?.ToList() ?? new List<CrossRef_AniDB_MAL>();

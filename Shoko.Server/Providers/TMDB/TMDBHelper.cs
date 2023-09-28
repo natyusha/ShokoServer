@@ -321,7 +321,7 @@ public class TMDBHelper
 
     public void PurgeAllUnusedMovies()
     {
-        var allMovies = RepoFactory.MovieDb_Movie.GetAll().Select(movie => movie.MovieId)
+        var allMovies = RepoFactory.TMDB_Movie.GetAll().Select(movie => movie.TmdbMovieID)
             .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID.Value))
             .ToHashSet();
         var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll()

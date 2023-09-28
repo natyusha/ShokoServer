@@ -268,14 +268,25 @@ public static class ModelClients
     }
 
 #nullable enable
-    public static CrossRef_AniDB_Other? ToClient(this CrossRef_AniDB_TMDB_Movie? movie)
+    public static CrossRef_AniDB_Other? ToClient(this CrossRef_AniDB_TMDB_Movie? xref)
+        => xref == null ? null : new()
+        {
+            CrossRef_AniDB_OtherID = xref.CrossRef_AniDB_TMDB_MovieID,
+            AnimeID = xref.AnidbAnimeID,
+            CrossRefType = (int)CrossRefType.MovieDB,
+            CrossRefID = xref.TmdbMovieID.ToString(),
+            CrossRefSource = (int)CrossRefSource.User,
+        };
+
+    public static MovieDB_Movie? ToClient(this TMDB_Movie? movie)
         => movie == null ? null : new()
         {
-            CrossRef_AniDB_OtherID = movie.CrossRef_AniDB_TMDB_MovieID,
-            AnimeID = movie.AnidbAnimeID,
-            CrossRefType = (int)CrossRefType.MovieDB,
-            CrossRefID = movie.TmdbMovieID.ToString(),
-            CrossRefSource = (int)CrossRefSource.User,
+            MovieDB_MovieID = movie.TMDB_MovieID,
+            MovieId = movie.Id,
+            MovieName = movie.EnglishTitle,
+            OriginalName = movie.OriginalTitle,
+            Overview = movie.EnglishOverview,
+            Rating = (int)Math.Round(movie.UserRating * 10),
         };
 
     public static MovieDB_Fanart? ToClientFanart(this TMDB_Image image)

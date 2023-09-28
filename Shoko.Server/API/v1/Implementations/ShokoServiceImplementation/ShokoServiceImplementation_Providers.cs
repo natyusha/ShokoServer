@@ -106,7 +106,7 @@ public partial class ShokoServiceImplementation : IShokoServer
             result.CrossRef_AniDB_MovieDB = xrefMovie.ToClient();
 
 
-            result.MovieDBMovie = anime.GetTmdbMovie().FirstOrDefault();
+            result.MovieDBMovie = anime.GetTmdbMovie().FirstOrDefault()?.ToClient();
 
 
             foreach (var fanart in anime.GetTmdbMovieFanarts())

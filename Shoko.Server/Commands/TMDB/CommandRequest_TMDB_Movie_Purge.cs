@@ -40,7 +40,7 @@ public class CommandRequest_TMDB_Movie_Purge : CommandRequestImplementation
 
     public override void PostInit()
     {
-        MovieTitle ??= RepoFactory.MovieDb_Movie.GetByOnlineID(TmdbMovieID)?.MovieName;
+        MovieTitle ??= RepoFactory.TMDB_Movie.GetByTmdbMovieID(TmdbMovieID)?.EnglishTitle;
     }
 
     protected override void Process()

@@ -6,7 +6,6 @@ using NHibernate;
 using Shoko.Models.Server;
 using Shoko.Server.Databases;
 using Shoko.Server.Models;
-using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Repositories;
 using Shoko.Server.Repositories.NHibernate;
 
@@ -108,17 +107,6 @@ public static class ModelDatabase
             // these will probably never exist, but if they do, cover our bases
             RepoFactory.AnimeEpisode_User.Delete(RepoFactory.AnimeEpisode_User.GetByEpisodeID(existingEp.AnimeEpisodeID));
         }
-    }
-
-    public static MovieDB_Movie GetMovieDB_Movie(this CrossRef_AniDB_TMDB_Movie cross)
-    {
-        using var session = DatabaseFactory.SessionFactory.OpenSession();
-        return cross.GetMovieDB_Movie(session.Wrap());
-    }
-
-    public static MovieDB_Movie GetMovieDB_Movie(this CrossRef_AniDB_TMDB_Movie cross, ISessionWrapper session)
-    {
-        return RepoFactory.MovieDb_Movie.GetByOnlineID(session, cross.TmdbMovieID);
     }
 
     public static Trakt_Show GetByTraktShow(this CrossRef_AniDB_TraktV2 cross)

@@ -45,7 +45,6 @@ public static class RepoFactory
     public static DuplicateFileRepository DuplicateFile { get; } = new();
     public static FileNameHashRepository FileNameHash { get; } = new();
     public static IgnoreAnimeRepository IgnoreAnime { get; } = new();
-    public static MovieDb_MovieRepository MovieDb_Movie { get; } = new();
     public static PlaylistRepository Playlist { get; } = new();
     public static RenameScriptRepository RenameScript { get; } = new();
     public static ScanFileRepository ScanFile { get; } = new();

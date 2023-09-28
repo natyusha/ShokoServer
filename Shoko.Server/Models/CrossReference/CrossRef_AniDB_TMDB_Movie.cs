@@ -1,4 +1,6 @@
 using Shoko.Models.Enums;
+using Shoko.Server.Models.TMDB;
+using Shoko.Server.Repositories;
 
 #nullable enable
 namespace Shoko.Server.Models.CrossReference;
@@ -28,6 +30,13 @@ public class CrossRef_AniDB_TMDB_Movie
         TmdbMovieID = tmdbMovieId;
         Source = source;
     }
+
+    #endregion
+
+    #region Methods
+
+    public TMDB_Movie? GetTmdbMovie()
+        => RepoFactory.TMDB_Movie.GetByTmdbMovieID(TmdbMovieID);
 
     #endregion
 }

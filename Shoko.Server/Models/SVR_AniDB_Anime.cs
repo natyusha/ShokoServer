@@ -167,9 +167,9 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
     public List<CrossRef_AniDB_TMDB_Movie> GetCrossRefTmdbMovies()
         => RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(AnimeID);
 
-    public List<MovieDB_Movie> GetTmdbMovie()
+    public List<TMDB_Movie> GetTmdbMovie()
         => GetCrossRefTmdbMovies()
-            .Select(xref => RepoFactory.MovieDb_Movie.GetByOnlineID(xref.TmdbMovieID))
+            .Select(xref => RepoFactory.TMDB_Movie.GetByTmdbMovieID(xref.TmdbMovieID))
             .ToList();
 
     public List<TMDB_Image> GetTmdbMovieFanarts()
