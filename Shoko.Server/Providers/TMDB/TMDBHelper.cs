@@ -21,6 +21,7 @@ using TMDbLib.Objects.TvShows;
 using MovieCredits = TMDbLib.Objects.Movies.Credits;
 using ShowCredits = TMDbLib.Objects.TvShows.Credits;
 
+#nullable enable
 namespace Shoko.Server.Providers.TMDB;
 
 public class TMDBHelper
@@ -35,9 +36,9 @@ public class TMDBHelper
 
     private readonly TMDbClient _client;
 
-    private static string _imageServerUrl = null;
+    private static string? _imageServerUrl = null;
 
-    public static string ImageServerUrl =>
+    public static string? ImageServerUrl =>
         _imageServerUrl;
 
     private const string APIKey = "8192e8032758f0ef4f7caa1ab7b32dd3";
@@ -322,7 +323,7 @@ public class TMDBHelper
     public void PurgeAllUnusedMovies()
     {
         var allMovies = RepoFactory.TMDB_Movie.GetAll().Select(movie => movie.TmdbMovieID)
-            .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID.Value))
+            .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID!.Value))
             .ToHashSet();
         var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll()
             .Select(xref => xref.TmdbMovieID)
@@ -367,7 +368,7 @@ public class TMDBHelper
     private static void PurgeMovieImages(int movieId, bool removeImageFiles = true)
     {
         var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
-        if (images != null & images.Count > 0)
+        if (images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Movie, removeImageFiles);
     }
@@ -402,7 +403,7 @@ public class TMDBHelper
     private void PurgeMovieCollection(int collectionId, bool removeImageFiles = true)
     {
         var images = RepoFactory.TMDB_Image.GetByTmdbCollectionID(collectionId);
-        if (images != null & images.Count > 0)
+        if (images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
 
@@ -442,7 +443,7 @@ public class TMDBHelper
     public List<TvShow> SearchShows(string query)
     {
         // TODO: Implement search after finalising the search model.
-        return default;
+        return new();
     }
 
     #endregion
@@ -653,7 +654,7 @@ public class TMDBHelper
     private static void PurgeShowImages(int showId, bool removeFiles = true)
     {
         var images = RepoFactory.TMDB_Image.GetByTmdbShowID(showId);
-        if (images != null & images.Count > 0)
+        if (images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Movie, removeFiles);
     }
@@ -1023,7 +1024,7 @@ public class TMDBHelper
         }
 
         var images = RepoFactory.TMDB_Image.GetByTmdbCompanyID(companyId);
-        if (images != null & images.Count > 0)
+        if (images.Count > 0)
             foreach (var image in images)
                 PurgeImage(image, ForeignEntityType.Company, removeImageFiles);
 
