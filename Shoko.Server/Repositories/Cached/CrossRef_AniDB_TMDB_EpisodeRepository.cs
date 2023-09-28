@@ -8,17 +8,25 @@ namespace Shoko.Server.Repositories.Cached;
 
 public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossRef_AniDB_TMDB_Episode, int>
 {
+    private PocoIndex<int, CrossRef_AniDB_TMDB_Episode, int>? _anidbAnimeIDs;
     private PocoIndex<int, CrossRef_AniDB_TMDB_Episode, int>? _anidbEpisodeIDs;
+    private PocoIndex<int, CrossRef_AniDB_TMDB_Episode, int>? _tmdbShowIDs;
     private PocoIndex<int, CrossRef_AniDB_TMDB_Episode, int>? _tmdbEpisodeIDs;
     private PocoIndex<int, CrossRef_AniDB_TMDB_Episode, (int, int)>? _pairedIDs;
 
-    public List<CrossRef_AniDB_TMDB_Episode> GetByAnidbEpisodeID(int episodeId)
-        => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Ordering).ToList());
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByAnidbAnimeID(int animeId)
+        => ReadLock(() => _anidbAnimeIDs!.GetMultiple(animeId).ToList());
 
-    public List<CrossRef_AniDB_TMDB_Episode> GetByTmdbEpisodeID(int episodeId)
-        => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Ordering).ToList());
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByAnidbEpisodeID(int episodeId)
+        => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Index).ToList());
 
-    public CrossRef_AniDB_TMDB_Episode? GetByAnidbEpisodeAndTmdbEpisodeIDs(int anidbId, int tmdbId)
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByTmdbShowID(int showId)
+        => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId).ToList());
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByTmdbEpisodeID(int episodeId)
+        => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Index).ToList());
+
+    public CrossRef_AniDB_TMDB_Episode? GetByAnidbEpisodeAndTmdbShowIDs(int anidbId, int tmdbId)
         => ReadLock(() => _pairedIDs!.GetOne((anidbId, tmdbId)));
 
     protected override int SelectKey(CrossRef_AniDB_TMDB_Episode entity)
@@ -26,9 +34,11 @@ public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossR
 
     public override void PopulateIndexes()
     {
-        _tmdbEpisodeIDs = new(Cache, a => a.TmdbEpisodeID);
+        _anidbAnimeIDs = new(Cache, a => a.AnidbEpisodeID);
         _anidbEpisodeIDs = new(Cache, a => a.AnidbEpisodeID);
-        _pairedIDs = new(Cache, a => (a.AnidbEpisodeID, a.TmdbEpisodeID));
+        _tmdbShowIDs = new(Cache, a => a.TmdbShowID);
+        _tmdbEpisodeIDs = new(Cache, a => a.TmdbEpisodeID);
+        _pairedIDs = new(Cache, a => (a.AnidbEpisodeID, a.TmdbShowID));
     }
 
     public override void RegenerateDb()
