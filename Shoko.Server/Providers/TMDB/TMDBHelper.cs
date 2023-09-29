@@ -21,6 +21,7 @@ using TMDbLib.Objects.TvShows;
 
 using MovieCredits = TMDbLib.Objects.Movies.Credits;
 using EpisodeCredits = TMDbLib.Objects.TvShows.Credits;
+using TMDbLib.Objects.Search;
 
 #nullable enable
 namespace Shoko.Server.Providers.TMDB;
@@ -94,14 +95,15 @@ public class TMDBHelper
 
     #region Search
 
-    public List<Movie> SearchMovies(string query)
+    public List<SearchMovie> SearchMovies(string query)
     {
-        var results = _client.SearchMovie(query);
+        var results = _client.SearchMovieAsync(query)
+            .ConfigureAwait(false)
+            .GetAwaiter()
+            .GetResult();
 
-        _logger.LogInformation("Got {Count} of {Results} results", results.Results.Count, results.TotalResults);
-        return results.Results
-            .Select(result => _client.GetMovie(result.Id))
-            .ToList();
+        _logger.LogInformation("Got {Count} of {Results} results", results?.Results.Count ?? 0, results?.TotalResults ?? 0);
+        return results?.Results ?? new();
     }
 
     #endregion

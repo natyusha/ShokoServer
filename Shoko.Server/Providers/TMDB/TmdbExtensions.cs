@@ -9,17 +9,7 @@ namespace Shoko.Server.Providers.TMDB;
 
 public static class TmdbExtensions
 {
-    public static Movie GetMovie(this TMDbClient client, int movieID, MovieMethods methods = MovieMethods.Undefined)
-    {
-        return Task.Run(async () => await client.GetMovieAsync(movieID, methods)).Result;
-    }
-
-    public static SearchContainer<SearchMovie> SearchMovie(this TMDbClient client, string query)
-    {
-        return Task.Run(async () => await client.SearchMovieAsync(query)).Result;
-    }
-
-    public static CL_MovieDBMovieSearch_Response ToContract(this Movie movie)
+    public static CL_MovieDBMovieSearch_Response ToContract(this SearchMovie movie)
         => new()
         {
             MovieID = movie.Id,
