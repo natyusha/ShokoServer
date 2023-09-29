@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.TvShows;
@@ -9,9 +11,11 @@ using TMDbLib.Objects.TvShows;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Season
+public class TMDB_Season : TMDB_Base, IEntityMetadata
 {
     #region Properties
+
+    public override int Id => TmdbSeasonID;
 
     /// <summary>
     /// Local ID.
@@ -77,16 +81,21 @@ public class TMDB_Season
 
     #region Methods
 
-    public void Populate(TvShow show, TvSeason season, TranslationsContainer translations)
+    public bool Populate(TvShow show, TvSeason season, TranslationsContainer translations)
     {
         var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
-        TmdbSeasonID = season.Id!.Value;
-        TmdbShowID = show.Id;
-        EnglishTitle = translation?.Data.Name ?? season.Name;
-        EnglishOverview = translation?.Data.Overview ?? season.Overview;
-        EpisodeCount = season.Episodes.Count;
-        SeasonNumber = season.SeasonNumber;
-        LastUpdatedAt = DateTime.Now;
+
+        var updates = new[]
+        {
+            UpdateProperty(TmdbSeasonID, season.Id!.Value, v => TmdbSeasonID = v),
+            UpdateProperty(TmdbShowID, show.Id, v => TmdbShowID = v),
+            UpdateProperty(EnglishTitle, translation?.Data.Name ?? season.Name, v => EnglishTitle = v),
+            UpdateProperty(EnglishOverview, translation?.Data.Overview ?? season.Overview, v => EnglishOverview = v),
+            UpdateProperty(EpisodeCount, season.Episodes.Count, v => EpisodeCount = v),
+            UpdateProperty(SeasonNumber, season.SeasonNumber, v => SeasonNumber = v),
+        };
+
+        return updates.Any(updated => updated);
     }
 
     public TMDB_Title? GetPreferredTitle(bool useFallback = false)
@@ -117,6 +126,22 @@ public class TMDB_Season
 
         return new List<TMDB_Overview>();
     }
+
+    #endregion
+
+    #region IEntityMetadata
+
+    ForeignEntityType IEntityMetadata.Type => ForeignEntityType.Season;
+
+    DataSourceType IEntityMetadata.DataSource => DataSourceType.TMDB;
+
+    string? IEntityMetadata.OriginalTitle => null;
+
+    TitleLanguage? IEntityMetadata.OriginalLanguage => null;
+
+    string? IEntityMetadata.OriginalLanguageCode => null;
+
+    DateOnly? IEntityMetadata.ReleasedAt => null;
 
     #endregion
 }

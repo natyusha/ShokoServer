@@ -11,7 +11,7 @@ using TMDbLib.Objects.TvShows;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Show : TMDB_Base, IEntityMetatadata
+public class TMDB_Show : TMDB_Base, IEntityMetadata
 {
     #region Properties
 
@@ -138,29 +138,32 @@ public class TMDB_Show : TMDB_Base, IEntityMetatadata
 
     #region Methods
 
-    public void Populate(TvShow show)
+    public bool Populate(TvShow show)
     {
         // Don't trust 'show.Name' for the engrish title since it will fall-back
         // to the original language if there is no title in engrish.
         var translation = show.Translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
 
-        OriginalTitle = show.OriginalName;
-        OriginalLanguageCode = show.OriginalLanguage;
-        EnglishTitle = translation?.Data.Name ?? show.Name;
-        EnglishOverview = translation?.Data.Overview ?? show.Name;
-        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/443 to be merged to uncomment the next line.
-        IsRestricted = false; // show.Adult;
-        Genres = show.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList();
-        ContentRatings = show.ContentRatings.Results.Select(rating => new TMDB_ContentRating(rating.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), rating.Rating)).ToList();
-        EpisodeCount = show.NumberOfEpisodes;
-        SeasonCount = show.NumberOfSeasons;
-        AlternateOrderingCount = show.EpisodeGroups.Results.Count;
-        UserRating = show.VoteAverage;
-        UserVotes = show.VoteCount;
-        FirstAiredAt = show.FirstAirDate.HasValue ? DateOnly.FromDateTime(show.FirstAirDate.Value) : null;
-        LastAiredAt = !string.IsNullOrEmpty(show.Status) && show.Status.Equals("Ended", StringComparison.InvariantCultureIgnoreCase) && show.LastAirDate.HasValue ?
-            DateOnly.FromDateTime(show.LastAirDate.Value) : null;
-        LastUpdatedAt = DateTime.Now;
+        var updates = new[]
+        {
+            UpdateProperty(OriginalTitle, show.OriginalName, v => OriginalTitle = v),
+            UpdateProperty(OriginalLanguageCode, show.OriginalLanguage, v => OriginalLanguageCode = v),
+            UpdateProperty(EnglishTitle, translation?.Data.Name ?? show.Name, v => EnglishTitle = v),
+            UpdateProperty(EnglishOverview, translation?.Data.Overview ?? show.Name, v => EnglishOverview = v),
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/443 to be merged to uncomment the next line.
+            UpdateProperty(IsRestricted, false /* show.Adult */, v => IsRestricted = v),
+            UpdateProperty(Genres, show.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList(), v => Genres = v),
+            UpdateProperty(ContentRatings, show.ContentRatings.Results.Select(rating => new TMDB_ContentRating(rating.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), rating.Rating)).ToList(), v => ContentRatings = v),
+            UpdateProperty(EpisodeCount, show.NumberOfEpisodes, v => EpisodeCount = v),
+            UpdateProperty(SeasonCount, show.NumberOfSeasons, v => SeasonCount = v),
+            UpdateProperty(AlternateOrderingCount, show.EpisodeGroups.Results.Count, v => AlternateOrderingCount = v),
+            UpdateProperty(UserRating, show.VoteAverage, v => UserRating = v),
+            UpdateProperty(UserVotes, show.VoteCount, v => UserVotes = v),
+            UpdateProperty(FirstAiredAt, show.FirstAirDate.HasValue ? DateOnly.FromDateTime(show.FirstAirDate.Value) : null, v => FirstAiredAt = v),
+            UpdateProperty(LastAiredAt, !string.IsNullOrEmpty(show.Status) && show.Status.Equals("Ended", StringComparison.InvariantCultureIgnoreCase) && show.LastAirDate.HasValue ? DateOnly.FromDateTime(show.LastAirDate.Value) : null, v => LastAiredAt = v),
+        };
+
+        return updates.Any(updated => updated);
     }
 
     public TMDB_Title? GetPreferredTitle(bool useFallback = false)
@@ -196,13 +199,13 @@ public class TMDB_Show : TMDB_Base, IEntityMetatadata
 
     #region IEntityMetadata
 
-    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Show;
+    ForeignEntityType IEntityMetadata.Type => ForeignEntityType.Show;
 
-    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+    DataSourceType IEntityMetadata.DataSource => DataSourceType.TMDB;
 
-    TitleLanguage? IEntityMetatadata.OriginalLanguage => OriginalLanguage;
+    TitleLanguage? IEntityMetadata.OriginalLanguage => OriginalLanguage;
 
-    DateOnly? IEntityMetatadata.ReleasedAt => FirstAiredAt;
+    DateOnly? IEntityMetadata.ReleasedAt => FirstAiredAt;
 
     #endregion
 }

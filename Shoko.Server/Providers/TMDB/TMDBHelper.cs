@@ -14,12 +14,13 @@ using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
 using TMDbLib.Client;
+using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.TvShows;
 
 using MovieCredits = TMDbLib.Objects.Movies.Credits;
-using ShowCredits = TMDbLib.Objects.TvShows.Credits;
+using EpisodeCredits = TMDbLib.Objects.TvShows.Credits;
 
 #nullable enable
 namespace Shoko.Server.Providers.TMDB;
@@ -117,8 +118,7 @@ public class TMDBHelper
         _logger.LogInformation("Adding TMDB Movie Link: AniDB (ID:{AnidbID}) → TvDB Movie (ID:{TmdbID})", animeId, movieId);
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId) ??
             new(animeId, movieId);
-        if (episodeId.HasValue)
-            xref.AnidbEpisodeID = episodeId;
+        xref.AnidbEpisodeID = episodeId;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Save(xref);
 
@@ -204,19 +204,19 @@ public class TMDBHelper
     public async Task<bool> UpdateMovie(int movieId, bool forceRefresh = false, bool downloadImages = false, bool downloadCollections = false)
     {
         // Abort if we're within a certain time frame as to not try and get us rate-limited.
-        var tmdbMovie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId) ?? new();
+        var tmdbMovie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId) ?? new(movieId);
         if (!forceRefresh && tmdbMovie.CreatedAt != tmdbMovie.LastUpdatedAt && tmdbMovie.LastUpdatedAt < DateTime.Now.AddHours(-1))
             return false;
 
         // Abort if we couldn't find the movie by id.
-        var movie = await _client.GetMovieAsync(movieId, "en", null, MovieMethods.Translations | MovieMethods.Credits);
+        var movie = await _client.GetMovieAsync(movieId, "en-US", null, MovieMethods.Translations | MovieMethods.Credits);
         if (movie == null)
             return false;
 
         var updated = tmdbMovie.Populate(movie);
         updated |= UpdateTitlesAndOverviews(tmdbMovie, movie.Translations);
         updated |= UpdateCompanies(tmdbMovie, movie.ProductionCompanies);
-        updated |= UpdateMovieCastAndCast(tmdbMovie, movie.Credits);
+        updated |= UpdateMovieCastAndCrew(tmdbMovie, movie.Credits);
         if (updated)
         {
             tmdbMovie.LastUpdatedAt = DateTime.Now;
@@ -236,7 +236,7 @@ public class TMDBHelper
         return updated;
     }
 
-    private bool UpdateMovieCastAndCast(TMDB_Movie tmdbMovie, MovieCredits credits)
+    private bool UpdateMovieCastAndCrew(TMDB_Movie tmdbMovie, MovieCredits credits)
     {
         // TODO: Add cast / crew
 
@@ -250,7 +250,8 @@ public class TMDBHelper
         {
             var movieXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(collectionId.Value);
             var tmdbCollection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionId.Value) ?? new(collectionId.Value);
-            var collection = await _client.GetCollectionAsync(collectionId.Value, TMDbLib.Objects.Collections.CollectionMethods.Images);
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
+            var collection = await _client.GetCollectionAsync(collectionId.Value, CollectionMethods.Images /* | CollectionMethods.Translations */);
             if (collection == null)
             {
                 PurgeMovieCollection(collectionId.Value);
@@ -259,11 +260,11 @@ public class TMDBHelper
 
             var updated = tmdbCollection.Populate(collection);
             // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
-            updated |= UpdateTitlesAndOverviews(tmdbCollection, null); // collection.Translations);
+            updated |= UpdateTitlesAndOverviews(tmdbCollection, null /* collection.Translations */);
 
             var xrefsToAdd = 0;
             var xrefsToSave = new List<TMDB_Collection_Movie>();
-            var xrefsToRemove = movieXRefs.Where(xref => collection.Parts.Any(part => xref.TmdbMovieID == part.Id)).ToList();
+            var xrefsToRemove = movieXRefs.Where(xref => !collection.Parts.Any(part => xref.TmdbMovieID == part.Id)).ToList();
             var movieXref = movieXRefs.FirstOrDefault(xref => xref.TmdbMovieID == movie.Id);
             var index = collection.Parts.FindIndex(part => part.Id == movie.Id);
             if (index == -1)
@@ -402,22 +403,7 @@ public class TMDBHelper
 
     private void PurgeMovieCollection(int collectionId, bool removeImageFiles = true)
     {
-        var images = RepoFactory.TMDB_Image.GetByTmdbCollectionID(collectionId);
-        if (images.Count > 0)
-            foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
-
         var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionId);
-        if (collection != null)
-        {
-            _logger.LogTrace(
-                "Removing movie collection {MovieName} ({MovieID})",
-                collection.EnglishTitle,
-                collectionId
-            );
-            RepoFactory.TMDB_Collection.Delete(collection);
-        }
-
         var collectionXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(collectionId);
         if (collectionXRefs.Count > 0)
         {
@@ -428,6 +414,21 @@ public class TMDBHelper
             );
             RepoFactory.TMDB_Collection_Movie.Delete(collectionXRefs);
         }
+
+        if (collection != null)
+        {
+            _logger.LogTrace(
+                "Removing movie collection {MovieName} ({MovieID})",
+                collection.EnglishTitle,
+                collectionId
+            );
+            RepoFactory.TMDB_Collection.Delete(collection);
+        }
+
+        var images = RepoFactory.TMDB_Image.GetByTmdbCollectionID(collectionId);
+        if (images.Count > 0)
+            foreach (var image in images)
+                PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
 
         PurgeTitlesAndOverviews(ForeignEntityType.Collection, collectionId);
     }
@@ -558,38 +559,147 @@ public class TMDBHelper
         }
     }
 
-    public async Task UpdateShow(int showId, bool force = false, bool downloadImages = false, bool downloadEpisodeGroups = false)
+    public async Task<bool> UpdateShow(int showId, bool forceRefresh = false, bool downloadImages = false, bool downloadEpisodeGroups = false)
     {
-        // TODO: Abort if we're within a certain time frame as to not try and get us rate-limited.
+        // Abort if we're within a certain time frame as to not try and get us rate-limited.
+        var tmdbShow = RepoFactory.TMDB_Show.GetByTmdbShowID(showId) ?? new(showId);
+        if (!forceRefresh && tmdbShow.CreatedAt != tmdbShow.LastUpdatedAt && tmdbShow.LastUpdatedAt < DateTime.Now.AddHours(-1))
+            return false;
 
-        var show = await _client.GetTvShowAsync(showId);
+        var show = await _client.GetTvShowAsync(showId, TvShowMethods.Translations | TvShowMethods.EpisodeGroups, "en-US");
+        if (show == null)
+            return false;
 
-        // TODO: Update show.
+        var updated = tmdbShow.Populate(show);
+        updated |= UpdateTitlesAndOverviews(tmdbShow, show.Translations);
+        updated |= UpdateCompanies(tmdbShow, show.ProductionCompanies);
+        updated |= UpdateShowSeasons(show, downloadImages, forceRefresh).ConfigureAwait(false).GetAwaiter().GetResult();
+        updated |= UpdateShowEpisodes(show, downloadImages, forceRefresh).ConfigureAwait(false).GetAwaiter().GetResult();
+        if (updated)
+        {
+            tmdbShow.LastUpdatedAt = DateTime.Now;
+            RepoFactory.TMDB_Show.Save(tmdbShow);
+        }
 
-        await Task.WhenAll(
-            UpdateShowTitlesAndOverviews(show),
-            UpdateShowEpisodes(show),
-            UpdateShowSeasons(show),
-            downloadEpisodeGroups ? UpdateShowEpisodeGroups(show) : Task.CompletedTask,
-            downloadImages ? DownloadShowImages(showId) : Task.CompletedTask
-        );
+        if (downloadImages && downloadEpisodeGroups)
+            await Task.WhenAll(
+                DownloadShowImages(showId),
+                UpdateShowEpisodeGroups(show)
+            );
+        else if (downloadImages)
+            await DownloadShowImages(showId, forceRefresh);
+        else if (downloadEpisodeGroups)
+            await UpdateShowEpisodeGroups(show);
+
+        // TODO: Add/update/remove episode xrefs.
+
+        return updated;
     }
 
-    private async Task UpdateShowTitlesAndOverviews(TvShow show)
+    private async Task<bool> UpdateShowSeasons(TvShow show, bool downloadImages, bool forceRefresh = false)
     {
-        var translations = await _client.GetTvShowTranslationsAsync(show.Id);
+        var existingSeasons = RepoFactory.TMDB_Season.GetByTmdbShowID(show.Id)
+            .ToDictionary(season => season.Id);
+        var seasonsToAdd = 0;
+        var seasonsToSkip = new HashSet<int>();
+        var seasonsToSave = new List<TMDB_Season>();
+        foreach (var reducedSeason in show.Seasons)
+        {
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next line.
+            var season = await _client.GetTvSeasonAsync(show.Id, reducedSeason.SeasonNumber /* , TvSeasonMethods.Translations */) ??
+                throw new Exception("TODO: Input some error message here that makes sense.");
+            if (!existingSeasons.TryGetValue(reducedSeason.Id, out var tmdbSeason))
+            {
+                seasonsToAdd++;
+                tmdbSeason = new(reducedSeason.Id);
+            }
 
-        // TODO: Add/update/remove show titles.
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next lines.
+            TranslationsContainer translations = null /* season.Translations */;
+
+            var updated = tmdbSeason.Populate(show, season, translations!);
+            updated |= UpdateTitlesAndOverviews(tmdbSeason, translations!);
+            if (updated)
+            {
+                tmdbSeason.LastUpdatedAt = DateTime.Now;
+                seasonsToSave.Add(tmdbSeason);
+            }
+
+            if (downloadImages)
+                await DownloadSeasonImages(tmdbSeason.TmdbSeasonID, tmdbSeason.TmdbShowID, tmdbSeason.SeasonNumber, forceRefresh);
+
+            seasonsToSkip.Add(tmdbSeason.Id);
+        }
+        var seasonsToRemove = existingSeasons.Values
+            .ExceptBy(seasonsToSkip, season => season.Id)
+            .ToList();
+
+        _logger.LogDebug(
+            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} seasons for show {ShowTitle} (Id={ShowId})",
+            seasonsToAdd,
+            seasonsToSave.Count - seasonsToAdd,
+            seasonsToRemove.Count,
+            existingSeasons.Count + seasonsToAdd - seasonsToRemove.Count - seasonsToSave.Count,
+            show.Name,
+            show.Id);
+        RepoFactory.TMDB_Season.Save(seasonsToSave);
+        RepoFactory.TMDB_Season.Delete(seasonsToRemove);
+
+        return seasonsToSave.Count > 0 || seasonsToRemove.Count > 0;
     }
 
-    private async Task UpdateShowEpisodes(TvShow show)
+    private async Task<bool> UpdateShowEpisodes(TvShow show, bool downloadImages, bool forceRefresh = false)
     {
-        // TODO: Update TMDB episodes, check for xrefs, auto-add xrefs that does not exist, etc.
-    }
+        var existingEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(show.Id)
+            .ToDictionary(episode => episode.Id);
+        var episodesToAdd = 0;
+        var episodesToSkip = new HashSet<int>();
+        var episodesToSave = new List<TMDB_Episode>();
+        foreach (var reducedSeason in show.Seasons)
+        {
+            var season = await _client.GetTvSeasonAsync(show.Id, reducedSeason.SeasonNumber) ??
+                throw new Exception("TODO: Input some error message here that makes sense.");
+            foreach (var episode in season.Episodes)
+            {
+                if (!existingEpisodes.TryGetValue(reducedSeason.Id, out var tmdbEpisode))
+                {
+                    episodesToAdd++;
+                    tmdbEpisode = new(reducedSeason.Id);
+                }
 
-    private async Task UpdateShowSeasons(TvShow show)
-    {
-        // TODO: Update TMDB seasons.
+                // TODO: Waiting for https://github.com/jellyfin/TMDbLib/pull/458 to be merged to uncomment the next lines.
+                TranslationsContainer translations = null /* await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber) */;
+
+                var updated = tmdbEpisode.Populate(show, season, episode, translations!);
+                updated |= UpdateTitlesAndOverviews(tmdbEpisode, translations!);
+                if (updated)
+                {
+                    tmdbEpisode.LastUpdatedAt = DateTime.Now;
+                    episodesToSave.Add(tmdbEpisode);
+                }
+
+                if (downloadImages)
+                    await DownloadEpisodeImages(tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, tmdbEpisode.SeasonNumber, tmdbEpisode.EpisodeNumber, forceRefresh);
+
+                episodesToSkip.Add(tmdbEpisode.Id);
+            }
+        }
+        var episodesToRemove = existingEpisodes.Values
+            .ExceptBy(episodesToSkip, episode => episode.Id)
+            .ToList();
+
+        _logger.LogDebug(
+            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} episodes for show {ShowTitle} (Id={ShowId})",
+            episodesToAdd,
+            episodesToSave.Count - episodesToAdd,
+            episodesToRemove.Count,
+            existingEpisodes.Count + episodesToAdd - episodesToRemove.Count - episodesToSave.Count,
+            show.Name,
+            show.Id);
+        RepoFactory.TMDB_Episode.Save(episodesToSave);
+        RepoFactory.TMDB_Episode.Delete(episodesToRemove);
+
+        return episodesToSave.Count > 0 || episodesToRemove.Count > 0;
     }
 
     private async Task UpdateShowEpisodeGroups(TvShow show)
@@ -607,6 +717,22 @@ public class TMDBHelper
             DownloadImagesByType(images.Logos, ImageEntityType.Logo, ForeignEntityType.Show, showId, settings.TMDB.MaxAutoBackdrops, forceDownload);
         if (settings.TMDB.AutoDownloadBackdrops)
             DownloadImagesByType(images.Backdrops, ImageEntityType.Backdrop, ForeignEntityType.Show, showId, settings.TMDB.MaxAutoBackdrops, forceDownload);
+    }
+
+    private async Task DownloadSeasonImages(int seasonId, int showId, int seasonNumber, bool forceDownload = false)
+    {
+        var settings = _settingsProvider.GetSettings();
+        var images = await _client.GetTvSeasonImagesAsync(showId, seasonNumber);
+        if (settings.TMDB.AutoDownloadPosters)
+            DownloadImagesByType(images.Posters, ImageEntityType.Poster, ForeignEntityType.Season, seasonId, settings.TMDB.MaxAutoBackdrops, forceDownload);
+    }
+
+    private async Task DownloadEpisodeImages(int episodeId, int showId, int seasonNumber, int episodeNumber, bool forceDownload)
+    {
+        var settings = _settingsProvider.GetSettings();
+        var images = await _client.GetTvEpisodeImagesAsync(showId, seasonNumber, episodeNumber);
+        if (settings.TMDB.AutoDownloadThumbnails)
+            DownloadImagesByType(images.Stills, ImageEntityType.Thumbnail, ForeignEntityType.Episode, episodeId, settings.TMDB.MaxAutoBackdrops, forceDownload);
     }
 
     #endregion
@@ -837,7 +963,7 @@ public class TMDBHelper
     /// <param name="tmdbEntity">The local TMDB Entity to update titles and overviews for.</param>
     /// <param name="translations">The translations container returned from the API.</param>
     /// <returns>A boolean indicating if any changes were made to the titles and/or overviews.</returns>
-    private bool UpdateTitlesAndOverviews(IEntityMetatadata tmdbEntity, TranslationsContainer translations)
+    private bool UpdateTitlesAndOverviews(IEntityMetadata tmdbEntity, TranslationsContainer translations)
     {
         var existingOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
         var existingTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
@@ -945,9 +1071,10 @@ public class TMDBHelper
     #region Companies
 
 
-    private bool UpdateCompanies(IEntityMetatadata tmdbEntity, List<ProductionCompany> companies)
+    private bool UpdateCompanies(IEntityMetadata tmdbEntity, List<ProductionCompany> companies)
     {
-        var existingXrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(tmdbEntity.Type, tmdbEntity.Id);
+        var existingXrefs = RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(tmdbEntity.Type, tmdbEntity.Id)
+            .ToDictionary(xref => xref.TmdbCompanyID);
         var xrefsToAdd = 0;
         var xrefsToSkip = new HashSet<int>();
         var xrefsToSave = new List<TMDB_Company_Entity>();
@@ -955,13 +1082,7 @@ public class TMDBHelper
         foreach (var company in companies)
         {
             var currentIndex = indexCounter++;
-            var existingXref = existingXrefs.FirstOrDefault(xref => xref.TmdbCompanyID == company.Id);
-            if (existingXref == null)
-            {
-                xrefsToAdd++;
-                xrefsToSave.Add(new(company.Id, tmdbEntity.Type, tmdbEntity.Id, currentIndex, tmdbEntity.ReleasedAt));
-            }
-            else
+            if (existingXrefs.TryGetValue(company.Id, out var existingXref))
             {
                 if (existingXref.Index != currentIndex || existingXref.ReleasedAt != tmdbEntity.ReleasedAt)
                 {
@@ -971,10 +1092,17 @@ public class TMDBHelper
                 }
                 xrefsToSkip.Add(existingXref.TMDB_Company_EntityID);
             }
+            else
+            {
+                xrefsToAdd++;
+                xrefsToSave.Add(new(company.Id, tmdbEntity.Type, tmdbEntity.Id, currentIndex, tmdbEntity.ReleasedAt));
+            }
 
             UpdateCompany(company);
         }
-        var xrefsToRemove = existingXrefs.ExceptBy(xrefsToSkip, o => o.TMDB_Company_EntityID).ToList();
+        var xrefsToRemove = existingXrefs.Values
+            .ExceptBy(xrefsToSkip, o => o.TMDB_Company_EntityID)
+            .ToList();
 
         _logger.LogDebug(
             "Added/updated/removed/skipped {oa}/{ou}/{or}/{os} company cross-references for {type} {EntityTitle} (Id={EntityId})",

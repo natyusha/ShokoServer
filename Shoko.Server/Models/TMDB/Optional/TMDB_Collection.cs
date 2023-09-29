@@ -11,7 +11,7 @@ using TMDbLib.Objects.General;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Collection : TMDB_Base, IEntityMetatadata
+public class TMDB_Collection : TMDB_Base, IEntityMetadata
 {
     #region Properties
 
@@ -119,17 +119,17 @@ public class TMDB_Collection : TMDB_Base, IEntityMetatadata
 
     #region IEntityMetadata
 
-    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Collection;
+    ForeignEntityType IEntityMetadata.Type => ForeignEntityType.Collection;
 
-    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+    DataSourceType IEntityMetadata.DataSource => DataSourceType.TMDB;
 
-    string? IEntityMetatadata.OriginalTitle => null;
+    string? IEntityMetadata.OriginalTitle => null;
 
-    TitleLanguage? IEntityMetatadata.OriginalLanguage => null;
+    TitleLanguage? IEntityMetadata.OriginalLanguage => null;
 
-    string? IEntityMetatadata.OriginalLanguageCode => null;
+    string? IEntityMetadata.OriginalLanguageCode => null;
 
-    DateOnly? IEntityMetatadata.ReleasedAt => null;
+    DateOnly? IEntityMetadata.ReleasedAt => null;
 
     #endregion
 }

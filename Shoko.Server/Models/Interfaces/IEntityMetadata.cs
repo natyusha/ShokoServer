@@ -7,7 +7,7 @@ using Shoko.Server.Server;
 #nullable enable
 namespace Shoko.Server.Models.Interfaces;
 
-public interface IEntityMetatadata
+public interface IEntityMetadata
 {
     /// <summary>
     /// Entity Id.

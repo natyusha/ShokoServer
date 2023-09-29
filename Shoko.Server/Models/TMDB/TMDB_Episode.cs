@@ -1,17 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
+using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
 
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Episode
+public class TMDB_Episode : TMDB_Base, IEntityMetadata
 {
     #region Properties
+
+    public override int Id => TmdbEpisodeID;
 
     /// <summary>
     /// Local ID.
@@ -112,21 +117,26 @@ public class TMDB_Episode
 
     #region Methods
 
-    public void Populate(TvShow show, TvSeason season, TvEpisode episode, TranslationsContainer translations)
+    public bool Populate(TvShow show, TvSeason season, TvSeasonEpisode episode, TranslationsContainer translations)
     {
         var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
-        TmdbSeasonID = season.Id!.Value;
-        TmdbShowID = show.Id;
-        EnglishTitle = translation?.Data.Name ?? episode.Name;
-        EnglishOverview = translation?.Data.Overview ?? episode.Overview;
-        SeasonNumber = episode.SeasonNumber;
-        EpisodeNumber = episode.EpisodeNumber;
-        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/442 to be merged to uncomment the next line.
-        Runtime = null; // TimeSpan.FromMinutes(episode.Runtime);
-        UserRating = episode.VoteAverage;
-        UserVotes = episode.VoteCount;
-        AiredAt = episode.AirDate.HasValue ? DateOnly.FromDateTime(episode.AirDate.Value) : null;
-        LastUpdatedAt = DateTime.Now;
+
+        var updates = new[]
+        {
+            UpdateProperty(TmdbSeasonID, season.Id!.Value, v => TmdbSeasonID = v),
+            UpdateProperty(TmdbShowID, show.Id, v => TmdbShowID = v),
+            UpdateProperty(EnglishTitle, translation?.Data.Name ?? episode.Name, v => EnglishTitle = v),
+            UpdateProperty(EnglishOverview, translation?.Data.Overview ?? episode.Overview, v => EnglishOverview = v),
+            UpdateProperty(SeasonNumber, episode.SeasonNumber, v => SeasonNumber = v),
+            UpdateProperty(EpisodeNumber, episode.EpisodeNumber, v => EpisodeNumber = v),
+            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/442 to be merged to uncomment the next line.
+            UpdateProperty(Runtime, null /* TimeSpan.FromMinutes(episode.Runtime) */, v => Runtime = v),
+            UpdateProperty(UserRating, episode.VoteAverage, v => UserRating = v),
+            UpdateProperty(UserVotes, episode.VoteCount, v => UserVotes = v),
+            UpdateProperty(AiredAt, episode.AirDate.HasValue ? DateOnly.FromDateTime(episode.AirDate.Value) : null, v => AiredAt = v),
+        };
+
+        return updates.Any(updated => updated);
     }
 
     public TMDB_Title? GetPreferredTitle(bool useFallback = false)
@@ -157,6 +167,22 @@ public class TMDB_Episode
 
         return new List<TMDB_Overview>();
     }
+
+    #endregion
+
+    #region IEntityMetadata
+
+    ForeignEntityType IEntityMetadata.Type => ForeignEntityType.Episode;
+
+    DataSourceType IEntityMetadata.DataSource => DataSourceType.TMDB;
+
+    string? IEntityMetadata.OriginalTitle => null;
+
+    TitleLanguage? IEntityMetadata.OriginalLanguage => null;
+
+    string? IEntityMetadata.OriginalLanguageCode => null;
+
+    DateOnly? IEntityMetadata.ReleasedAt => AiredAt;
 
     #endregion
 }

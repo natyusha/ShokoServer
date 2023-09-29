@@ -11,7 +11,7 @@ using TMDbLib.Objects.Movies;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Movie : TMDB_Base, IEntityMetatadata
+public class TMDB_Movie : TMDB_Base, IEntityMetadata
 {
     #region Properties
 
@@ -208,11 +208,11 @@ public class TMDB_Movie : TMDB_Base, IEntityMetatadata
 
     #region IEntityMetadata
 
-    ForeignEntityType IEntityMetatadata.Type => ForeignEntityType.Movie;
+    ForeignEntityType IEntityMetadata.Type => ForeignEntityType.Movie;
 
-    DataSourceType IEntityMetatadata.DataSource => DataSourceType.TMDB;
+    DataSourceType IEntityMetadata.DataSource => DataSourceType.TMDB;
 
-    TitleLanguage? IEntityMetatadata.OriginalLanguage => OriginalLanguage;
+    TitleLanguage? IEntityMetadata.OriginalLanguage => OriginalLanguage;
 
     #endregion
 }
