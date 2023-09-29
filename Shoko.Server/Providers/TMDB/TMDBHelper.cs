@@ -17,11 +17,11 @@ using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
+using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
 
 using MovieCredits = TMDbLib.Objects.Movies.Credits;
 using EpisodeCredits = TMDbLib.Objects.TvShows.Credits;
-using TMDbLib.Objects.Search;
 
 #nullable enable
 namespace Shoko.Server.Providers.TMDB;
@@ -1122,7 +1122,6 @@ public class TMDBHelper
     #endregion
 
     #region Companies
-
 
     private bool UpdateCompanies(IEntityMetadata tmdbEntity, List<ProductionCompany> companies)
     {
