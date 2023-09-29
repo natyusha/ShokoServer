@@ -354,25 +354,17 @@ public class TMDBHelper
         var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieId);
         if (movie != null)
         {
-            _logger.LogTrace("Removing movie {MovieName} ({MovieID})", movie.OriginalTitle, movie.Id);
+            _logger.LogTrace("Removing movie {MovieName} (Movie={MovieID})", movie.OriginalTitle, movie.Id);
             RepoFactory.TMDB_Movie.Delete(movie);
         }
 
-        PurgeMovieImages(movieId, removeImageFiles);
+        PurgeImages(ForeignEntityType.Movie, movieId, removeImageFiles);
 
         PurgeMovieCompanies(movieId, removeImageFiles);
 
         CleanupMovieCollection(movieId);
 
         PurgeTitlesAndOverviews(ForeignEntityType.Movie, movieId);
-    }
-
-    private static void PurgeMovieImages(int movieId, bool removeImageFiles = true)
-    {
-        var images = RepoFactory.TMDB_Image.GetByTmdbMovieID(movieId);
-        if (images.Count > 0)
-            foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Movie, removeImageFiles);
     }
 
     private void PurgeMovieCompanies(int movieId, bool removeImageFiles = true)
@@ -409,29 +401,26 @@ public class TMDBHelper
         if (collectionXRefs.Count > 0)
         {
             _logger.LogTrace(
-                "Removing {Count} cross-references for movie collection {CollectionName} ({MovieID})",
+                "Removing {Count} cross-references for movie collection {CollectionName} (Collection={CollectionID})",
                 collectionXRefs.Count, collection?.EnglishTitle ?? string.Empty,
                 collectionId
             );
             RepoFactory.TMDB_Collection_Movie.Delete(collectionXRefs);
         }
 
+        PurgeImages(ForeignEntityType.Collection, collectionId, removeImageFiles);
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Collection, collectionId);
+
         if (collection != null)
         {
             _logger.LogTrace(
-                "Removing movie collection {MovieName} ({MovieID})",
+                "Removing movie collection {CollectionName} (Collection={CollectionID})",
                 collection.EnglishTitle,
                 collectionId
             );
             RepoFactory.TMDB_Collection.Delete(collection);
         }
-
-        var images = RepoFactory.TMDB_Image.GetByTmdbCollectionID(collectionId);
-        if (images.Count > 0)
-            foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Collection, removeImageFiles);
-
-        PurgeTitlesAndOverviews(ForeignEntityType.Collection, collectionId);
     }
 
     #endregion
@@ -521,13 +510,7 @@ public class TMDBHelper
         _logger.LogInformation("Removing TMDB Show Link: AniDB ({AnidbID}) → TMDB Show (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbShowID);
         RepoFactory.CrossRef_AniDB_TMDB_Show.Delete(xref);
 
-        var anidbEpisodes = RepoFactory.AniDB_Episode.GetByAnimeID(xref.AnidbAnimeID);
-        var tmdbEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(xref.TmdbShowID)
-            .Select(episode => episode.TmdbEpisodeID)
-            .ToHashSet();
-        var xrefs = anidbEpisodes
-            .SelectMany(episode => RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeID(episode.AniDB_EpisodeID).Where(xref => tmdbEpisodes.Contains(xref.TmdbEpisodeID)))
-            .ToList();
+        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbAnimeAndTmdbShowIDs(xref.AnidbAnimeID, xref.TmdbShowID);
         _logger.LogInformation("Removing {XRefsCount} Show Episodes for AniDB Anime ({AnidbID})", xrefs.Count, xref.AnidbAnimeID);
         RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(xrefs);
 
@@ -636,7 +619,7 @@ public class TMDBHelper
             .ToList();
 
         _logger.LogDebug(
-            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} seasons for show {ShowTitle} (Id={ShowId})",
+            "Added/updated/removed/skipped {a}/{u}/{r}/{s} seasons for show {ShowTitle} (Show={ShowId})",
             seasonsToAdd,
             seasonsToSave.Count - seasonsToAdd,
             seasonsToRemove.Count,
@@ -644,6 +627,10 @@ public class TMDBHelper
             show.Name,
             show.Id);
         RepoFactory.TMDB_Season.Save(seasonsToSave);
+
+        foreach (var season in seasonsToRemove)
+            PurgeShowSeason(season);
+
         RepoFactory.TMDB_Season.Delete(seasonsToRemove);
 
         return seasonsToSave.Count > 0 || seasonsToRemove.Count > 0;
@@ -690,7 +677,7 @@ public class TMDBHelper
             .ToList();
 
         _logger.LogDebug(
-            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} episodes for show {ShowTitle} (Id={ShowId})",
+            "Added/updated/removed/skipped {a}/{u}/{r}/{s} episodes for show {ShowTitle} (Show={ShowId})",
             episodesToAdd,
             episodesToSave.Count - episodesToAdd,
             episodesToRemove.Count,
@@ -698,6 +685,10 @@ public class TMDBHelper
             show.Name,
             show.Id);
         RepoFactory.TMDB_Episode.Save(episodesToSave);
+
+        foreach (var episode in episodesToRemove)
+            PurgeShowEpisode(episode);
+
         RepoFactory.TMDB_Episode.Delete(episodesToRemove);
 
         return episodesToSave.Count > 0 || episodesToRemove.Count > 0;
@@ -760,32 +751,36 @@ public class TMDBHelper
 
     public bool PurgeShow(int showId, bool removeImageFiles = true)
     {
+        var show = RepoFactory.TMDB_Show.GetByTmdbShowID(showId);
         var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(showId);
         if (xrefs.Count > 0)
             foreach (var xref in xrefs)
                 RemoveShowLink(xref, removeImageFiles, false);
 
-        PurgeShowImages(showId, removeImageFiles);
+        PurgeImages(ForeignEntityType.Show, showId, removeImageFiles);
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Show, showId);
 
         PurgeShowCompanies(showId, removeImageFiles);
 
-        PurgeShowEpisodes(showId);
+        PurgeShowNetworks(showId, removeImageFiles);
 
-        PurgeShowSeasons(showId);
+        PurgeShowEpisodes(showId, removeImageFiles);
+
+        PurgeShowSeasons(showId, removeImageFiles);
 
         PurgeShowEpisodeGroups(showId);
-
-        // TODO: Remove show.
+        if (show != null)
+        {
+            _logger.LogTrace(
+                "Removing show {ShowName} (Show={ShowId})",
+                show.EnglishTitle,
+                showId
+            );
+            RepoFactory.TMDB_Show.Delete(show);
+        }
 
         return false;
-    }
-
-    private static void PurgeShowImages(int showId, bool removeFiles = true)
-    {
-        var images = RepoFactory.TMDB_Image.GetByTmdbShowID(showId);
-        if (images.Count > 0)
-            foreach (var image in images)
-                PurgeImage(image, ForeignEntityType.Movie, removeFiles);
     }
 
     private void PurgeShowCompanies(int showId, bool removeImageFiles = true)
@@ -802,17 +797,56 @@ public class TMDBHelper
         }
     }
 
-    private static void PurgeShowEpisodes(int showId, bool removeImageFiles = true)
+    private void PurgeShowNetworks(int showId, bool removeImageFiles = true)
     {
-        // TODO: Remove Episodes and their images.
+        // TODO: Remove show networks and networks if they don't have any shows.
     }
 
-    private static void PurgeShowSeasons(int showId)
+    private void PurgeShowEpisodes(int showId, bool removeImageFiles = true)
     {
-        // TODO: Remove Seasons.
+        var episodesToRemove = RepoFactory.TMDB_Episode.GetByTmdbShowID(showId);
+
+        _logger.LogDebug(
+            "Removing {count} episodes for show (Show={ShowId})",
+            episodesToRemove.Count,
+            showId
+        );
+        foreach (var episode in episodesToRemove)
+            PurgeShowEpisode(episode, removeImageFiles);
+
+        RepoFactory.TMDB_Episode.Delete(episodesToRemove);
     }
 
-    private static void PurgeShowEpisodeGroups(int showId)
+    private void PurgeShowEpisode(TMDB_Episode episode, bool removeImageFiles = true)
+    {
+        PurgeImages(ForeignEntityType.Episode, episode.Id, removeImageFiles);
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Episode, episode.Id);
+    }
+
+    private void PurgeShowSeasons(int showId, bool removeImageFiles = true)
+    {
+        var seasonsToRemove = RepoFactory.TMDB_Season.GetByTmdbShowID(showId);
+
+        _logger.LogDebug(
+            "Removing {count} seasons for show (Show={ShowId})",
+            seasonsToRemove.Count,
+            showId
+        );
+        foreach (var season in seasonsToRemove)
+            PurgeShowSeason(season, removeImageFiles);
+
+        RepoFactory.TMDB_Season.Delete(seasonsToRemove);
+    }
+
+    private void PurgeShowSeason(TMDB_Season season, bool removeImageFiles = true)
+    {
+        PurgeImages(ForeignEntityType.Season, season.Id, removeImageFiles);
+
+        PurgeTitlesAndOverviews(ForeignEntityType.Season, season.Id);
+    }
+
+    private static void PurgeShowEpisodeGroups(int showId, bool removeImageFiles = true)
     {
         // TODO: Remove all episode groups.
     }
@@ -890,6 +924,19 @@ public class TMDBHelper
                 RepoFactory.TMDB_Image.Delete(image.TMDB_ImageID);
             }
         }
+    }
+
+    private void PurgeImages(ForeignEntityType foreignType, int foreignId, bool removeImageFiles)
+    {
+        var imagesToRemove = RepoFactory.TMDB_Image.GetByForeignID(foreignId, foreignType);
+
+        _logger.LogDebug(
+            "Removing {count} images for {type} with id {EntityId}",
+            imagesToRemove.Count,
+            foreignType.ToString().ToLowerInvariant(),
+            foreignId);
+        foreach (var image in imagesToRemove)
+            PurgeImage(image, foreignType, removeImageFiles);
     }
 
     private static void PurgeImage(TMDB_Image image, ForeignEntityType foreignType, bool removeFile)
@@ -1031,7 +1078,7 @@ public class TMDBHelper
         var titlesToRemove = existingTitles.ExceptBy(titlesToSkip, t => t.TMDB_TitleID).ToList();
         var overviewsToRemove = existingOverviews.ExceptBy(overviewsToSkip, o => o.TMDB_OverviewID).ToList();
         _logger.LogDebug(
-            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {EntityTitle} (Id={EntityId})",
+            "Added/updated/removed/skipped {ta}/{tu}/{tr}/{ts} titles and {oa}/{ou}/{or}/{os} overviews for {type} {EntityTitle} ({EntityType}={EntityId})",
             titlesToAdd,
             titlesToSave.Count - titlesToAdd,
             titlesToRemove.Count,
@@ -1042,6 +1089,7 @@ public class TMDBHelper
             overviewsToSkip.Count + overviewsToAdd - overviewsToSave.Count,
             tmdbEntity.Type.ToString().ToLowerInvariant(),
             tmdbEntity.OriginalTitle,
+            tmdbEntity.Type.ToString(),
             tmdbEntity.Id);
         RepoFactory.TMDB_Overview.Save(overviewsToSave);
         RepoFactory.TMDB_Overview.Delete(overviewsToRemove);
@@ -1060,7 +1108,7 @@ public class TMDBHelper
         var titlesToRemove = RepoFactory.TMDB_Title.GetByParentTypeAndID(foreignType, foreignId);
 
         _logger.LogDebug(
-            "Removed {tr} titles and {or} overviews for {type} with id {EntityId}",
+            "Removing {tr} titles and {or} overviews for {type} with id {EntityId}",
             titlesToRemove.Count,
             overviewsToRemove.Count,
             foreignType.ToString().ToLowerInvariant(),
@@ -1108,13 +1156,14 @@ public class TMDBHelper
             .ToList();
 
         _logger.LogDebug(
-            "Added/updated/removed/skipped {oa}/{ou}/{or}/{os} company cross-references for {type} {EntityTitle} (Id={EntityId})",
+            "Added/updated/removed/skipped {oa}/{ou}/{or}/{os} company cross-references for {type} {EntityTitle} ({EntityType}={EntityId})",
             xrefsToAdd,
             xrefsToSave.Count - xrefsToAdd,
             xrefsToRemove.Count,
             xrefsToSkip.Count + xrefsToAdd - xrefsToSave.Count,
             tmdbEntity.Type.ToString().ToLowerInvariant(),
             tmdbEntity.OriginalTitle,
+            tmdbEntity.Type.ToString(),
             tmdbEntity.Id);
 
         RepoFactory.TMDB_Company_Entity.Save(xrefsToSave);

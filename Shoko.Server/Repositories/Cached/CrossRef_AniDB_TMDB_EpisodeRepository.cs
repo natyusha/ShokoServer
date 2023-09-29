@@ -26,8 +26,8 @@ public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossR
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByTmdbEpisodeID(int episodeId)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Index).ToList());
 
-    public CrossRef_AniDB_TMDB_Episode? GetByAnidbEpisodeAndTmdbShowIDs(int anidbId, int tmdbId)
-        => ReadLock(() => _pairedIDs!.GetOne((anidbId, tmdbId)));
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByAnidbAnimeAndTmdbShowIDs(int anidbId, int tmdbId)
+        => ReadLock(() => _pairedIDs!.GetMultiple((anidbId, tmdbId)));
 
     protected override int SelectKey(CrossRef_AniDB_TMDB_Episode entity)
         => entity.CrossRef_AniDB_TMDB_EpisodeID;
@@ -38,7 +38,7 @@ public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossR
         _anidbEpisodeIDs = new(Cache, a => a.AnidbEpisodeID);
         _tmdbShowIDs = new(Cache, a => a.TmdbShowID);
         _tmdbEpisodeIDs = new(Cache, a => a.TmdbEpisodeID);
-        _pairedIDs = new(Cache, a => (a.AnidbEpisodeID, a.TmdbShowID));
+        _pairedIDs = new(Cache, a => (a.AnidbAnimeID, a.TmdbShowID));
     }
 
     public override void RegenerateDb()

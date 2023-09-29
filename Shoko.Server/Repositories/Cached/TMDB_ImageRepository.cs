@@ -71,6 +71,17 @@ public class TMDB_ImageRepository : BaseCachedRepository<TMDB_Image, int>
     public IReadOnlyList<TMDB_Image> GetByType(ImageEntityType type)
         => ReadLock(() => _tmdbTypes!.GetMultiple(type)) ?? new();
 
+    public IReadOnlyList<TMDB_Image> GetByForeignID(int? id, ForeignEntityType foreignType)
+        => foreignType switch
+        {
+            ForeignEntityType.Movie => GetByTmdbMovieID(id),
+            ForeignEntityType.Episode => GetByTmdbEpisodeID(id),
+            ForeignEntityType.Season => GetByTmdbSeasonID(id),
+            ForeignEntityType.Show => GetByTmdbShowID(id),
+            ForeignEntityType.Collection => GetByTmdbCollectionID(id),
+            _ => new List<TMDB_Image>(),
+        };
+
     public IReadOnlyList<TMDB_Image> GetByForeignIDAndType(int? id, ForeignEntityType foreignType, ImageEntityType type)
         => foreignType switch
         {
