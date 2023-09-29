@@ -325,6 +325,7 @@ public class TMDBHelper
     {
         var allMovies = RepoFactory.TMDB_Movie.GetAll().Select(movie => movie.TmdbMovieID)
             .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbMovieID.HasValue).Select(image => image.TmdbMovieID!.Value))
+            // TODO: Maybe add some more tables here to concat with.
             .ToHashSet();
         var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetAll()
             .Select(xref => xref.TmdbMovieID)
@@ -741,8 +742,10 @@ public class TMDBHelper
 
     public void PurgeAllUnusedShows()
     {
-        // TODO: Implement this logic once the show tables are added and the repositories are set up.
-        var allShows = new HashSet<int>();
+        var allShows = RepoFactory.TMDB_Show.GetAll().Select(movie => movie.TmdbShowID)
+            .Concat(RepoFactory.TMDB_Image.GetAll().Where(image => image.TmdbShowID.HasValue).Select(image => image.TmdbShowID!.Value))
+            // TODO: Maybe add some more tables here to concat with.
+            .ToHashSet();
         var toKeep = RepoFactory.CrossRef_AniDB_TMDB_Show.GetAll()
             .Select(xref => xref.TmdbShowID)
             .ToHashSet();
