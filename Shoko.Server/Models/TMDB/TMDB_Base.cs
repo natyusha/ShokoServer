@@ -4,12 +4,12 @@ using System.Collections.Generic;
 
 namespace Shoko.Server.Models.TMDB;
 
-public abstract class TMDB_Base
+public abstract class TMDB_Base<TId>
 {
     /// <summary>
     /// Entity Id.
     /// </summary>
-    public abstract int Id { get; }
+    public abstract TId Id { get; }
 
     public bool UpdateProperty<T>(T target, T value, Action<T> setter)
     {

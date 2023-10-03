@@ -11,7 +11,7 @@ using TMDbLib.Objects.TvShows;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Show : TMDB_Base, IEntityMetadata
+public class TMDB_Show : TMDB_Base<int>, IEntityMetadata
 {
     #region Properties
 

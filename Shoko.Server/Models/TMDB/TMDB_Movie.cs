@@ -11,7 +11,7 @@ using TMDbLib.Objects.Movies;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
-public class TMDB_Movie : TMDB_Base, IEntityMetadata
+public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
 {
     #region Properties
 

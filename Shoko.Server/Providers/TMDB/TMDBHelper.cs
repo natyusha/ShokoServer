@@ -559,36 +559,36 @@ public class TMDBHelper
         var updated = tmdbShow.Populate(show);
         updated |= UpdateTitlesAndOverviews(tmdbShow, show.Translations);
         updated |= UpdateCompanies(tmdbShow, show.ProductionCompanies);
-        updated |= UpdateShowSeasons(show, downloadImages, forceRefresh).ConfigureAwait(false).GetAwaiter().GetResult();
-        updated |= UpdateShowEpisodes(show, downloadImages, forceRefresh).ConfigureAwait(false).GetAwaiter().GetResult();
+        updated |= await UpdateShowSeasonsAndEpisodes(show, downloadImages, forceRefresh);
+        if (downloadEpisodeGroups)
+            updated |= await UpdateShowAlternateOrdering(show);
         if (updated)
         {
             tmdbShow.LastUpdatedAt = DateTime.Now;
             RepoFactory.TMDB_Show.Save(tmdbShow);
         }
 
-        if (downloadImages && downloadEpisodeGroups)
-            await Task.WhenAll(
-                DownloadShowImages(showId),
-                UpdateShowEpisodeGroups(show)
-            );
-        else if (downloadImages)
+        if (downloadImages)
             await DownloadShowImages(showId, forceRefresh);
-        else if (downloadEpisodeGroups)
-            await UpdateShowEpisodeGroups(show);
 
         // TODO: Add/update/remove episode xrefs.
 
         return updated;
     }
 
-    private async Task<bool> UpdateShowSeasons(TvShow show, bool downloadImages, bool forceRefresh = false)
+    private async Task<bool> UpdateShowSeasonsAndEpisodes(TvShow show, bool downloadImages, bool forceRefresh = false)
     {
         var existingSeasons = RepoFactory.TMDB_Season.GetByTmdbShowID(show.Id)
             .ToDictionary(season => season.Id);
         var seasonsToAdd = 0;
         var seasonsToSkip = new HashSet<int>();
         var seasonsToSave = new List<TMDB_Season>();
+
+        var existingEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(show.Id)
+            .ToDictionary(episode => episode.Id);
+        var episodesToAdd = 0;
+        var episodesToSkip = new HashSet<int>();
+        var episodesToSave = new List<TMDB_Episode>();
         foreach (var reducedSeason in show.Seasons)
         {
             // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next line.
@@ -601,14 +601,39 @@ public class TMDBHelper
             }
 
             // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next lines.
-            TranslationsContainer translations = null /* season.Translations */;
+            TranslationsContainer seasonTranslations = null /* season.Translations */;
 
-            var updated = tmdbSeason.Populate(show, season, translations!);
-            updated |= UpdateTitlesAndOverviews(tmdbSeason, translations!);
-            if (updated)
+            var seasonUpdated = tmdbSeason.Populate(show, season, seasonTranslations!);
+            seasonUpdated |= UpdateTitlesAndOverviews(tmdbSeason, seasonTranslations!);
+            if (seasonUpdated)
             {
                 tmdbSeason.LastUpdatedAt = DateTime.Now;
                 seasonsToSave.Add(tmdbSeason);
+            }
+
+            foreach (var episode in season.Episodes)
+            {
+                if (!existingEpisodes.TryGetValue(reducedSeason.Id, out var tmdbEpisode))
+                {
+                    episodesToAdd++;
+                    tmdbEpisode = new(reducedSeason.Id);
+                }
+
+                // TODO: Waiting for https://github.com/jellyfin/TMDbLib/pull/458 to be merged to uncomment the next lines.
+                TranslationsContainer episodeTranslations = null /* await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber) */;
+
+                var episodeUpdated = tmdbEpisode.Populate(show, season, episode, episodeTranslations!);
+                episodeUpdated |= UpdateTitlesAndOverviews(tmdbEpisode, episodeTranslations!);
+                if (episodeUpdated)
+                {
+                    tmdbEpisode.LastUpdatedAt = DateTime.Now;
+                    episodesToSave.Add(tmdbEpisode);
+                }
+
+                if (downloadImages)
+                    await DownloadEpisodeImages(tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, tmdbEpisode.SeasonNumber, tmdbEpisode.EpisodeNumber, forceRefresh);
+
+                episodesToSkip.Add(tmdbEpisode.Id);
             }
 
             if (downloadImages)
@@ -618,6 +643,9 @@ public class TMDBHelper
         }
         var seasonsToRemove = existingSeasons.Values
             .ExceptBy(seasonsToSkip, season => season.Id)
+            .ToList();
+        var episodesToRemove = existingEpisodes.Values
+            .ExceptBy(episodesToSkip, episode => episode.Id)
             .ToList();
 
         _logger.LogDebug(
@@ -635,49 +663,6 @@ public class TMDBHelper
 
         RepoFactory.TMDB_Season.Delete(seasonsToRemove);
 
-        return seasonsToSave.Count > 0 || seasonsToRemove.Count > 0;
-    }
-
-    private async Task<bool> UpdateShowEpisodes(TvShow show, bool downloadImages, bool forceRefresh = false)
-    {
-        var existingEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(show.Id)
-            .ToDictionary(episode => episode.Id);
-        var episodesToAdd = 0;
-        var episodesToSkip = new HashSet<int>();
-        var episodesToSave = new List<TMDB_Episode>();
-        foreach (var reducedSeason in show.Seasons)
-        {
-            var season = await _client.GetTvSeasonAsync(show.Id, reducedSeason.SeasonNumber) ??
-                throw new Exception("TODO: Input some error message here that makes sense.");
-            foreach (var episode in season.Episodes)
-            {
-                if (!existingEpisodes.TryGetValue(reducedSeason.Id, out var tmdbEpisode))
-                {
-                    episodesToAdd++;
-                    tmdbEpisode = new(reducedSeason.Id);
-                }
-
-                // TODO: Waiting for https://github.com/jellyfin/TMDbLib/pull/458 to be merged to uncomment the next lines.
-                TranslationsContainer translations = null /* await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber) */;
-
-                var updated = tmdbEpisode.Populate(show, season, episode, translations!);
-                updated |= UpdateTitlesAndOverviews(tmdbEpisode, translations!);
-                if (updated)
-                {
-                    tmdbEpisode.LastUpdatedAt = DateTime.Now;
-                    episodesToSave.Add(tmdbEpisode);
-                }
-
-                if (downloadImages)
-                    await DownloadEpisodeImages(tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, tmdbEpisode.SeasonNumber, tmdbEpisode.EpisodeNumber, forceRefresh);
-
-                episodesToSkip.Add(tmdbEpisode.Id);
-            }
-        }
-        var episodesToRemove = existingEpisodes.Values
-            .ExceptBy(episodesToSkip, episode => episode.Id)
-            .ToList();
-
         _logger.LogDebug(
             "Added/updated/removed/skipped {a}/{u}/{r}/{s} episodes for show {ShowTitle} (Show={ShowId})",
             episodesToAdd,
@@ -693,12 +678,146 @@ public class TMDBHelper
 
         RepoFactory.TMDB_Episode.Delete(episodesToRemove);
 
-        return episodesToSave.Count > 0 || episodesToRemove.Count > 0;
+        return seasonsToSave.Count > 0 || seasonsToRemove.Count > 0 || episodesToSave.Count > 0 || episodesToRemove.Count > 0;
     }
 
-    private async Task UpdateShowEpisodeGroups(TvShow show)
+    private async Task<bool> UpdateShowAlternateOrdering(TvShow show)
     {
-        // TODO: Update TMDB episode groups.
+        _logger.LogDebug(
+            "Checking {count} episode group collections to create alternate orderings for show {ShowTitle} (Show={ShowId})",
+            show.EpisodeGroups.Results.Count,
+            show.Name,
+            show.Id);
+
+        var existingOrdering = RepoFactory.TMDB_AlternateOrdering.GetByTmdbShowID(show.Id)
+            .ToDictionary(ordering => ordering.Id);
+        var orderingToAdd = 0;
+        var orderingToSkip = new HashSet<string>();
+        var orderingToSave = new List<TMDB_AlternateOrdering>();
+
+        var existingSeasons = RepoFactory.TMDB_AlternateOrdering_Season.GetByTmdbShowID(show.Id)
+            .ToDictionary(season => season.Id);
+        var seasonsToAdd = 0;
+        var seasonsToSkip = new HashSet<string>();
+        var seasonsToSave = new HashSet<TMDB_AlternateOrdering_Season>();
+
+        var existingEpisodes = RepoFactory.TMDB_AlternateOrdering_Episode.GetByTmdbShowID(show.Id)
+            .ToDictionary(episode => episode.Id);
+        var episodesToAdd = 0;
+        var episodesToSkip = new HashSet<string>();
+        var episodesToSave = new List<TMDB_AlternateOrdering_Episode>();
+
+        foreach (var reducedCollection in show.EpisodeGroups.Results)
+        {
+            // The object sent from the show endpoint doesn't have the groups,
+            // we need to send another request for the full episode group
+            // collection to get the groups.
+            var collection = await _client.GetTvEpisodeGroupsAsync(reducedCollection.Id) ??
+                throw new Exception("TODO: Add an exception message that makes sense here.");
+
+            if (!existingOrdering.TryGetValue(collection.Id, out var tmdbOrdering))
+            {
+                orderingToAdd++;
+                tmdbOrdering = new(collection.Id);
+            }
+
+            var orderingUpdated = tmdbOrdering.Populate(collection, show.Id);
+            if (orderingUpdated)
+            {
+                tmdbOrdering.LastUpdatedAt = DateTime.Now;
+                orderingToSave.Add(tmdbOrdering);
+            }
+
+            var seasonNumberCount = 1;
+            foreach (var episodeGroup in collection.Groups)
+            {
+                var seasonNumber = seasonNumberCount++;
+                var episodeNumberCount = 1;
+
+                if (!existingSeasons.TryGetValue(episodeGroup.Id, out var tmdbSeason))
+                {
+                    seasonsToAdd++;
+                    tmdbSeason = new(episodeGroup.Id);
+                }
+
+                var seasonUpdated = tmdbSeason.Populate(episodeGroup, collection.Id, show.Id, seasonNumber);
+                if (seasonUpdated)
+                {
+                    tmdbSeason.LastUpdatedAt = DateTime.Now;
+                    seasonsToSave.Add(tmdbSeason);
+                }
+
+                foreach (var episode in episodeGroup.Episodes)
+                {
+                    if (!episode.Id.HasValue)
+                        continue;
+
+                    var episodeNumber = episodeNumberCount++;
+                    var episodeId = episode.Id.Value;
+
+                    if (!existingEpisodes.TryGetValue($"{episodeGroup.Id}:${episodeId}", out var tmdbEpisode))
+                    {
+                        episodesToAdd++;
+                        tmdbEpisode = new(episodeGroup.Id, episodeId);
+                    }
+
+                    var episodeUpdated = tmdbEpisode.Populate(collection.Id, show.Id, seasonNumber, episodeNumber);
+                    if (episodeUpdated)
+                    {
+                        tmdbEpisode.LastUpdatedAt = DateTime.Now;
+                        episodesToSave.Add(tmdbEpisode);
+                    }
+
+                    episodesToSkip.Add(tmdbEpisode.Id);
+                }
+
+                seasonsToSkip.Add(tmdbSeason.Id);
+            }
+
+            orderingToSkip.Add(tmdbOrdering.Id);
+        }
+        var orderingToRemove = existingOrdering.Values
+            .ExceptBy(orderingToSkip, ordering => ordering.Id)
+            .ToList();
+        var seasonsToRemove = existingSeasons.Values
+            .ExceptBy(seasonsToSkip, season => season.Id)
+            .ToList();
+        var episodesToRemove = existingEpisodes.Values
+            .ExceptBy(episodesToSkip, episode => episode.Id)
+            .ToList();
+
+        _logger.LogDebug(
+            "Added/updated/removed/skipped {oa}/{ou}/{or}/{os} alternate orderings, {sa}/{su}/{sr}/{ss} alternate ordering seasons, and {ea}/{eu}/{er}/{es} alternate ordering episodes for show {ShowTitle} (Show={ShowId})",
+            orderingToAdd,
+            orderingToSave.Count - orderingToAdd,
+            orderingToRemove.Count,
+            existingOrdering.Count + orderingToAdd - orderingToRemove.Count - orderingToSave.Count,
+            seasonsToAdd,
+            seasonsToSave.Count - seasonsToAdd,
+            seasonsToRemove.Count,
+            existingSeasons.Count + seasonsToAdd - seasonsToRemove.Count - seasonsToSave.Count,
+            episodesToAdd,
+            episodesToSave.Count - episodesToAdd,
+            episodesToRemove.Count,
+            existingEpisodes.Count + episodesToAdd - episodesToRemove.Count - episodesToSave.Count,
+            show.Name,
+            show.Id);
+
+        RepoFactory.TMDB_AlternateOrdering.Save(orderingToSave);
+        RepoFactory.TMDB_AlternateOrdering.Delete(orderingToRemove);
+
+        RepoFactory.TMDB_AlternateOrdering_Season.Save(seasonsToSave);
+        RepoFactory.TMDB_AlternateOrdering_Season.Delete(seasonsToRemove);
+
+        RepoFactory.TMDB_AlternateOrdering_Episode.Save(episodesToSave);
+        RepoFactory.TMDB_AlternateOrdering_Episode.Delete(episodesToRemove);
+
+        return orderingToSave.Count > 0 ||
+            orderingToRemove.Count > 0 ||
+            seasonsToSave.Count > 0 ||
+            seasonsToRemove.Count > 0 ||
+            episodesToSave.Count > 0 ||
+            episodesToRemove.Count > 0;
     }
 
     public async Task DownloadShowImages(int showId, bool forceDownload = false)
