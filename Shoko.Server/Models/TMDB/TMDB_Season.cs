@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
@@ -119,6 +120,15 @@ public class TMDB_Season : TMDB_Base<int>, IEntityMetadata
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Season, TmdbSeasonID);
+
+    public TMDB_Show? GetTmdbShow() =>
+        RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
+
+    public IReadOnlyList<TMDB_Episode> GetTmdbEpisodes() =>
+        RepoFactory.TMDB_Episode.GetByTmdbSeasonID(TmdbSeasonID);
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Show> GetCrossReferences() =>
+        RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbSeasonID(TmdbSeasonID);
 
     #endregion
 

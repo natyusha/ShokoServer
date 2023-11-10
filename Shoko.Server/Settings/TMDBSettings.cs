@@ -14,9 +14,10 @@ public class TMDBSettings
     public bool AutoDownloadCollections { get; set; } = false;
 
     /// <summary>
-    /// Automagically download episode groups for tv shows.
+    /// Automagically download episode groups to use with alternate ordering
+    /// for tv shows.
     /// </summary>
-    public bool AutoDownloadEpisodeGroups { get; set; } = false;
+    public bool AutoDownloadAlternateOrdering { get; set; } = false;
 
     /// <summary>
     /// Automagically download backdrops for TMDB entities that supports

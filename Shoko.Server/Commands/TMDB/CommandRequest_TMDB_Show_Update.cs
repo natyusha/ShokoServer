@@ -29,7 +29,7 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
 
     public virtual bool DownloadImages { get; set; }
 
-    public virtual bool? DownloadEpisodeGroups { get; set; }
+    public virtual bool? DownloadAlternateOrdering { get; set; }
 
     public virtual bool ForceRefresh { get; set; }
 
@@ -60,7 +60,7 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
     protected override void Process()
     {
         Logger.LogInformation("Processing CommandRequest_TMDB_Show_Update: {TmdbShowId}", TmdbShowID);
-        Task.Run(async () => await _helper.UpdateShow(TmdbShowID, ForceRefresh, DownloadImages, DownloadEpisodeGroups ?? _settingsProvider.GetSettings().TMDB.AutoDownloadEpisodeGroups))
+        Task.Run(async () => await _helper.UpdateShow(TmdbShowID, ForceRefresh, DownloadImages, DownloadAlternateOrdering ?? _settingsProvider.GetSettings().TMDB.AutoDownloadAlternateOrdering))
             .ConfigureAwait(false)
             .GetAwaiter()
             .GetResult();
@@ -84,7 +84,7 @@ public class CommandRequest_TMDB_Show_Update : CommandRequestImplementation
         TmdbShowID = int.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(TmdbShowID)));
         ForceRefresh = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ForceRefresh)));
         DownloadImages = bool.Parse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadImages)));
-        DownloadEpisodeGroups = bool.TryParse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadEpisodeGroups)), out var value) ? value : null;
+        DownloadAlternateOrdering = bool.TryParse(docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(DownloadAlternateOrdering)), out var value) ? value : null;
         ShowTitle = docCreator.TryGetProperty(nameof(CommandRequest_TMDB_Show_Update), nameof(ShowTitle));
 
         return true;

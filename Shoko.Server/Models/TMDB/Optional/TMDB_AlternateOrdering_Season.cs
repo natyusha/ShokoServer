@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using Shoko.Server.Repositories;
 using TMDbLib.Objects.TvShows;
 
 #nullable enable
@@ -93,6 +95,15 @@ public class TMDB_AlternateOrdering_Season : TMDB_Base<string>
 
         return updates.Any(updated => updated);
     }
+
+    public TMDB_Show? GetTmdbShow() =>
+        RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
+
+    public TMDB_AlternateOrdering? GetTmdbAlternateOrdering() =>
+        RepoFactory.TMDB_AlternateOrdering.GetByTmdbEpisodeGroupCollectionID(TmdbEpisodeGroupCollectionID);
+
+    public IReadOnlyList<TMDB_AlternateOrdering_Episode> GetTmdbAlternateOrderingEpisodes() =>
+        RepoFactory.TMDB_AlternateOrdering_Episode.GetByTmdbEpisodeGroupID(TmdbEpisodeGroupID);
 
     #endregion
 }

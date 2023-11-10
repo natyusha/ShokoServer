@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Shoko.Server.Repositories;
 
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
@@ -84,6 +85,18 @@ public class TMDB_AlternateOrdering_Episode : TMDB_Base<string>
 
         return updates.Any(updated => updated);
     }
+
+    public TMDB_Show? GetTmdbShow() =>
+        RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
+
+    public TMDB_AlternateOrdering? GetTmdbAlternateOrdering() =>
+        RepoFactory.TMDB_AlternateOrdering.GetByTmdbEpisodeGroupCollectionID(TmdbEpisodeGroupCollectionID);
+
+    public TMDB_AlternateOrdering_Season? GetTmdbAlternateOrderingSeason() =>
+        RepoFactory.TMDB_AlternateOrdering_Season.GetByTmdbEpisodeGroupID(TmdbEpisodeGroupID);
+
+    public TMDB_Episode? GetTmdbEpisode() =>
+        RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
 
     #endregion
 }

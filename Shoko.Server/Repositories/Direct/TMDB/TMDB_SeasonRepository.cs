@@ -16,6 +16,7 @@ public class TMDB_SeasonRepository : BaseDirectRepository<TMDB_Season, int>
             return session
                 .Query<TMDB_Season>()
                 .Where(a => a.TmdbShowID == tmdbShowId)
+                .OrderBy(a => a.SeasonNumber)
                 .ToList();
         });
     }

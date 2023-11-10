@@ -160,6 +160,7 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
         var translation = movie.Translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
         var updatedList = new[]
         {
+            UpdateProperty(TmdbCollectionID, movie.BelongsToCollection?.Id, v => TmdbCollectionID = v),
             UpdateProperty(EnglishTitle, translation?.Data.Name ?? movie.Title, v => EnglishTitle = v),
             UpdateProperty(EnglishOverview, translation?.Data.Overview ?? movie.Overview, v => EnglishOverview = v),
             UpdateProperty(OriginalTitle, movie.OriginalTitle, v => OriginalTitle = v),

@@ -4,6 +4,7 @@ using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
@@ -187,6 +188,18 @@ public class TMDB_Show : TMDB_Base<int>, IEntityMetadata
 
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Show, TmdbShowID);
+
+    public IReadOnlyList<TMDB_AlternateOrdering> GetTmdbAlternateOrdering() =>
+        RepoFactory.TMDB_AlternateOrdering.GetByTmdbShowID(TmdbShowID);
+
+    public IReadOnlyList<TMDB_Season> GetTmdbSeasons() =>
+        RepoFactory.TMDB_Season.GetByTmdbShowID(TmdbShowID);
+
+    public IReadOnlyList<TMDB_Episode> GetTmdbEpisodes() =>
+        RepoFactory.TMDB_Episode.GetByTmdbShowID(TmdbShowID);
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Show> GetCrossReferences() =>
+        RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
     #endregion
 

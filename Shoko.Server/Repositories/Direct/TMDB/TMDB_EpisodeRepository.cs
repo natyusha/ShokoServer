@@ -16,6 +16,8 @@ public class TMDB_EpisodeRepository : BaseDirectRepository<TMDB_Episode, int>
             return session
                 .Query<TMDB_Episode>()
                 .Where(a => a.TmdbShowID == showId)
+                .OrderBy(e => e.SeasonNumber)
+                .ThenBy(e => e.EpisodeNumber)
                 .ToList();
         });
     }
@@ -28,6 +30,7 @@ public class TMDB_EpisodeRepository : BaseDirectRepository<TMDB_Episode, int>
             return session
                 .Query<TMDB_Episode>()
                 .Where(a => a.TmdbSeasonID == seasonId)
+                .OrderBy(e => e.EpisodeNumber)
                 .ToList();
         });
     }

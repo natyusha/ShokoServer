@@ -24,6 +24,18 @@ public class TMDB_MovieRepository : BaseDirectRepository<TMDB_Movie, int>
         });
     }
 
+    public IReadOnlyList<TMDB_Movie> GetByTmdbCollectionID(int tmdbCollectionId)
+    {
+        return Lock(() =>
+        {
+            using var session = DatabaseFactory.SessionFactory.OpenSession();
+            return session
+                .Query<TMDB_Movie>()
+                .Where(a => a.TmdbCollectionID == tmdbCollectionId)
+                .ToList();
+        });
+    }
+
     public Dictionary<int, Tuple<CrossRef_AniDB_TMDB_Movie, TMDB_Movie>> GetByAnimeIDs(ISessionWrapper session,
         int[] animeIds)
     {
