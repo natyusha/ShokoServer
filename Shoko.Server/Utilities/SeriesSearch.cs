@@ -504,5 +504,16 @@ public static class SeriesSearch
 
             return string.Compare(Match, other.Match);
         }
+
+        public SearchResult<Y> Map<Y>(Y result)
+            => new()
+            {
+                ExactMatch = ExactMatch,
+                Index = Index,
+                Distance = Distance,
+                LengthDifference = LengthDifference,
+                Match = Match,
+                Result = result,
+            };
     }
 }

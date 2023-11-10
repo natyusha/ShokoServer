@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Shoko.Models.Enums;
+using Shoko.Models.Server;
 using Shoko.Server.Commands;
 using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.Interfaces;
@@ -13,6 +14,7 @@ using Shoko.Server.Providers.TMDB.Search;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Settings;
+using Shoko.Server.Utilities;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.General;
@@ -20,6 +22,7 @@ using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
 
+using TitleLanguage = Shoko.Plugin.Abstractions.DataModels.TitleLanguage;
 using MovieCredits = TMDbLib.Objects.Movies.Credits;
 using EpisodeCredits = TMDbLib.Objects.TvShows.Credits;
 
@@ -512,7 +515,7 @@ public class TMDBHelper
         _logger.LogInformation("Removing TMDB Show Link: AniDB ({AnidbID}) → TMDB Show (ID:{TmdbID})", xref.AnidbAnimeID, xref.TmdbShowID);
         RepoFactory.CrossRef_AniDB_TMDB_Show.Delete(xref);
 
-        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbAnimeAndTmdbShowIDs(xref.AnidbAnimeID, xref.TmdbShowID);
+        var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetOnlyByAnidbAnimeAndTmdbShowIDs(xref.AnidbAnimeID, xref.TmdbShowID);
         _logger.LogInformation("Removing {XRefsCount} Show Episodes for AniDB Anime ({AnidbID})", xrefs.Count, xref.AnidbAnimeID);
         RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(xrefs);
 
@@ -570,6 +573,9 @@ public class TMDBHelper
 
         if (downloadImages)
             await DownloadShowImages(showId, forceRefresh);
+
+        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(showId))
+            MatchAnidbToTmdbEpisodes(xref.AnidbAnimeID, xref.TmdbShowID, xref.TmdbSeasonID, true, true);
 
         // TODO: Add/update/remove episode xrefs.
 
@@ -847,6 +853,163 @@ public class TMDBHelper
         if (settings.TMDB.AutoDownloadThumbnails)
             DownloadImagesByType(images.Stills, ImageEntityType.Thumbnail, ForeignEntityType.Episode, episodeId, settings.TMDB.MaxAutoBackdrops, forceDownload);
     }
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> MatchAnidbToTmdbEpisodes(int anidbAnimeId, int tmdbShowId, int? tmdbSeasonId, bool useExisting = false, bool saveToDatabase = false)
+    {
+        var existing = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetAllByAnidbAnimeAndTmdbShowIDs(anidbAnimeId, tmdbShowId)
+            .GroupBy(xref => xref.AnidbEpisodeID)
+            .ToDictionary(grouped => grouped.Key, grouped => grouped.ToList());
+        var toSkip = new HashSet<int>();
+        var toSave = new List<CrossRef_AniDB_TMDB_Episode>();
+
+        var animeSeries = RepoFactory.AnimeSeries.GetByAnimeID(anidbAnimeId);
+        if (animeSeries == null)
+            return new List<CrossRef_AniDB_TMDB_Episode>();
+
+        var anidbEpisodes = RepoFactory.AniDB_Episode.GetByAnimeID(anidbAnimeId)
+            .Where(episode => episode.EpisodeType is (int)EpisodeType.Episode or (int)EpisodeType.Special)
+            .ToDictionary(episode => episode.EpisodeID);
+        var tmdbEpisodes = RepoFactory.TMDB_Episode.GetByTmdbShowID(tmdbShowId)
+            .Where(episode => episode.SeasonNumber == 0 || !tmdbSeasonId.HasValue || episode.TmdbSeasonID == tmdbSeasonId.Value)
+            .ToList();
+        var tmdbNormalEpisodes = tmdbEpisodes
+            .Where(episode => episode.SeasonNumber != 0)
+            .OrderBy(episode => episode.SeasonNumber)
+            .ThenBy(episode => episode.EpisodeNumber)
+            .ToList();
+        var tmdbSpeicalEpisodes = tmdbEpisodes
+            .Where(episode => episode.SeasonNumber == 0)
+            .OrderBy(episode => episode.EpisodeNumber)
+            .ToList();
+
+        var crossReferences = useExisting
+            ? existing
+                .Where(pair => anidbEpisodes.ContainsKey(pair.Key))
+                .SelectMany(pair => pair.Value)
+                .ToList()
+            : new();
+
+        // Mapping logic
+        foreach (var episode in anidbEpisodes.Values)
+        {
+            if (useExisting && existing.TryGetValue(episode.EpisodeID, out var existingLinks))
+            {
+                foreach (var link in existingLinks)
+                    toSkip.Add(link.CrossRef_AniDB_TMDB_EpisodeID);
+            }
+            else
+            {
+                var isSpecial = episode.EpisodeType is (int)EpisodeType.Special;
+                var episodeList = isSpecial ? tmdbSpeicalEpisodes : tmdbNormalEpisodes;
+                var crossRef = TryFindAnidbAndTmdbMatch(episode, episodeList, isSpecial);
+                if (crossRef.TmdbEpisodeID != 0)
+                {
+                    var index = episodeList.FindIndex(episode => episode.TmdbEpisodeID == crossRef.TmdbEpisodeID);
+                    if (index != -1)
+                        episodeList.RemoveAt(index);
+                }
+                toSave.Add(crossRef);
+            }
+        }
+
+        // Save state to db, remove old links if needed
+        if (saveToDatabase)
+        {
+            // Remove the anidb episodes that does not overlap with our show.
+            var toRemove = existing.Values
+                .SelectMany(list => list)
+                .Where(xref => anidbEpisodes.ContainsKey(xref.AnidbEpisodeID) && !toSkip.Contains(xref.CrossRef_AniDB_TMDB_EpisodeID))
+                .ToList();
+
+            _logger.LogDebug(
+                "Added/removed/skipped {a}/{r}/{s} anidb/tmdb episode cross-references for show {ShowTitle} (Anime={AnimeId},Show={ShowId})",
+                toSave.Count,
+                toRemove.Count,
+                existing.Count + toSave.Count - toRemove.Count - toSave.Count,
+                animeSeries.GetSeriesName(),
+                anidbAnimeId,
+                tmdbShowId);
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Save(toSave);
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(toRemove);
+        }
+
+        return crossReferences;
+    }
+
+    private static CrossRef_AniDB_TMDB_Episode TryFindAnidbAndTmdbMatch(AniDB_Episode anidbEpisode, IReadOnlyList<TMDB_Episode> tmdbEpisodes, bool isSpecial)
+    {
+        var anidbDate = anidbEpisode.GetAirDateAsDateOnly();
+        var anidbTitles = RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(anidbEpisode.EpisodeID, TitleLanguage.English)
+            .Where(title => !title.Title.Trim().Equals($"Episode {anidbEpisode.EpisodeNumber}", StringComparison.InvariantCultureIgnoreCase))
+            .ToList();
+
+        var airdateProbability = tmdbEpisodes
+            .Select(episode => (episode, probablility: CalculateAirDateProbability(anidbDate, episode.AiredAt)))
+            .Where(result => result.probablility != 0)
+            .OrderByDescending(result => result.probablility)
+            .ToList();
+        var titleSearchResults = anidbTitles.Count > 0 ? tmdbEpisodes
+            .Select(episode => anidbTitles.Search(episode.EnglishTitle, title => new string[] { title.Title }, true, 1).FirstOrDefault()?.Map(episode))
+            .OfType<SeriesSearch.SearchResult<TMDB_Episode>>()
+            .OrderBy(result => result)
+            .ToList() : new();
+
+        // title first, then date
+        if (isSpecial)
+        {
+            if (titleSearchResults.Count > 0)
+            {
+                var tmdbEpisode = titleSearchResults[0]!.Result;
+                var dateAndTitleMatches = airdateProbability.Any(result => result.episode == tmdbEpisode);
+                var rating = dateAndTitleMatches ? MatchRating.Good : MatchRating.Bad;
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, rating);
+            }
+
+            if (airdateProbability.Count > 0)
+            {
+                var tmdbEpisode = airdateProbability[0]!.episode;
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.Mkay);
+            }
+        }
+        // date first, then title
+        else
+        {
+            if (airdateProbability.Count > 0)
+            {
+                var tmdbEpisode = airdateProbability[0]!.episode;
+                var dateAndTitleMatches = titleSearchResults.Any(result => result.Result == tmdbEpisode);
+                var rating = dateAndTitleMatches ? MatchRating.Good : MatchRating.Mkay;
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, rating);
+            }
+
+            if (titleSearchResults.Count > 0)
+            {
+                var tmdbEpisode = titleSearchResults[0]!.Result;
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.Bad);
+            }
+        }
+
+        if (tmdbEpisodes.Count > 0)
+            return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisodes[0].TmdbEpisodeID, tmdbEpisodes[0].TmdbShowID, MatchRating.Ugly);
+
+        return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, 0, 0, MatchRating.SarahJessicaParker);
+    }
+
+    private static double CalculateAirDateProbability(DateOnly? firstDate, DateOnly? secondDate, int maxDifferenceInDays = 2)
+    {
+        if (!firstDate.HasValue || !secondDate.HasValue)
+            return 0;
+
+        var difference = Math.Abs(secondDate.Value.DayNumber - firstDate.Value.DayNumber);
+        if (difference == 0)
+            return 1;
+
+        if (difference <= maxDifferenceInDays)
+            return (maxDifferenceInDays - difference) / (double)maxDifferenceInDays;
+
+        return 0;
+    }
+
 
     #endregion
 

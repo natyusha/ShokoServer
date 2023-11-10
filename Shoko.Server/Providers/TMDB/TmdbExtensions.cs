@@ -1,10 +1,10 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using Shoko.Commons.Extensions;
 using Shoko.Models.Client;
-using TMDbLib.Client;
-using TMDbLib.Objects.General;
-using TMDbLib.Objects.Movies;
+using Shoko.Models.Server;
 using TMDbLib.Objects.Search;
 
+#nullable enable
 namespace Shoko.Server.Providers.TMDB;
 
 public static class TmdbExtensions
@@ -17,4 +17,14 @@ public static class TmdbExtensions
             OriginalName = movie.OriginalTitle,
             Overview = movie.Overview,
         };
+
+    public static DateOnly? GetAirDateAsDateOnly(this AniDB_Episode episode)
+    {
+        var dateTime = episode.GetAirDateAsDate();
+        if (!dateTime.HasValue)
+            return null;
+
+        return DateOnly.FromDateTime(dateTime.Value);
+    }
+
 }

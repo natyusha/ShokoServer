@@ -26,10 +26,12 @@ public class CrossRef_AniDB_TMDB_Episode
 
     public CrossRef_AniDB_TMDB_Episode() { }
 
-    public CrossRef_AniDB_TMDB_Episode(int anidbEpisodeId, int tmdbEpisodeId, int index = 0, MatchRating rating = MatchRating.UserVerified)
+    public CrossRef_AniDB_TMDB_Episode(int anidbEpisodeId, int anidbAnimeId, int tmdbEpisodeId, int tmdbShowId, MatchRating rating = MatchRating.UserVerified, int index = 0)
     {
         AnidbEpisodeID = anidbEpisodeId;
+        AnidbAnimeID = anidbAnimeId;
         TmdbEpisodeID = tmdbEpisodeId;
+        TmdbShowID = tmdbShowId;
         Index = index;
         MatchRating = rating;
     }

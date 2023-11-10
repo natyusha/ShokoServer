@@ -26,7 +26,10 @@ public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossR
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByTmdbEpisodeID(int episodeId)
         => ReadLock(() => _tmdbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Index).ToList());
 
-    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByAnidbAnimeAndTmdbShowIDs(int anidbId, int tmdbId)
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetAllByAnidbAnimeAndTmdbShowIDs(int anidbId, int tmdbId)
+        => ReadLock(() => _tmdbShowIDs!.GetMultiple(tmdbId).Concat(_anidbAnimeIDs!.GetMultiple(anidbId)).ToList());
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetOnlyByAnidbAnimeAndTmdbShowIDs(int anidbId, int tmdbId)
         => ReadLock(() => _pairedIDs!.GetMultiple((anidbId, tmdbId)));
 
     protected override int SelectKey(CrossRef_AniDB_TMDB_Episode entity)
