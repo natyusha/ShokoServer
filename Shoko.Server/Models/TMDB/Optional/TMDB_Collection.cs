@@ -4,6 +4,7 @@ using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.General;
@@ -94,12 +95,8 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Title>();
-    }
+    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
+        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
 
     public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
     {
@@ -108,12 +105,8 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Overview>();
-    }
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
+        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
 
     #endregion
 

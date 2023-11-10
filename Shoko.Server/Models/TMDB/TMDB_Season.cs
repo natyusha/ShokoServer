@@ -4,6 +4,7 @@ using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.TvShows;
@@ -106,12 +107,8 @@ public class TMDB_Season : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Title>();
-    }
+    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
+        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Season, TmdbSeasonID);
 
     public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
     {
@@ -120,12 +117,8 @@ public class TMDB_Season : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Season, TmdbSeasonID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Overview>();
-    }
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
+        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Season, TmdbSeasonID);
 
     #endregion
 

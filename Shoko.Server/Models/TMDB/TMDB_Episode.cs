@@ -4,6 +4,7 @@ using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Search;
@@ -147,12 +148,8 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Title>();
-    }
+    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
+        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
 
     public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
     {
@@ -161,12 +158,14 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews()
-    {
-        // TODO: Implement this logic once the repositories are added.
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
+        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
 
-        return new List<TMDB_Overview>();
-    }
+    public TMDB_Season? GetTmdbSeason() =>
+        RepoFactory.TMDB_Season.GetByTmdbSeasonID(TmdbSeasonID);
+
+    public TMDB_Show? GetTmdbShow() =>
+        RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
     #endregion
 

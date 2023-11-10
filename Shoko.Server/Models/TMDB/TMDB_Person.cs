@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.People;
@@ -110,12 +111,8 @@ public class TMDB_Person
         return useFallback ? new(ForeignEntityType.Person, TmdbPersonID, EnglishBiography, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllBiographies()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Overview>();
-    }
+    public IReadOnlyList<TMDB_Overview> GetAllBiographies() =>
+        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Person, TmdbPersonID);
 
     #endregion
 }

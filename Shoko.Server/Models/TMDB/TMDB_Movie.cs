@@ -4,7 +4,9 @@ using System.Linq;
 using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using TMDbLib.Objects.Movies;
 
@@ -183,12 +185,8 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles()
-    {
-        // TODO: Implement this logic once the repositories are added.
-
-        return new List<TMDB_Title>();
-    }
+    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
+        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Movie, TmdbMovieID);
 
     public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
     {
@@ -197,12 +195,15 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Movie, TmdbMovieID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews()
-    {
-        // TODO: Implement this logic once the repositories are added.
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
+        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Movie, TmdbMovieID);
 
-        return new List<TMDB_Overview>();
-    }
+    public TMDB_Collection? GetTmdbCollection() => TmdbCollectionID.HasValue
+        ? RepoFactory.TMDB_Collection.GetByTmdbCollectionID(TmdbCollectionID.Value)
+        : null;
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetCrossReferences() =>
+        RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(TmdbMovieID);
 
     #endregion
 

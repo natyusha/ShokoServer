@@ -1,4 +1,7 @@
 using Shoko.Models.Enums;
+using Shoko.Models.Server;
+using Shoko.Server.Models.TMDB;
+using Shoko.Server.Repositories;
 
 #nullable enable
 namespace Shoko.Server.Models.CrossReference;
@@ -35,6 +38,30 @@ public class CrossRef_AniDB_TMDB_Episode
         Index = index;
         MatchRating = rating;
     }
+
+    #endregion
+    #region Methods
+
+    public AniDB_Episode? GetAnidbEpisode() =>
+        RepoFactory.AniDB_Episode.GetByEpisodeID(AnidbEpisodeID);
+
+    public SVR_AniDB_Anime? GetAnidbAnime() =>
+        RepoFactory.AniDB_Anime.GetByAnimeID(AnidbAnimeID);
+
+    public SVR_AnimeEpisode? GetShokoEpisode() =>
+        RepoFactory.AnimeEpisode.GetByAniDBEpisodeID(AnidbEpisodeID);
+
+    public SVR_AnimeSeries? GetShokoSeries() =>
+        RepoFactory.AnimeSeries.GetByAnimeID(AnidbAnimeID);
+
+    public TMDB_Episode? GetTmdbEpisode() =>
+        RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
+
+    public TMDB_Season? GetTmdbSeason() =>
+        GetTmdbEpisode()?.GetTmdbSeason();
+
+    public TMDB_Show? GetTmdbShow() =>
+        RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
     #endregion
 }
