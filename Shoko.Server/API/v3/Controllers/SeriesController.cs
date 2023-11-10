@@ -1041,6 +1041,31 @@ public class SeriesController : BaseController
     }
 
     /// <summary>
+    /// Remove one or all TMDB Movie links from the series.
+    /// </summary>
+    /// <param name="seriesID">Shoko Series ID.</param>
+    /// <param name="body">Optional. Body containing information about the link to be removed.</param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("{seriesID}/TMDB/Movie")]
+    public ActionResult RemoveLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        if (body != null && body.ProviderID > 0)
+            _tmdbHelper.RemoveMovieLink(series.AniDB_ID, body.ProviderID, body.Purge);
+        else
+            _tmdbHelper.RemoveAllMovieLinks(series.AniDB_ID, body.Purge);
+
+        return Ok();
+    }
+
+    /// <summary>
     /// Refresh all TMDB movies linked to the series.
     /// </summary>
     /// <param name="seriesID">Shoko Series ID.</param>
@@ -1067,130 +1092,6 @@ public class SeriesController : BaseController
             });
 
         return Ok();
-    }
-
-    /// <summary>
-    /// Remove one or all TMDB Movie links from the series.
-    /// </summary>
-    /// <param name="seriesID">Shoko Series ID.</param>
-    /// <param name="body">Optional. Body containing information about the link to be removed.</param>
-    /// <returns></returns>
-    [Authorize("admin")]
-    [HttpDelete("{seriesID}/TMDB/Movie")]
-    public ActionResult RemoveLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body)
-    {
-        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
-        if (series == null)
-            return NotFound(TvdbNotFoundForSeriesID);
-
-        if (!User.AllowedSeries(series))
-            return Forbid(TvdbForbiddenForUser);
-
-        if (body != null && body.ProviderID > 0)
-            _tmdbHelper.RemoveMovieLink(series.AniDB_ID, body.ProviderID, body.Purge);
-        else
-            _tmdbHelper.RemoveAllMovieLinks(series.AniDB_ID, body.Purge);
-
-        return Ok();
-    }
-
-    /// <summary>
-    /// Get the local metadata for a TMDB movie.
-    /// </summary>
-    /// <param name="movieID">TMDB Movie ID.</param>
-    /// <returns></returns>
-    [HttpGet("TMDB/Movie/{movieID}")]
-    public ActionResult GetTMDBMovieByMovieID([FromRoute] int movieID)
-    {
-        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
-        if (movie == null)
-            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
-
-        // TODO: Add this when the v3 TMDB Movie Model is made.
-        return Ok();
-    }
-
-    /// <summary>
-    /// Get all shoko series linked to a TMDB movie.
-    /// </summary>
-    /// <param name="movieID">TMDB Movie ID.</param>
-    /// <returns></returns>
-    [HttpGet("TMDB/Movie/{movieID}/Series")]
-    public ActionResult<List<Series>> GetSeriesByTMDBMovieID([FromRoute] int movieID)
-    {
-        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
-        if (movie == null)
-            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
-
-        return RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByTmdbMovieID(movieID)
-            .Select(xref => RepoFactory.AnimeSeries.GetByAnimeID(xref.AnidbAnimeID))
-            .Where(series => series != null)
-            .Select(series => new Series(HttpContext, series))
-            .ToList();
-    }
-
-    /// <summary>
-    /// Refresh or download  the metadata for a TMDB movie.
-    /// </summary>
-    /// <param name="movieID">TMDB Movie ID.</param>
-    /// <param name="force">Forcefully download an update even if we updated recently.</param>
-    /// <param name="downloadImages">Also download images.</param>
-    /// <returns></returns>
-    [Authorize("admin")]
-    [HttpPost("TMDB/Movie/{movieID}/Refresh")]
-    public ActionResult RefreshTMDBMovieByMovieID([FromRoute] int movieID, [FromQuery] bool force = false, [FromQuery] bool downloadImages = true)
-    {
-        _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Update>(c =>
-        {
-            c.TmdbMovieID = movieID;
-            c.ForceRefresh = force;
-            c.DownloadImages = downloadImages;
-        });
-
-        return Ok();
-    }
-
-    /// <summary>
-    /// Remove the local copy of the metadata for a TMDB movie.
-    /// </summary>
-    /// <param name="movieID">TMDB Movie ID.</param>
-    /// <returns></returns>
-    [Authorize("admin")]
-    [HttpDelete("TMDB/Movie/{movieID}")]
-    public ActionResult RemoveTMDBMovieByMovieID([FromRoute] int movieID)
-    {
-        var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
-        if (movie == null)
-            return NotFound("A Series.TMDB.Movie by the given movieID was not found.");
-
-        _commandFactory.CreateAndSave<CommandRequest_TMDB_Movie_Purge>(c => c.TmdbMovieID = movieID);
-
-        return Ok();
-    }
-
-    /// <summary>
-    /// Search TMDB for movies.
-    /// </summary>
-    /// <param name="query">Query to search for</param>
-    /// <param name="fuzzy">Indicates fuzzy-matching should be used for the search.</param>
-    /// <param name="local">Only search for results in the local collection if it's true and only search for results not in the local collection if false. Omit to include both.</param>
-    /// <param name="includeTitles">Include titles in the results.</param>
-    /// <param name="pageSize">The page size.</param>
-    /// <param name="page">The page index.</param>
-    /// <returns></returns>
-    [Authorize("admin")]
-    [HttpGet("TMDB/Movie/Search")]
-    public ActionResult<ListResult<object>> SearchForTMDBMovies(
-        [FromRoute] string query,
-        [FromQuery] bool fuzzy = true,
-        [FromQuery] bool? local = null,
-        [FromQuery] bool includeTitles = true,
-        [FromQuery, Range(0, 100)] int pageSize = 50,
-        [FromQuery, Range(1, int.MaxValue)] int page = 1)
-    {
-        // TODO: Add this once the tmdb movie search model is finalised.
-
-        return new ListResult<object>();
     }
 
     #endregion
