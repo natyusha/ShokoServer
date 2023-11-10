@@ -961,14 +961,14 @@ public class TMDBHelper
             {
                 var tmdbEpisode = titleSearchResults[0]!.Result;
                 var dateAndTitleMatches = airdateProbability.Any(result => result.episode == tmdbEpisode);
-                var rating = dateAndTitleMatches ? MatchRating.Good : MatchRating.Bad;
+                var rating = dateAndTitleMatches ? MatchRating.DateAndTitleMatches : MatchRating.TitleMatches;
                 return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, rating);
             }
 
             if (airdateProbability.Count > 0)
             {
                 var tmdbEpisode = airdateProbability[0]!.episode;
-                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.Mkay);
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.DateMatches);
             }
         }
         // date first, then title
@@ -978,19 +978,19 @@ public class TMDBHelper
             {
                 var tmdbEpisode = airdateProbability[0]!.episode;
                 var dateAndTitleMatches = titleSearchResults.Any(result => result.Result == tmdbEpisode);
-                var rating = dateAndTitleMatches ? MatchRating.Good : MatchRating.Mkay;
+                var rating = dateAndTitleMatches ? MatchRating.DateAndTitleMatches : MatchRating.DateMatches;
                 return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, rating);
             }
 
             if (titleSearchResults.Count > 0)
             {
                 var tmdbEpisode = titleSearchResults[0]!.Result;
-                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.Bad);
+                return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisode.TmdbEpisodeID, tmdbEpisode.TmdbShowID, MatchRating.TitleMatches);
             }
         }
 
         if (tmdbEpisodes.Count > 0)
-            return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisodes[0].TmdbEpisodeID, tmdbEpisodes[0].TmdbShowID, MatchRating.Ugly);
+            return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, tmdbEpisodes[0].TmdbEpisodeID, tmdbEpisodes[0].TmdbShowID, MatchRating.FirstAvailable);
 
         return new(anidbEpisode.EpisodeID, anidbEpisode.AnimeID, 0, 0, MatchRating.SarahJessicaParker);
     }

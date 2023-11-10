@@ -782,7 +782,7 @@ public static class TvDBLinkingHelper
                 }
 
                 // Add them to the matches and remove them from the lists to process
-                matches.Add((aniep, tvep, MatchRating.Good));
+                matches.Add((aniep, tvep, MatchRating.DateAndTitleMatches));
                 tvepsNormal.Remove(tvep);
                 aniepsNormal.Remove(aniep);
                 break;
@@ -827,7 +827,7 @@ public static class TvDBLinkingHelper
                 }
 
                 // Add them to the matches and remove them from the lists to process
-                matches.Add((aniep, tvep, fuzzy ? MatchRating.Bad : MatchRating.Mkay));
+                matches.Add((aniep, tvep, fuzzy ? MatchRating.TitleMatches : MatchRating.DateMatches));
                 tvepsNormal.Remove(tvep);
                 aniepsNormal.Remove(aniep);
                 break;
@@ -868,8 +868,8 @@ public static class TvDBLinkingHelper
             var titlesMatch = aniTitle.FuzzyMatch(tvTitle);
 
             matches[index] = titlesMatch
-                ? (match.Item1, match.Item2, MatchRating.Good)
-                : (match.Item1, match.Item2, MatchRating.Mkay);
+                ? (match.Item1, match.Item2, MatchRating.DateAndTitleMatches)
+                : (match.Item1, match.Item2, MatchRating.DateMatches);
         }
     }
 
@@ -906,7 +906,7 @@ public static class TvDBLinkingHelper
                         break;
                     }
 
-                    matches.Add((aniep, tvep, MatchRating.Bad));
+                    matches.Add((aniep, tvep, MatchRating.TitleMatches));
                     aniepsNormal.Remove(aniep);
                     tvepsNormal.Remove(tvep);
                 }
@@ -940,7 +940,7 @@ public static class TvDBLinkingHelper
                 }
 
                 // add the mapping and remove it from the possible listings
-                matches.Add((aniDbEpisode, nextEp, MatchRating.Ugly));
+                matches.Add((aniDbEpisode, nextEp, MatchRating.FirstAvailable));
                 aniepsNormal.Remove(aniDbEpisode);
                 tvepsNormal.Remove(nextEp);
             }
@@ -998,7 +998,7 @@ public static class TvDBLinkingHelper
             }
 
             // It goes against the initial rules for Good rating, but this is a very specific case
-            matches.Add((aniep, ep, MatchRating.Mkay));
+            matches.Add((aniep, ep, MatchRating.DateMatches));
             aniepsNormal.Remove(aniep);
             count++;
         }
@@ -1033,7 +1033,7 @@ public static class TvDBLinkingHelper
                 }
 
                 // Add them to the matches and remove them from the lists to process
-                matches.Add((aniep, tvep, MatchRating.Mkay));
+                matches.Add((aniep, tvep, MatchRating.DateMatches));
                 aniepsNormal.Remove(aniep);
                 break;
             }
@@ -1066,7 +1066,7 @@ public static class TvDBLinkingHelper
                 }
 
                 // Add them to the matches and remove them from the lists to process
-                matches.Add((aniep, tvep, MatchRating.Mkay));
+                matches.Add((aniep, tvep, MatchRating.DateMatches));
                 aniepsNormal.Remove(aniep);
                 break;
             }
