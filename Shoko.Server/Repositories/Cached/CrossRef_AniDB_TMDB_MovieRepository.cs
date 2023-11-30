@@ -13,22 +13,22 @@ public class CrossRef_AniDB_TMDB_MovieRepository : BaseCachedRepository<CrossRef
     private PocoIndex<int, CrossRef_AniDB_TMDB_Movie, int?>? _anidbEpisodeIDs;
     private PocoIndex<int, CrossRef_AniDB_TMDB_Movie, int>? _tmdbMovieIDs;
 
-    public List<CrossRef_AniDB_TMDB_Movie> GetByAnidbAnimeID(int animeId)
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetByAnidbAnimeID(int animeId)
         => ReadLock(() => _anidbAnimeIDs!.GetMultiple(animeId));
 
     public CrossRef_AniDB_TMDB_Movie? GetByAnidbAnimeAndTmdbMovieIDs(int animeId, int movieId)
         => GetByAnidbAnimeID(animeId).FirstOrDefault(xref => xref.TmdbMovieID == movieId);
 
-    public List<CrossRef_AniDB_TMDB_Movie> GetByAnidbEpisodeID(int episodeId)
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetByAnidbEpisodeID(int episodeId)
         => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(episodeId));
 
     public CrossRef_AniDB_TMDB_Movie? GetByAnidbEpisodeAndTmdbMovieIDs(int episodeId, int movieId)
         => GetByAnidbEpisodeID(episodeId).FirstOrDefault(xref => xref.TmdbMovieID == movieId);
 
-    public List<CrossRef_AniDB_TMDB_Movie> GetByTmdbMovieID(int movieId)
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetByTmdbMovieID(int movieId)
         => ReadLock(() => _tmdbMovieIDs!.GetMultiple(movieId));
 
-    public List<CrossRef_AniDB_TMDB_Movie> GetMissingEpisodeLinks()
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetMissingEpisodeLinks()
         => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(null));
 
     public ILookup<int, CrossRef_AniDB_TMDB_Movie> GetByAnimeIDsAndType(IReadOnlyCollection<int> animeIds)

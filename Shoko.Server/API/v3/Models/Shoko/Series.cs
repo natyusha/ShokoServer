@@ -1176,6 +1176,14 @@ public class Series : BaseModel
             public bool Refresh = false;
         }
 
+        public class LinkShowBody : LinkCommonBody
+        {
+            /// <summary>
+            /// Also link to the given tmdb season by ID.
+            /// </summary>
+            public int? SeasonID;
+        }
+
         public class LinkMovieBody : LinkCommonBody
         {
             /// <summary>
@@ -1196,6 +1204,43 @@ public class Series : BaseModel
             /// Purge the provider metadata from the database.
             /// </summary>
             public bool Purge;
+        }
+
+        public class OverrideEpisodeMappingBody
+        {
+            /// <summary>
+            /// Replace all existing links.
+            /// </summary>
+            public bool Replace = false;
+
+            [Required]
+            public IReadOnlyList<OverrideEpisodeLinkBody> Mapping;
+        }
+
+        public class OverrideEpisodeLinkBody
+        {
+            /// <summary>
+            /// Used internally before linking.
+            /// </summary>
+            [JsonIgnore]
+            internal int AnidbID;
+
+            /// <summary>
+            /// Shoko Episode ID.
+            /// </summary>
+            [Required, Range(1, int.MaxValue)]
+            public int ShokoID;
+
+            /// <summary>
+            /// TMDB Episode ID.
+            /// </summary>
+            [Required, Range(1, int.MaxValue)]
+            public int TmdbID;
+
+            /// <summary>
+            /// Replace existing episode links.
+            /// </summary>
+            public bool Replace = false;
         }
     }
 

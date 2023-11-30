@@ -123,7 +123,8 @@ public class TMDBHelper
         _logger.LogInformation("Adding TMDB Movie Link: AniDB (ID:{AnidbID}) → TvDB Movie (ID:{TmdbID})", animeId, movieId);
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeAndTmdbMovieIDs(animeId, movieId) ??
             new(animeId, movieId);
-        xref.AnidbEpisodeID = episodeId;
+        if (episodeId.HasValue)
+            xref.AnidbEpisodeID = episodeId.Value <= 0 ? null : episodeId.Value;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Movie.Save(xref);
 
@@ -457,7 +458,7 @@ public class TMDBHelper
         var xref = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeAndTmdbShowIDs(animeId, showId) ??
             new(animeId, showId);
         if (seasonId.HasValue)
-            xref.TmdbSeasonID = seasonId;
+            xref.TmdbSeasonID = seasonId.Value <= 0 ? null : seasonId.Value;
         xref.Source = isAutomatic ? CrossRefSource.Automatic : CrossRefSource.User;
         RepoFactory.CrossRef_AniDB_TMDB_Show.Save(xref);
 
@@ -525,6 +526,87 @@ public class TMDBHelper
                 c.TmdbShowID = xref.TmdbShowID;
                 c.RemoveImageFiles = removeImageFiles;
             });
+    }
+
+    public void ResetAllEpisodeLinks(int anidbAnimeId)
+    {
+        var showId = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(anidbAnimeId)
+            .FirstOrDefault()?.TmdbShowID;
+        if (showId.HasValue)
+        {
+            var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbAnimeID(anidbAnimeId);
+            var toSave = new List<CrossRef_AniDB_TMDB_Episode>();
+            var toDelete = new List<CrossRef_AniDB_TMDB_Episode>();
+
+            // Reset existing xrefs.
+            var existingIDs = new HashSet<int>();
+            foreach (var xref in xrefs)
+            {
+                if (existingIDs.Add(xref.AnidbEpisodeID))
+                {
+                    xref.TmdbEpisodeID = 0;
+                    toSave.Add(xref);
+                }
+                else
+                {
+                    toDelete.Add(xref);
+                }
+            }
+
+            // Add missing xrefs.
+            var anidbEpisodesWithoutXrefs = RepoFactory.AniDB_Episode.GetByAnimeID(anidbAnimeId)
+                .Where(episode => !existingIDs.Contains(episode.AniDB_EpisodeID) && episode.EpisodeType is (int)EpisodeType.Episode or (int)EpisodeType.Special);
+            foreach (var anidbEpisode in anidbEpisodesWithoutXrefs)
+                toSave.Add(new(anidbEpisode.AniDB_EpisodeID, anidbAnimeId, 0, showId.Value, MatchRating.UserVerified));
+
+            // Save the changes.
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Save(toSave);
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(toDelete);
+        }
+        else
+        {
+            // Remove all episode cross-references if no show is linked.
+            var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbAnimeID(anidbAnimeId);
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(xrefs);
+        }
+    }
+
+    public bool AddEpisodeLink(int anidbEpisodeId, int tmdbEpisodeId, bool additiveLink = true, int? index = null)
+    {
+        var anidbEpisode = RepoFactory.AniDB_Episode.GetByEpisodeID(anidbEpisodeId);
+        if (anidbEpisode == null)
+            return false;
+
+        var tmdbEpisode = RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(tmdbEpisodeId);
+        if (tmdbEpisode == null)
+            return false;
+
+        // Add another link
+        if (additiveLink)
+        {
+            var toSave = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeAndTmdbEpisodeIDs(anidbEpisodeId, tmdbEpisodeId)
+                ?? new(anidbEpisodeId, anidbEpisode.AnimeID, tmdbEpisodeId, tmdbEpisode.TmdbShowID);
+            var existingAnidbLinks = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeID(anidbEpisodeId).Count;
+            var existingTmdbLinks = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByTmdbEpisodeID(tmdbEpisodeId).Count;
+            if (toSave.CrossRef_AniDB_TMDB_EpisodeID == 0 && !index.HasValue)
+                index = existingAnidbLinks > 0 ? existingAnidbLinks - 1 : existingTmdbLinks > 0 ? existingTmdbLinks - 1 : 0;
+            if (index.HasValue)
+                toSave.Index = index.Value;
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Save(toSave);
+        }
+        else
+        {
+            var xrefs = RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeID(anidbEpisodeId);
+            var toSave = xrefs.Count > 0 ? xrefs[0] : new(anidbEpisodeId, anidbEpisode.AnimeID, tmdbEpisodeId, tmdbEpisode.TmdbShowID);
+            toSave.TmdbShowID = tmdbEpisode.TmdbShowID;
+            toSave.TmdbEpisodeID = tmdbEpisode.TmdbEpisodeID;
+            toSave.Index = 0;
+            var toDelete = xrefs.Skip(1).ToList();
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Save(toSave);
+            RepoFactory.CrossRef_AniDB_TMDB_Episode.Delete(toDelete);
+        }
+
+        return true;
     }
 
     #endregion

@@ -20,6 +20,9 @@ public class CrossRef_AniDB_TMDB_EpisodeRepository : BaseCachedRepository<CrossR
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByAnidbEpisodeID(int episodeId)
         => ReadLock(() => _anidbEpisodeIDs!.GetMultiple(episodeId).OrderBy(a => a.Index).ToList());
 
+    public CrossRef_AniDB_TMDB_Episode? GetByAnidbEpisodeAndTmdbEpisodeIDs(int anidbEpisodeId, int tmdbEpisodeId)
+        => GetByAnidbAnimeID(anidbEpisodeId).FirstOrDefault(xref => xref.TmdbEpisodeID == tmdbEpisodeId);
+
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetByTmdbShowID(int showId)
         => ReadLock(() => _tmdbShowIDs!.GetMultiple(showId).ToList());
 

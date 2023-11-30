@@ -21,6 +21,7 @@ using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Commands;
 using Shoko.Server.Extensions;
 using Shoko.Server.Models;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.AniDB.Interfaces;
 using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Providers.TvDB;
@@ -993,13 +994,15 @@ public class SeriesController : BaseController
 
     #region TMDB
 
+    #region Movie
+
     /// <summary>
     /// Get all TMDB movies linked to a Shoko series.
     /// </summary>
     /// <param name="seriesID">Shoko Series ID.</param>
     /// <returns></returns>
     [HttpGet("{seriesID}/TMDB/Movie")]
-    public ActionResult GetTMDBMoviesBySeriesID([FromRoute] int seriesID)
+    public ActionResult<List<object>> GetTMDBMoviesBySeriesID([FromRoute] int seriesID)
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1008,9 +1011,12 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        // TODO: Add this when the v3 TMDB Movie Model is made.
-
-        return Ok();
+        // TODO: Implement this once the v3 model is finalised.
+        return series.GetTmdbMovieCrossReferences()
+            .Select(o => o.GetTmdbMovie())
+            .OfType<TMDB_Movie>()
+            .Select(o => o as object)
+            .ToList();
     }
 
     /// <summary>
@@ -1021,7 +1027,10 @@ public class SeriesController : BaseController
     /// <returns></returns>
     [Authorize("admin")]
     [HttpPost("{seriesID}/TMDB/Movie")]
-    public ActionResult AddLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.LinkMovieBody body)
+    public ActionResult AddLinkToTMDBMoviesBySeriesID(
+        [FromRoute] int seriesID,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.LinkMovieBody body
+    )
     {
         if (body.ProviderID <= 0)
         {
@@ -1048,7 +1057,10 @@ public class SeriesController : BaseController
     /// <returns></returns>
     [Authorize("admin")]
     [HttpDelete("{seriesID}/TMDB/Movie")]
-    public ActionResult RemoveLinkToTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body)
+    public ActionResult RemoveLinkToTMDBMoviesBySeriesID(
+        [FromRoute] int seriesID,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body
+    )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1071,10 +1083,16 @@ public class SeriesController : BaseController
     /// <param name="seriesID">Shoko Series ID.</param>
     /// <param name="force">Forcefully download an update even if we updated recently.</param>
     /// <param name="downloadImages">Also download images.</param>
+    /// <param name="downloadCollections"></param>
     /// <returns></returns>
     [Authorize("admin")]
-    [HttpPost("{seriesID}/TMDB/Movie/Refresh")]
-    public ActionResult RefreshTMDBMoviesBySeriesID([FromRoute] int seriesID, [FromQuery] bool force = false, [FromQuery] bool downloadImages = true)
+    [HttpPost("{seriesID}/TMDB/Movie/Action/Refresh")]
+    public ActionResult RefreshTMDBMoviesBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] bool force = false,
+        [FromQuery] bool downloadImages = true,
+        [FromQuery] bool? downloadCollections = null
+    )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1089,10 +1107,304 @@ public class SeriesController : BaseController
                 c.TmdbMovieID = xref.TmdbMovieID;
                 c.ForceRefresh = force;
                 c.DownloadImages = downloadImages;
+                c.DownloadCollections = downloadCollections;
             });
 
         return Ok();
     }
+
+    #endregion
+
+    #region Show
+
+    [HttpGet("{seriesID}/TMDB/Show")]
+    public ActionResult<List<object>> GetTMDBShowsBySeriesID([FromRoute] int seriesID)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        // TODO: Implement this once the v3 model is finalised.
+        return series.GetTmdbShowCrossReferences()
+            .Select(o => o.GetTmdbShow())
+            .OfType<TMDB_Show>()
+            .Select(o => o as object)
+            .ToList();
+    }
+
+    [Authorize("admin")]
+    [HttpPost("{seriesID}/TMDB/Show")]
+    public ActionResult AddLinkToTMDBShowsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.LinkShowBody body
+    )
+    {
+        if (body.ProviderID <= 0)
+        {
+            ModelState.AddModelError(nameof(body.ProviderID), "The provider ID cannot be zero or a negative value.");
+            return ValidationProblem(ModelState);
+        }
+
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        _tmdbHelper.AddShowLink(series.AniDB_ID, body.ProviderID, body.SeasonID, additiveLink: !body.Replace, forceRefresh: body.Refresh);
+        return Ok();
+    }
+
+    [Authorize("admin")]
+    [HttpDelete("{seriesID}/TMDB/Show")]
+    public ActionResult RemoveLinkToTMDBShowsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] Series.Input.UnlinkCommonBody body
+    )
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        if (body != null && body.ProviderID > 0)
+            _tmdbHelper.RemoveShowLink(series.AniDB_ID, body.ProviderID, body.Purge);
+        else
+            _tmdbHelper.RemoveAllShowLinks(series.AniDB_ID, body.Purge);
+
+        return Ok();
+    }
+
+    [Authorize("admin")]
+    [HttpPost("{seriesID}/TMDB/Show/Action/Refresh")]
+    public ActionResult RefreshTMDBShowsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] bool force = false,
+        [FromQuery] bool downloadImages = true,
+        [FromQuery] bool? downloadAlternateOrdering = null
+    )
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(series.AniDB_ID))
+            _commandFactory.CreateAndSave<CommandRequest_TMDB_Show_Update>(c =>
+            {
+                c.TmdbShowID = xref.TmdbShowID;
+                c.ForceRefresh = force;
+                c.DownloadImages = downloadImages;
+                c.DownloadAlternateOrdering = downloadAlternateOrdering;
+            });
+
+        return Ok();
+    }
+
+    #region Episode Mapping
+
+    [HttpGet("{seriesID}/TMDB/Show/EpisodeMapping")]
+    public ActionResult<ListResult<object>> PreviewTMDBEpisodeMappingsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] int? tmdbShowID,
+        [FromQuery] int? tmdbSeasonID,
+        [FromQuery] bool showExisting = false,
+        [FromQuery] bool showAllExisting = false,
+        [FromQuery] bool keepExisting = true,
+        [FromQuery, Range(0, 1000)] int pageSize = 50,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1
+    )
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        if (!tmdbShowID.HasValue)
+        {
+            var xrefs = series.GetTmdbShowCrossReferences();
+            var xref = xrefs.Count > 0 ? xrefs[0] : null;
+            if (xref == null)
+                return ValidationProblem("Unable to find an existing TMDB Show ID to use. Please provide one to show a preview.", "tmdbShowID");
+
+            tmdbShowID = xref.TmdbShowID;
+            if (!tmdbSeasonID.HasValue && xref.TmdbSeasonID.HasValue)
+                tmdbSeasonID = xref.TmdbSeasonID.Value;
+        }
+
+        // TODO: Implement this once the v3 model is finalised.
+        if (showExisting || showAllExisting)
+            return series.GetTmdbEpisodeCrossReferences(showAllExisting ? null : tmdbShowID)
+                .ToListResult(x => x as object, page, pageSize);
+
+        // TODO: Implement this once the v3 model is finalised.
+        return _tmdbHelper.MatchAnidbToTmdbEpisodes(series.AniDB_ID, tmdbShowID.Value, tmdbSeasonID, keepExisting, saveToDatabase: false)
+            .ToListResult(x => x as object, page, pageSize);
+    }
+
+    [Authorize("admin")]
+    [HttpPost("{seriesID}/TMDB/Show/EpisodeMapping")]
+    public ActionResult ApplyTMDBEpisodeMappingsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] int? tmdbShowID,
+        [FromQuery] int? tmdbSeasonID,
+        [FromQuery] bool keepExisting = true
+    )
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        var xrefs = series.GetTmdbShowCrossReferences();
+        if (tmdbShowID.HasValue)
+        {
+            var xref = xrefs.FirstOrDefault(s => s.TmdbShowID == tmdbShowID.Value);
+            if (xref == null)
+                return ValidationProblem("Unable to find an existing cross-reference for the given TMDB Show ID. Please first link the TMDB Show to a Shoko Series.");
+        }
+        else
+        {
+            var xref = xrefs.Count > 0 ? xrefs[0] : null;
+            if (xref == null)
+                return ValidationProblem("Unable to find an existing cross-reference for the series to use. Make sure at least one TMDB Show is linked to the Shoko Series.");
+
+            tmdbShowID = xref.TmdbShowID;
+            if (!tmdbSeasonID.HasValue && xref.TmdbSeasonID.HasValue)
+                tmdbSeasonID = xref.TmdbSeasonID.Value;
+        }
+
+        _tmdbHelper.MatchAnidbToTmdbEpisodes(series.AniDB_ID, tmdbShowID.Value, tmdbSeasonID, keepExisting, saveToDatabase: true);
+
+        return NoContent();
+    }
+
+    [Authorize("admin")]
+    [HttpPut("{seriesID}/TMDB/Show/EpisodeMapping")]
+    public ActionResult OverrideTMDBEpisodeMappingsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Series.Input.OverrideEpisodeMappingBody body
+    )
+    {
+        if (body == null || (body.Mapping.Count == 0 && !body.Replace))
+            return ValidationProblem("Empty body.");
+
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        // Validate the mappings.
+        var xrefs = series.GetTmdbShowCrossReferences();
+        var showIDs = xrefs
+            .Select(xref => xref.TmdbShowID)
+            .ToHashSet();
+        foreach (var link in body.Mapping)
+        {
+            var shokoEpisode = RepoFactory.AnimeEpisode.GetByID(link.ShokoID);
+            if (shokoEpisode == null)
+            {
+                ModelState.AddModelError("Mapping", $"Unable to find a Shoko Episode with id '${link.ShokoID}'");
+                continue;
+            }
+            if (shokoEpisode.AnimeSeriesID != series.AnimeSeriesID)
+            {
+                ModelState.AddModelError("Mapping", $"The Shoko Episode with id '{link.ShokoID}' is not part of the series.");
+                continue;
+            }
+
+            var tmdbEpisode = RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(link.TmdbID);
+            if (tmdbEpisode == null)
+            {
+                ModelState.AddModelError("Mapping", $"Unable to find TMDB Episode with the id '{link.TmdbID}' locally.");
+                continue;
+            }
+            if (!showIDs.Contains(tmdbEpisode.TmdbShowID))
+            {
+                ModelState.AddModelError("Mapping", $"The TMDB Episode with id '{link.TmdbID}' is not part of a show linked to the Shoko Series.");
+                continue;
+            }
+
+            link.AnidbID = shokoEpisode.AniDB_EpisodeID;
+        }
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        // Reset the existing links if we wanted to replace all.
+        if (body.Replace)
+        {
+            _tmdbHelper.ResetAllEpisodeLinks(series.AniDB_ID);
+        }
+
+        // Do the actual linking.
+        foreach (var link in body.Mapping)
+            _tmdbHelper.AddEpisodeLink(link.AnidbID, link.TmdbID, !link.Replace);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Clear out all existing episode mapping.
+    /// </summary>
+    /// <param name="seriesID"></param>
+    /// <returns></returns>
+    [Authorize("admin")]
+    [HttpDelete("{seriesID}/TMDB/Show/EpisodeMapping")]
+    public ActionResult RemoveTMDBEpisodeMappingsBySeriesID(
+        [FromRoute] int seriesID
+    )
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        _tmdbHelper.ResetAllEpisodeLinks(series.AniDB_ID);
+
+        return NoContent();
+    }
+
+    #endregion
+
+    #endregion
+
+    #region Season
+
+    [HttpGet("{seriesID}/TMDB/Season")]
+    public ActionResult<List<object>> GetTMDBSeasonsBySeriesID([FromRoute] int seriesID)
+    {
+        var series = RepoFactory.AnimeSeries.GetByID(seriesID);
+        if (series == null)
+            return NotFound(TvdbNotFoundForSeriesID);
+
+        if (!User.AllowedSeries(series))
+            return Forbid(TvdbForbiddenForUser);
+
+        // TODO: Implement this once the v3 model is finalised.
+        return series.GetTmdbShowCrossReferences(true)
+            .Select(o => o.GetTmdbSeason())
+            .OfType<TMDB_Season>()
+            .Select(o => o as object)
+            .ToList();
+    }
+
+    #endregion
 
     #endregion
 
