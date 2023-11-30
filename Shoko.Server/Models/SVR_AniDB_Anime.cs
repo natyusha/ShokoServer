@@ -161,10 +161,10 @@ public class SVR_AniDB_Anime : AniDB_Anime, IAnime
         return results;
     }
 
-    public List<CrossRef_AniDB_TMDB_Show> GetCrossRefTmdbShows()
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Show> GetCrossRefTmdbShows()
         => RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(AnimeID);
 
-    public List<CrossRef_AniDB_TMDB_Movie> GetCrossRefTmdbMovies()
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetCrossRefTmdbMovies()
         => RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(AnimeID);
 
     public List<TMDB_Movie> GetTmdbMovie()
