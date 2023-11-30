@@ -52,7 +52,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
             return;
         }
 
-        SearchForShows(anime);
+        SearchForShow(anime);
     }
 
     #region Movie
@@ -78,7 +78,7 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
         // Try to establish a link for every movie (episode) in the movie
         // collection (anime).
         var episodes = anime.GetAniDBEpisodes()
-            .Where(episode => episode.EpisodeType == (int)Shoko.Models.Enums.EpisodeType.Episode)
+            .Where(episode => episode.EpisodeType == (int)Shoko.Models.Enums.EpisodeType.Episode || episode.EpisodeType == (int)Shoko.Models.Enums.EpisodeType.Special)
             .ToList();
 
         // We only have one movie in the movie collection, so don't search for
@@ -125,9 +125,33 @@ public class CommandRequest_TMDB_Search : CommandRequestImplementation
 
     #region Show
 
-    private void SearchForShows(SVR_AniDB_Anime anime)
+    private void SearchForShow(SVR_AniDB_Anime anime)
     {
-        // TODO: For later.
+        // TODO: Improve this logic to take tmdb seasons into account, and maybe also anidb series relations into account in cases where the tmdb show name and anidb series name are too different.
+
+        // Find the official title in the origin language, to compare it against
+        // the original language stored in the offline tmdb search dump.
+        var allTitles = anime.GetTitles()
+            .Where(title => title.TitleType is TitleType.Main or TitleType.Official);
+        var mainTitle = allTitles.FirstOrDefault(x => x.TitleType is TitleType.Main) ?? allTitles.FirstOrDefault();
+        var language = mainTitle.Language switch
+        {
+            TitleLanguage.Romaji => TitleLanguage.Japanese,
+            TitleLanguage.Pinyin => TitleLanguage.ChineseSimplified,
+            TitleLanguage.KoreanTranscription => TitleLanguage.Korean,
+            TitleLanguage.ThaiTranscription => TitleLanguage.Thai,
+            _ => mainTitle.Language,
+        };
+        var officialTitle = language == mainTitle.Language ? mainTitle :
+            allTitles.FirstOrDefault(title => title.Language == language) ?? mainTitle;
+
+        var results = _helper.OfflineSearch.SearchShows(officialTitle.Title).ToList();
+        if (results.Count == 0)
+            return;
+
+        Logger.LogTrace("Found {Count} results for search on {Query} --- Linked to {ShowName} ({ID})", results.Count, officialTitle.Title, results[0].Title, results[0].ID);
+
+        _helper.AddShowLink(AnimeID, results[0].ID, seasonId: null, additiveLink: true, isAutomatic: true, forceRefresh: ForceRefresh);
     }
 
     #endregion
