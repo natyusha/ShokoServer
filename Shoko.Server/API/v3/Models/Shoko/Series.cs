@@ -315,10 +315,10 @@ public class Series : BaseModel
         // TODO: Cache the rest of these, so that they don't severely slow down the API
 
         // TMDB
-        var tmdbMovieIds = RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(ser.AniDB_ID);
+        var tmdbMovieIds = ser.GetTmdbMovieCrossReferences();
         ids.TMDB.TryAdd("Movie", tmdbMovieIds.Select(a => a.TmdbMovieID).Distinct().ToList());
 
-        var tmdbShowIds = RepoFactory.CrossRef_AniDB_TMDB_Show.GetByAnidbAnimeID(ser.AniDB_ID);
+        var tmdbShowIds = ser.GetTmdbShowCrossReferences();
         ids.TMDB.TryAdd("Show", tmdbShowIds.Select(a => a.TmdbShowID).Distinct().ToList());
 
         // Trakt
