@@ -9,6 +9,7 @@ using Shoko.Models.Queue;
 using Shoko.Server.Commands.Attributes;
 using Shoko.Server.Commands.Generic;
 using Shoko.Server.Providers.TMDB;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 using Shoko.Server.Utilities;
 
@@ -39,8 +40,7 @@ public class CommandRequest_TMDB_Show_Purge : CommandRequestImplementation
 
     public override void PostInit()
     {
-        // TODO: Set the show title when we have finalised the show model and the repostory is usable.
-        ShowTitle ??= null;
+        ShowTitle ??= RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID)?.EnglishTitle;
     }
 
     protected override void Process()
