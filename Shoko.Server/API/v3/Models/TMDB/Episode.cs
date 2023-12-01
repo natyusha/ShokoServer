@@ -92,6 +92,10 @@ public class Episode
     /// </summary>
     public DateTime LastUpdatedAt;
 
+    public Episode(TMDB_Episode episode, bool includeTitles = true, bool includeOverviews = true, bool includeOrdering = false) :
+        this(episode, null, includeTitles, includeOverviews, includeOrdering)
+    { }
+
     public Episode(TMDB_Episode episode, TMDB_AlternateOrdering_Episode? alternateOrderingEpisode = null, bool includeTitles = true, bool includeOverviews = true, bool includeOrdering = false)
     {
         var preferredOverview = episode.GetPreferredOverview(true);
