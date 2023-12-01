@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models.TMDB;
+using Shoko.Server.Providers.TMDB;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Models.TMDB;
@@ -96,7 +98,7 @@ public class Episode
         this(episode, null, includeTitles, includeOverviews, includeOrdering)
     { }
 
-    public Episode(TMDB_Episode episode, TMDB_AlternateOrdering_Episode? alternateOrderingEpisode = null, bool includeTitles = true, bool includeOverviews = true, bool includeOrdering = false)
+    public Episode(TMDB_Episode episode, TMDB_AlternateOrdering_Episode? alternateOrderingEpisode, bool includeTitles = true, bool includeOverviews = true, bool includeOrdering = false)
     {
         var preferredOverview = episode.GetPreferredOverview(true);
         var preferredTitle = episode.GetPreferredTitle(true);
@@ -170,6 +172,13 @@ public class Episode
         public string? OrderingID;
 
         /// <summary>
+        /// The alternate ordering type. Will not be set if the main ordering is
+        /// used.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore), JsonConverter(typeof(StringEnumConverter))]
+        public AlternateOrderingType? OrderingType;
+
+        /// <summary>
         /// English name of the alternate ordering scheme.
         /// </summary>
         public string OrderingName;
@@ -205,6 +214,7 @@ public class Episode
             var season = episode.GetTmdbSeason();
             OrderingID = null;
             OrderingName = "Seasons";
+            OrderingType = null;
             SeasonID = episode.TmdbSeasonID.ToString();
             SeasonName = season?.EnglishTitle ?? "<unknown name>";
             SeasonNumber = episode.SeasonNumber;
@@ -218,6 +228,7 @@ public class Episode
             var season = episode.GetTmdbAlternateOrderingSeason();
             OrderingID = episode.TmdbEpisodeGroupCollectionID;
             OrderingName = ordering?.EnglishTitle ?? "<unknown name>";
+            OrderingType = ordering?.Type ?? AlternateOrderingType.Unknown;
             SeasonID = episode.TmdbEpisodeGroupID;
             SeasonName = season?.EnglishTitle ?? "<unknown name>";
             SeasonNumber = episode.SeasonNumber;

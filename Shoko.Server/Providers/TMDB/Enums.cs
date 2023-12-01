@@ -3,6 +3,7 @@ namespace Shoko.Server.Providers.TMDB;
 
 public enum AlternateOrderingType
 {
+    Unknown = 0,
     OriginalAirDate = 1,
     Absolute = 2,
     DVD = 3,
