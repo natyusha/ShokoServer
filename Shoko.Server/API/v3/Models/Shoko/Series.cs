@@ -710,15 +710,7 @@ public class Series : BaseModel
             Type = GetAniDBSeriesType(anime.AnimeType);
             Title = series?.GetSeriesName() ?? anime.PreferredTitle;
             Titles = includeTitles
-                ? anime.GetTitles().Select(title => new Title
-                    {
-                        Name = title.Title,
-                        Language = title.LanguageCode,
-                        Type = title.TitleType,
-                        Default = string.Equals(title.Title, Title),
-                        Source = "AniDB"
-                    }
-                ).ToList()
+                ? anime.GetTitles().Select(title => new Title(title, anime.MainTitle, Title)).ToList()
                 : null;
             Description = anime.Description;
             Restricted = anime.Restricted == 1;
@@ -745,15 +737,7 @@ public class Series : BaseModel
             Type = GetAniDBSeriesType(anime?.AnimeType);
             Title = series?.GetSeriesName() ?? anime?.PreferredTitle ?? result.MainTitle;
             Titles = includeTitles
-                ? result.Titles.Select(title => new Title
-                    {
-                        Language = title.LanguageCode,
-                        Name = title.Title,
-                        Type = title.TitleType,
-                        Default = string.Equals(title.Title, Title),
-                        Source = "AniDB"
-                    }
-                ).ToList()
+                ? result.Titles.Select(title => new Title(title, result.MainTitle, Title)).ToList()
                 : null;
             Description = anime?.Description;
             Restricted = anime is { Restricted: 1 };
@@ -783,16 +767,7 @@ public class Series : BaseModel
                 Type = GetAniDBSeriesType(anime.AnimeType);
                 Title = series?.GetSeriesName() ?? anime.PreferredTitle;
                 Titles = includeTitles
-                    ? anime.GetTitles().Select(
-                        title => new Title
-                        {
-                            Name = title.Title,
-                            Language = title.LanguageCode,
-                            Type = title.TitleType,
-                            Default = string.Equals(title.Title, Title),
-                            Source = "AniDB"
-                        }
-                    ).ToList()
+                    ? anime.GetTitles().Select(title => new Title(title, anime.MainTitle, Title)).ToList()
                     : null;
                 Description = anime.Description;
                 Restricted = anime.Restricted == 1;
@@ -806,16 +781,7 @@ public class Series : BaseModel
                 Type = SeriesType.Unknown;
                 Title = result.PreferredTitle;
                 Titles = includeTitles
-                    ? result.Titles.Select(
-                        title => new Title
-                        {
-                            Language = title.LanguageCode,
-                            Name = title.Title,
-                            Type = title.TitleType,
-                            Default = string.Equals(title.Title, Title),
-                            Source = "AniDB"
-                        }
-                    ).ToList()
+                    ? result.Titles.Select(title => new Title(title, result.MainTitle, result.PreferredTitle)).ToList()
                     : null;
                 Description = null;
                 // If the other anime is present we assume they're of the same kind. Be it restricted or unrestricted.
@@ -859,16 +825,7 @@ public class Series : BaseModel
                 Type = GetAniDBSeriesType(anime.AnimeType);
                 Title = series?.GetSeriesName() ?? anime.PreferredTitle;
                 Titles = includeTitles
-                    ? anime.GetTitles().Select(
-                        title => new Title
-                        {
-                            Name = title.Title,
-                            Language = title.LanguageCode,
-                            Type = title.TitleType,
-                            Default = string.Equals(title.Title, Title),
-                            Source = "AniDB"
-                        }
-                    ).ToList()
+                    ? anime.GetTitles().Select(title => new Title(title, anime.MainTitle, Title)).ToList()
                     : null;
                 Description = anime.Description;
                 Restricted = anime.Restricted == 1;
@@ -881,16 +838,7 @@ public class Series : BaseModel
                 Type = SeriesType.Unknown;
                 Title = result.PreferredTitle;
                 Titles = includeTitles
-                    ? result.Titles.Select(
-                        title => new Title
-                        {
-                            Language = title.LanguageCode,
-                            Name = title.Title,
-                            Type = title.TitleType,
-                            Default = string.Equals(title.Title, Title),
-                            Source = "AniDB"
-                        }
-                    ).ToList()
+                    ? result.Titles.Select(title => new Title(title, result.MainTitle, Title)).ToList()
                     : null;
                 Description = null;
                 // If the other anime is present we assume they're of the same kind. Be it restricted or unrestricted.

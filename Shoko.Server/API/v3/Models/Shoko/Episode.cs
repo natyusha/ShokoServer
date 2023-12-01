@@ -216,11 +216,7 @@ public class Episode : BaseModel
             Description = ep.Description;
             Rating = new Rating { MaxValue = 10, Value = rating, Votes = votes, Source = "AniDB" };
             Title = mainTitle;
-            Titles = titles.Select(a => new Title
-                {
-                    Name = a.Title, Language = a.LanguageCode, Default = false, Source = "AniDB"
-                }
-            ).ToList();
+            Titles = titles.Select(a => new Title(a)).ToList();
         }
 
         /// <summary>
