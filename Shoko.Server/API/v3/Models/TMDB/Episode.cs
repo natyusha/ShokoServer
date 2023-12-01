@@ -61,7 +61,7 @@ public class Episode
     public int SeasonNumber;
 
     /// <summary>
-    /// All available ordering for the episode.
+    /// All available ordering for the episode, if they should be included.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public IReadOnlyList<OrderingInformation>? Ordering;
