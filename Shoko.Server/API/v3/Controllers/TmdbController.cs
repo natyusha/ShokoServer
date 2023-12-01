@@ -12,12 +12,14 @@ using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Commands;
 using Shoko.Server.Models;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.TMDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using TmdbEpisode = Shoko.Server.API.v3.Models.TMDB.Episode;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Controllers;
@@ -478,8 +480,11 @@ public class TmdbController : BaseController
     }
 
     [HttpGet("Show/{showID}/Episodes")]
-    public ActionResult<ListResult<object>> GetTmdbEpisodesByTmdbShowID(
+    public ActionResult<ListResult<TmdbEpisode>> GetTmdbEpisodesByTmdbShowID(
         [FromRoute] int showID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false,
         [FromQuery, Range(0, 1000)] int pageSize = 100,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
@@ -488,9 +493,8 @@ public class TmdbController : BaseController
         if (show == null)
             return NotFound(ShowNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
         return show.GetTmdbEpisodes()
-            .ToListResult(e => e as object, page, pageSize);
+            .ToListResult(e => new TmdbEpisode(e, includeTitles, includeOverviews, includeOrdering), page, pageSize);
     }
 
     #endregion
@@ -678,8 +682,11 @@ public class TmdbController : BaseController
     }
 
     [HttpGet("AlternateOrdering/{orderingID}/Episode")]
-    public ActionResult<ListResult<object>> GetTmdbEpisodesByOrderingID(
+    public ActionResult<ListResult<TmdbEpisode>> GetTmdbEpisodesByOrderingID(
         [FromRoute, RegularExpression(@"^[0-9a-fA-F]{32}$")] string orderingID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false,
         [FromQuery, Range(0, 1000)] int pageSize = 100,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
@@ -688,11 +695,10 @@ public class TmdbController : BaseController
         if (ordering == null)
             return NotFound(OrderingNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
         return ordering.GetTmdbAlternateOrderingEpisodes()
-            .Select(e => (CrossRef: e, Episode: e.GetTmdbEpisode()))
+            .Select(e => (Ordering: e, Episode: e.GetTmdbEpisode()))
             .Where(e => e.Episode != null)
-            .ToListResult(e => e.Episode! as object, page, pageSize);
+            .ToListResult(e => new TmdbEpisode(e.Episode!, e.Ordering, includeTitles, includeOverviews, includeOrdering), page, pageSize);
     }
 
     #endregion
@@ -761,8 +767,11 @@ public class TmdbController : BaseController
     }
 
     [HttpGet("AlternateOrdering/Season/{seasonID}/Episode")]
-    public ActionResult<ListResult<object>> GetTmdbEpisodesByAlternateOrderingSeasonID(
+    public ActionResult<ListResult<TmdbEpisode>> GetTmdbEpisodesByAlternateOrderingSeasonID(
         [FromRoute, RegularExpression(@"^[0-9a-fA-F]{32}$")] string seasonID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false,
         [FromQuery, Range(0, 1000)] int pageSize = 100,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
@@ -771,11 +780,10 @@ public class TmdbController : BaseController
         if (orderingSeason == null)
             return NotFound(OrderingNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
         return orderingSeason.GetTmdbAlternateOrderingEpisodes()
-            .Select(e => (CrossRef: e, Episode: e.GetTmdbEpisode()))
+            .Select(e => (Ordering: e, Episode: e.GetTmdbEpisode()))
             .Where(e => e.Episode != null)
-            .ToListResult(e => e.Episode! as object, page, pageSize);
+            .ToListResult(e => new TmdbEpisode(e.Episode!, e.Ordering, includeTitles, includeOverviews, includeOrdering), page, pageSize);
     }
 
     #endregion
@@ -829,8 +837,11 @@ public class TmdbController : BaseController
     }
 
     [HttpGet("Season/{seasonID}/Episode")]
-    public ActionResult<ListResult<object>> GetTmdbEpisodesBySeasonID(
+    public ActionResult<ListResult<TmdbEpisode>> GetTmdbEpisodesBySeasonID(
         [FromRoute] int seasonID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false,
         [FromQuery, Range(0, 1000)] int pageSize = 100,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
@@ -841,7 +852,7 @@ public class TmdbController : BaseController
 
         // TODO: convert this to the v3 model once finalised.
         return season.GetTmdbEpisodes()
-            .ToListResult(e => e as object, page, pageSize);
+            .ToListResult(e => new TmdbEpisode(e, includeTitles, includeOverviews, includeOrdering), page, pageSize);
     }
 
     #endregion
@@ -897,7 +908,43 @@ public class TmdbController : BaseController
     #region Basics
 
     [HttpGet("Episode/{episodeID}")]
-    public ActionResult<object> GetTmdbEpisodeByEpisodeID(
+    public ActionResult<TmdbEpisode> GetTmdbEpisodeByEpisodeID(
+        [FromRoute] int episodeID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false
+    )
+    {
+        var episode = RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(episodeID);
+        if (episode == null)
+            return NotFound(EpisodeNotFound);
+
+        return new TmdbEpisode(episode, includeTitles, includeOverviews, includeOrdering);
+    }
+
+    #endregion
+
+    #region Same-Source Linked Entries
+
+    [HttpGet("Episode/{episodeID}/Show")]
+    public ActionResult<object> GetTmdbShowByEpisodeID(
+        [FromRoute] int episodeID
+    )
+    {
+        var episode = RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(episodeID);
+        if (episode == null)
+            return NotFound(EpisodeNotFound);
+
+        var show = episode.GetTmdbShow();
+        if (show == null)
+            return NotFound(ShowNotFoundByEpisodeID);
+
+        // TODO: convert this to the v3 model once finalised.
+        return show;
+    }
+
+    [HttpGet("Episode/{episodeID}/AlternateOrdering")]
+    public ActionResult<List<object>> GetTmdbAlternateOrderingByEpisodeID(
         [FromRoute] int episodeID
     )
     {
@@ -906,18 +953,30 @@ public class TmdbController : BaseController
             return NotFound(EpisodeNotFound);
 
         // TODO: convert this to the v3 model once finalised.
-        return episode;
+        return episode.GetTmdbAlternateOrderingEpisodes()
+            .DistinctBy(ep => ep.TmdbEpisodeGroupCollectionID)
+            .Select(ep => ep.GetTmdbAlternateOrdering())
+            .OfType<TMDB_AlternateOrdering>()
+            .Select(o => o as object)
+            .ToList();
     }
 
-    #endregion
-
-    #region Same-Source Linked Entries
-
-    [HttpGet("Episode/{episodeID}/Show")]
-
-    [HttpGet("Episode/{episodeID}/AlternateOrdering")]
-
     [HttpGet("Episode/{episodeID}/Season")]
+    public ActionResult<object> GetTmdbSeasonByEpisodeID(
+        [FromRoute] int episodeID
+    )
+    {
+        var episode = RepoFactory.TMDB_Episode.GetByTmdbEpisodeID(episodeID);
+        if (episode == null)
+            return NotFound(EpisodeNotFound);
+
+        var season = episode.GetTmdbSeason();
+        if (season == null)
+            return NotFound(SeasonNotFoundByEpisodeID);
+
+        // TODO: convert this to the v3 model once finalised.
+        return season;
+    }
 
     #endregion
 
