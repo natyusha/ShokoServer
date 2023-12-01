@@ -168,6 +168,9 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
     public TMDB_Show? GetTmdbShow() =>
         RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
+    public IReadOnlyList<TMDB_AlternateOrdering_Episode> GetTmdbAlternateOrderingEpisodes() =>
+        RepoFactory.TMDB_AlternateOrdering_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
+
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetCrossReferences() =>
         RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
 

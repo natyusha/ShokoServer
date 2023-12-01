@@ -81,13 +81,13 @@ public class Title
         Source = "AniDB";
     }
 
-    public Title(TMDB_Title title, TMDB_Title mainTitle = null, TMDB_Title preferredTitle = null)
+    public Title(TMDB_Title title, string mainTitle = null, TMDB_Title preferredTitle = null)
     {
         Name = title.Value;
         Language = title.Language.GetString();
-        Type = TitleType.Official;
-        Default = mainTitle != null && title.TMDB_TitleID == mainTitle.TMDB_TitleID;
-        Preferred = preferredTitle != null && title.TMDB_TitleID == preferredTitle.TMDB_TitleID;
+        Type = TitleType.None;
+        Default = title.Language == TitleLanguage.English && !string.IsNullOrEmpty(mainTitle) && string.Equals(title.Value, mainTitle);
+        Preferred = title.Equals(preferredTitle);
         Source = "TMDB";
     }
 }
