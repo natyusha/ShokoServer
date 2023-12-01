@@ -659,8 +659,6 @@ public class TMDBHelper
         foreach (var xref in RepoFactory.CrossRef_AniDB_TMDB_Show.GetByTmdbShowID(showId))
             MatchAnidbToTmdbEpisodes(xref.AnidbAnimeID, xref.TmdbShowID, xref.TmdbSeasonID, true, true);
 
-        // TODO: Add/update/remove episode xrefs.
-
         return updated;
     }
 
