@@ -11,7 +11,7 @@ using Shoko.Server.Providers.TMDB;
 namespace Shoko.Server.API.v3.Models.TMDB;
 
 /// <summary>
-/// APIv3 TMDB Episode model.
+/// APIv3 TMDB Episode Data Transfer Object (DTO).
 /// </summary>
 public class Episode
 {

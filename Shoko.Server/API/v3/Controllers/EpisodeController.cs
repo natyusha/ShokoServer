@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -13,14 +14,14 @@ using Shoko.Server.API.v3.Helpers;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.API.v3.Models.Shoko;
 using Shoko.Server.Models;
+using Shoko.Server.Models.TMDB;
 using Shoko.Server.Repositories;
 using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using EpisodeType = Shoko.Server.API.v3.Models.Shoko.EpisodeType;
+using TmdbEpisode = Shoko.Server.API.v3.Models.TMDB.Episode;
 using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
-using Shoko.Models.Server;
-using System.Collections.Concurrent;
 
 namespace Shoko.Server.API.v3.Controllers;
 
@@ -267,6 +268,8 @@ public class EpisodeController : BaseController
             .ToListResult(episode => new Episode.TvDB(episode), page, pageSize);
     }
 
+    #region Shoko
+
     /// <summary>
     /// Get the <see cref="Episode"/> entry for the given <paramref name="episodeID"/>.
     /// </summary>
@@ -314,6 +317,10 @@ public class EpisodeController : BaseController
 
         return Ok();
     }
+
+    #endregion
+
+    #region AniDB
 
     /// <summary>
     /// Get the <see cref="Episode.AniDB"/> entry for the given <paramref name="episodeID"/>.
@@ -401,6 +408,45 @@ public class EpisodeController : BaseController
         return NoContent();
     }
 
+    #endregion
+
+    #region TMDB
+
+    [HttpGet("{episodeID}/TMDB/Movie")]
+    public ActionResult<List<object>> GetTmdbMoviesByEpisodeID(
+        [FromRoute] int episodeID
+    )
+    {
+        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        if (episode == null)
+            return NotFound(EpisodeNotFoundWithEpisodeID);
+
+        return new List<object>();
+    }
+
+    [HttpGet("{episode}/TMDB/Episode")]
+    public ActionResult<List<TmdbEpisode>> GetTmdbEpisodesByEpisodeID(
+        [FromRoute] int episodeID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeOrdering = false
+    )
+    {
+        var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
+        if (episode == null)
+            return NotFound(EpisodeNotFoundWithEpisodeID);
+
+        return episode.GetTmdbEpisodeCrossReferences()
+            .Select(xref => xref.GetTmdbEpisode())
+            .OfType<TMDB_Episode>()
+            .Select(tmdbEpisode => new TmdbEpisode(tmdbEpisode, includeTitles, includeOverviews, includeOrdering))
+            .ToList();
+    }
+
+    #endregion
+
+    #region TvDB
+
     /// <summary>
     /// Get the TvDB details for episode with Shoko ID
     /// </summary>
@@ -419,6 +465,8 @@ public class EpisodeController : BaseController
             .Select(a => new Episode.TvDB(a))
             .ToList();
     }
+
+    #endregion
 
     /// <summary>
     /// Set the watched status on an episode

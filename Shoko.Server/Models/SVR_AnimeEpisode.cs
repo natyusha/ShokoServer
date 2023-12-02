@@ -6,6 +6,7 @@ using Shoko.Models.Client;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Repositories;
 using Shoko.Server.Utilities;
 using AnimeTitle = Shoko.Plugin.Abstractions.DataModels.AnimeTitle;
@@ -15,9 +16,8 @@ namespace Shoko.Server.Models;
 
 public class SVR_AnimeEpisode : AnimeEpisode, IEpisode
 {
-    public EpisodeType EpisodeTypeEnum => (EpisodeType) AniDB_Episode.EpisodeType;
 
-    public AniDB_Episode AniDB_Episode => RepoFactory.AniDB_Episode.GetByEpisodeID(AniDB_EpisodeID);
+    #region Shoko
 
     public SVR_AnimeEpisode_User GetUserRecord(int userID)
     {
@@ -38,6 +38,28 @@ public class SVR_AnimeEpisode : AnimeEpisode, IEpisode
     }
 
     public List<CrossRef_File_Episode> FileCrossRefs => RepoFactory.CrossRef_File_Episode.GetByEpisodeID(AniDB_EpisodeID);
+
+    #endregion
+
+    #region AniDB
+
+    public EpisodeType EpisodeTypeEnum => (EpisodeType)AniDB_Episode.EpisodeType;
+
+    public AniDB_Episode AniDB_Episode => RepoFactory.AniDB_Episode.GetByEpisodeID(AniDB_EpisodeID);
+
+    #endregion
+
+    #region TMDB
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Movie> GetTmdbMovieCrossReferences() =>
+        RepoFactory.CrossRef_AniDB_TMDB_Movie.GetByAnidbAnimeID(AniDB_EpisodeID);
+
+    public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetTmdbEpisodeCrossReferences() =>
+        RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByAnidbEpisodeID(AniDB_EpisodeID);
+
+    #endregion
+
+    #region TvDB
 
     public TvDB_Episode TvDBEpisode
     {
@@ -67,6 +89,8 @@ public class SVR_AnimeEpisode : AnimeEpisode, IEpisode
                     .OrderBy(a => a.SeasonNumber).ThenBy(a => a.EpisodeNumber).ToList();
         }
     }
+
+    #endregion
 
     public double UserRating
     {
@@ -165,7 +189,7 @@ public class SVR_AnimeEpisode : AnimeEpisode, IEpisode
             vid.SetResumePosition(0, userID);
         }
     }
-        
+
     public void RemoveVideoLocals(bool deleteFiles)
     {
         GetVideoLocals().SelectMany(a => a.Places).ForEach(place =>
@@ -199,11 +223,11 @@ public class SVR_AnimeEpisode : AnimeEpisode, IEpisode
     IReadOnlyList<AnimeTitle> IEpisode.Titles =>
         RepoFactory.AniDB_Episode_Title.GetByEpisodeID(AniDB_EpisodeID)
             .Select(a => new AnimeTitle
-                {
-                    LanguageCode = a.LanguageCode,
-                    Language = a.Language,
-                    Title = a.Title,
-                }
+            {
+                LanguageCode = a.LanguageCode,
+                Language = a.Language,
+                Title = a.Title,
+            }
             )
             .ToList();
     int IEpisode.EpisodeID => AniDB_EpisodeID;
