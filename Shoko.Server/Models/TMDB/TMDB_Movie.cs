@@ -107,6 +107,7 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
         get => Runtime.HasValue ? (int)Math.Floor(Runtime.Value.TotalMinutes) : null;
         set => Runtime = value.HasValue ? TimeSpan.FromMinutes(value.Value) : null;
     }
+
     /// <summary>
     /// Movie run-time.
     /// </summary>
@@ -168,7 +169,7 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
             UpdateProperty(IsRestricted, movie.Adult, v => IsRestricted = v),
             UpdateProperty(IsVideo, movie.Video, v => IsVideo = v),
             UpdateProperty(Genres, movie.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList(), v => Genres = v),
-            UpdateProperty(ContentRatings, movie.ReleaseDates.Results.Select(releaseDate => new TMDB_ContentRating(releaseDate.Iso_3166_1.FromIso3166ToIso639().GetTitleLanguage(), releaseDate.ReleaseDates.First().Certification)).ToList(), v => ContentRatings = v),
+            UpdateProperty(ContentRatings, movie.ReleaseDates.Results.Select(releaseDate => new TMDB_ContentRating(releaseDate.Iso_3166_1, releaseDate.ReleaseDates.First().Certification)).ToList(), v => ContentRatings = v),
             UpdateProperty(Runtime, movie.Runtime.HasValue ? TimeSpan.FromMinutes(movie.Runtime.Value) : null, v => Runtime = v),
             UpdateProperty(UserRating, movie.VoteAverage, v => UserRating = v),
             UpdateProperty(UserVotes, movie.VoteCount, v => UserVotes = v),

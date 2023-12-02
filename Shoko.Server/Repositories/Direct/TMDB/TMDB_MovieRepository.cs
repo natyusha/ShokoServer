@@ -32,6 +32,8 @@ public class TMDB_MovieRepository : BaseDirectRepository<TMDB_Movie, int>
             return session
                 .Query<TMDB_Movie>()
                 .Where(a => a.TmdbCollectionID == tmdbCollectionId)
+                .OrderBy(a => a.EnglishTitle)
+                .ThenBy(a => a.TmdbMovieID)
                 .ToList();
         });
     }

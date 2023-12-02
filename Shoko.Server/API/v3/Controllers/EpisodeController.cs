@@ -21,6 +21,7 @@ using Shoko.Server.Utilities;
 
 using EpisodeType = Shoko.Server.API.v3.Models.Shoko.EpisodeType;
 using TmdbEpisode = Shoko.Server.API.v3.Models.TMDB.Episode;
+using TmdbMovie = Shoko.Server.API.v3.Models.TMDB.Movie;
 using AniDBEpisodeType = Shoko.Models.Enums.EpisodeType;
 
 namespace Shoko.Server.API.v3.Controllers;
@@ -413,15 +414,21 @@ public class EpisodeController : BaseController
     #region TMDB
 
     [HttpGet("{episodeID}/TMDB/Movie")]
-    public ActionResult<List<object>> GetTmdbMoviesByEpisodeID(
-        [FromRoute] int episodeID
+    public ActionResult<List<TmdbMovie>> GetTmdbMoviesByEpisodeID(
+        [FromRoute] int episodeID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true
     )
     {
         var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
         if (episode == null)
             return NotFound(EpisodeNotFoundWithEpisodeID);
 
-        return new List<object>();
+        return episode.GetTmdbMovieCrossReferences()
+            .Select(xref => xref.GetTmdbMovie())
+            .OfType<TMDB_Movie>()
+            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews))
+            .ToList();
     }
 
     [HttpGet("{episode}/TMDB/Episode")]

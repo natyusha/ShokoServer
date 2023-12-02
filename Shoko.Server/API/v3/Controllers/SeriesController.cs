@@ -31,6 +31,7 @@ using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using TmdbMovie = Shoko.Server.API.v3.Models.TMDB.Movie;
 
 namespace Shoko.Server.API.v3.Controllers;
 
@@ -1000,9 +1001,15 @@ public class SeriesController : BaseController
     /// Get all TMDB movies linked to a Shoko series.
     /// </summary>
     /// <param name="seriesID">Shoko Series ID.</param>
+    /// <param name="includeTitles">Include all titles in the data</param>
+    /// <param name="includeOverviews"></param>
     /// <returns></returns>
     [HttpGet("{seriesID}/TMDB/Movie")]
-    public ActionResult<List<object>> GetTMDBMoviesBySeriesID([FromRoute] int seriesID)
+    public ActionResult<List<TmdbMovie>> GetTMDBMoviesBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true
+    )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1011,11 +1018,10 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        // TODO: Implement this once the v3 model is finalised.
         return series.GetTmdbMovieCrossReferences()
             .Select(o => o.GetTmdbMovie())
             .OfType<TMDB_Movie>()
-            .Select(o => o as object)
+            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews))
             .ToList();
     }
 

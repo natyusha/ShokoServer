@@ -5,6 +5,8 @@ using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shoko.Models.Server;
+using Shoko.Plugin.Abstractions.DataModels;
+using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.API.Annotations;
 using Shoko.Server.API.ModelBinders;
 using Shoko.Server.API.v3.Helpers;
@@ -20,6 +22,7 @@ using Shoko.Server.Utilities;
 
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
 using TmdbEpisode = Shoko.Server.API.v3.Models.TMDB.Episode;
+using TmdbMovie = Shoko.Server.API.v3.Models.TMDB.Movie;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Controllers;
@@ -53,44 +56,85 @@ public class TmdbController : BaseController
     /// <summary>
     /// List all locally available tmdb movies.
     /// </summary>
-    /// <param name="query"></param>
+    /// <param name="search"></param>
     /// <param name="fuzzy"></param>
     /// <param name="includeTitles"></param>
+    /// <param name="includeOverviews"></param>
     /// <param name="isRestricted"></param>
+    /// <param name="isVideo"></param>
     /// <param name="pageSize"></param>
     /// <param name="page"></param>
     /// <returns></returns>
     [HttpGet("Movie")]
-    public ActionResult<ListResult<object>> GetTmdbMovies(
-        [FromRoute] string? query = null,
+    public ActionResult<ListResult<TmdbMovie>> GetTmdbMovies(
+        [FromRoute] string? search = null,
         [FromQuery] bool fuzzy = true,
-        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
         [FromQuery] bool? isRestricted = null,
+        [FromQuery] bool? isVideo = null,
         [FromQuery, Range(0, 1000)] int pageSize = 50,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
     {
-        // TODO: Implement this once the v3 model is finalised.
+        var hasSearch = string.IsNullOrWhiteSpace(search);
+        var movies = RepoFactory.TMDB_Movie.GetAll()
+            .AsParallel()
+            .Where(movie =>
+            {
+                if (isRestricted.HasValue && isRestricted.Value != movie.IsRestricted)
+                    return false;
 
-        return new ListResult<object>();
+                if (isVideo.HasValue && isVideo.Value != movie.IsVideo)
+                    return false;
+
+                return true;
+            });
+        if (hasSearch)
+        {
+            var languages = SettingsProvider.GetSettings()
+                .LanguagePreference
+                .Select(lang => lang.GetTitleLanguage())
+                .Concat(new TitleLanguage[] { TitleLanguage.English })
+                .ToHashSet();
+            return movies
+                .Search(
+                    search,
+                    movie => movie.GetAllTitles()
+                        .Where(title => languages.Contains(title.Language))
+                        .Select(title => title.Value)
+                        .Distinct()
+                        .ToList(),
+                    fuzzy
+                )
+                .ToListResult(a => new TmdbMovie(a.Result, includeTitles, includeOverviews), page, pageSize);
+        }
+
+        return movies
+            .OrderBy(movie => movie.EnglishTitle)
+            .ThenBy(movie => movie.TmdbMovieID)
+            .ToListResult(m => new TmdbMovie(m, includeTitles, includeOverviews), page, pageSize);
     }
 
     /// <summary>
     /// Get the local metadata for a TMDB movie.
     /// </summary>
     /// <param name="movieID">TMDB Movie ID.</param>
+    /// <param name="includeTitles"></param>
+    /// <param name="includeOverviews"></param>
     /// <returns></returns>
     [HttpGet("Movie/{movieID}")]
-    public ActionResult<object> GetTmdbMovieByMovieID(
-        [FromRoute] int movieID
+    public ActionResult<TmdbMovie> GetTmdbMovieByMovieID(
+        [FromRoute] int movieID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true
     )
     {
         var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
         if (movie == null)
             return NotFound(MovieNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
-        return movie;
+        return new TmdbMovie(movie, includeTitles, includeOverviews);
     }
 
     /// <summary>
@@ -130,6 +174,7 @@ public class TmdbController : BaseController
         if (movieCollection == null)
             return NotFound(MovieCollectionByMovieIDNotFound);
 
+        // TODO: convert this to the v3 model once finalised.
         return movieCollection;
     }
 
@@ -358,18 +403,19 @@ public class TmdbController : BaseController
     #region Same-Source Linked Entries
 
     [HttpGet("Movie/Collection/{collecitonID}/Movie")]
-    public ActionResult<List<object>> GetMoviesForMovieCollectionByCollectionID(
-        [FromRoute] int collectionID
+    public ActionResult<List<TmdbMovie>> GetMoviesForMovieCollectionByCollectionID(
+        [FromRoute] int collectionID,
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false
     )
     {
         var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionID);
         if (collection == null)
             return NotFound(MovieCollectionNotFound);
 
-        var movies = collection.GetTmdbMovies();
-
-        // TODO: convert this to the v3 model once finalised.
-        return (List<object>)movies;
+        return collection.GetTmdbMovies()
+            .Select(movie => new TmdbMovie(movie, includeTitles, includeOverviews))
+            .ToList();
     }
 
     #endregion

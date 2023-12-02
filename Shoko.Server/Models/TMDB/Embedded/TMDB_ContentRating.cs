@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Plugin.Abstractions.Extensions;
 using Shoko.Server.Extensions;
@@ -8,39 +9,49 @@ namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_ContentRating
 {
-    public string? LanguageCode
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <value></value>
+    public string CountryCode { get; set; }
+
+    [JsonIgnore]
+    public string LanguageCode
     {
-        get => Language == TitleLanguage.None ? null : Language.GetString();
-        private set => Language = string.IsNullOrEmpty(value) ? TitleLanguage.None : value.GetTitleLanguage();
+        get => CountryCode.FromIso3166ToIso639();
     }
 
-    public TitleLanguage Language { get; private set; }
+    [JsonIgnore]
+    public TitleLanguage Language
+    {
+        get => LanguageCode.GetTitleLanguage();
+    }
 
     /// <summary>
     /// content ratings (certifications) that have been added to a TV show.
     /// </summary>
-    public string Rating { get; private set; }
+    public string Rating { get; set; }
 
-    public TMDB_ContentRating(TitleLanguage lang, string rating)
+    public TMDB_ContentRating()
     {
-        Language = lang;
-        Rating = rating;
+        CountryCode = string.Empty;
+        Rating = string.Empty;
     }
 
-    public TMDB_ContentRating(string lang, string rating)
+    public TMDB_ContentRating(string countryCode, string rating)
     {
-        LanguageCode = lang;
+        CountryCode = countryCode;
         Rating = rating;
     }
 
     public override string ToString()
     {
-        return $"{LanguageCode}|{Rating}";
+        return $"{CountryCode}|{Rating}";
     }
 
     public static TMDB_ContentRating FromString(string str)
     {
-        var (langCode, rating, _) = str.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        return new(langCode, rating);
+        var (countryCode, rating, _) = str.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return new(countryCode, rating);
     }
 }
