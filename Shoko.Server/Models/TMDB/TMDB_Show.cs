@@ -152,8 +152,7 @@ public class TMDB_Show : TMDB_Base<int>, IEntityMetadata
             UpdateProperty(OriginalLanguageCode, show.OriginalLanguage, v => OriginalLanguageCode = v),
             UpdateProperty(EnglishTitle, translation?.Data.Name ?? show.Name, v => EnglishTitle = v),
             UpdateProperty(EnglishOverview, translation?.Data.Overview ?? show.Name, v => EnglishOverview = v),
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/443 to be merged to uncomment the next line.
-            UpdateProperty(IsRestricted, false /* show.Adult */, v => IsRestricted = v),
+            UpdateProperty(IsRestricted, show.Adult, v => IsRestricted = v),
             UpdateProperty(Genres, show.Genres.SelectMany(genre => genre.Name.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList(), v => Genres = v),
             UpdateProperty(ContentRatings, show.ContentRatings.Results.Select(rating => new TMDB_ContentRating(rating.Iso_3166_1, rating.Rating)).ToList(), v => ContentRatings = v),
             UpdateProperty(EpisodeCount, show.NumberOfEpisodes, v => EpisodeCount = v),

@@ -74,9 +74,7 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
 
     public bool Populate(Collection collection)
     {
-        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
-        TranslationsContainer translations = null!; //  = collection.Translations;
-        var translation = translations?.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
+        var translation = collection.Translations?.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
         var updates = new[]
         {
             UpdateProperty(EnglishTitle, string.IsNullOrEmpty(translation?.Data.Name) ? collection.Name : translation.Data.Name, v => EnglishTitle = v),

@@ -256,8 +256,7 @@ public class TMDBHelper
         {
             var movieXRefs = RepoFactory.TMDB_Collection_Movie.GetByTmdbCollectionID(collectionId.Value);
             var tmdbCollection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionId.Value) ?? new(collectionId.Value);
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
-            var collection = await _client.GetCollectionAsync(collectionId.Value, CollectionMethods.Images /* | CollectionMethods.Translations */);
+            var collection = await _client.GetCollectionAsync(collectionId.Value, CollectionMethods.Images | CollectionMethods.Translations);
             if (collection == null)
             {
                 PurgeMovieCollection(collectionId.Value);
@@ -265,8 +264,7 @@ public class TMDBHelper
             }
 
             var updated = tmdbCollection.Populate(collection);
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/446 to be merged to uncomment the next line.
-            updated |= UpdateTitlesAndOverviews(tmdbCollection, null /* collection.Translations */);
+            updated |= UpdateTitlesAndOverviews(tmdbCollection, collection.Translations);
 
             var xrefsToAdd = 0;
             var xrefsToSave = new List<TMDB_Collection_Movie>();
@@ -677,8 +675,7 @@ public class TMDBHelper
         var episodesToSave = new List<TMDB_Episode>();
         foreach (var reducedSeason in show.Seasons)
         {
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next line.
-            var season = await _client.GetTvSeasonAsync(show.Id, reducedSeason.SeasonNumber /* , TvSeasonMethods.Translations */) ??
+            var season = await _client.GetTvSeasonAsync(show.Id, reducedSeason.SeasonNumber, TvSeasonMethods.Translations) ??
                 throw new Exception("TODO: Input some error message here that makes sense.");
             if (!existingSeasons.TryGetValue(reducedSeason.Id, out var tmdbSeason))
             {
@@ -686,11 +683,8 @@ public class TMDBHelper
                 tmdbSeason = new(reducedSeason.Id);
             }
 
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/457 to be merged to uncomment the next lines.
-            TranslationsContainer seasonTranslations = null /* season.Translations */;
-
-            var seasonUpdated = tmdbSeason.Populate(show, season, seasonTranslations!);
-            seasonUpdated |= UpdateTitlesAndOverviews(tmdbSeason, seasonTranslations!);
+            var seasonUpdated = tmdbSeason.Populate(show, season, season.Translations!);
+            seasonUpdated |= UpdateTitlesAndOverviews(tmdbSeason, season.Translations!);
             if (seasonUpdated)
             {
                 tmdbSeason.LastUpdatedAt = DateTime.Now;
@@ -705,9 +699,7 @@ public class TMDBHelper
                     tmdbEpisode = new(reducedSeason.Id);
                 }
 
-                // TODO: Waiting for https://github.com/jellyfin/TMDbLib/pull/458 to be merged to uncomment the next lines.
-                TranslationsContainer episodeTranslations = null /* await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber) */;
-
+                var episodeTranslations = await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber);
                 var episodeUpdated = tmdbEpisode.Populate(show, season, episode, episodeTranslations!);
                 episodeUpdated |= UpdateTitlesAndOverviews(tmdbEpisode, episodeTranslations!);
                 if (episodeUpdated)

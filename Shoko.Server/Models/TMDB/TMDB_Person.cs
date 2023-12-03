@@ -95,7 +95,6 @@ public class TMDB_Person
     {
         var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
         EnglishName = person.Name;
-        // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/444 to close, but we don't need to do anything to the code for it to work afterwards.
         EnglishBiography = translation?.Data.Overview ?? person.Biography;
         IsRestricted = person.Adult;
         BirthDay = person.Birthday.HasValue ? DateOnly.FromDateTime(person.Birthday.Value) : null;

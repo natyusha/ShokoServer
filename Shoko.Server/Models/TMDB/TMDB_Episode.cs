@@ -131,8 +131,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
             UpdateProperty(EnglishOverview, translation?.Data.Overview ?? episode.Overview, v => EnglishOverview = v),
             UpdateProperty(SeasonNumber, episode.SeasonNumber, v => SeasonNumber = v),
             UpdateProperty(EpisodeNumber, episode.EpisodeNumber, v => EpisodeNumber = v),
-            // TODO: Waiting for https://github.com/Jellyfin/TMDbLib/pull/442 to be merged to uncomment the next line.
-            UpdateProperty(Runtime, null /* TimeSpan.FromMinutes(episode.Runtime) */, v => Runtime = v),
+            UpdateProperty(Runtime, episode.Runtime.HasValue ? TimeSpan.FromMinutes(episode.Runtime.Value) : null, v => Runtime = v),
             UpdateProperty(UserRating, episode.VoteAverage, v => UserRating = v),
             UpdateProperty(UserVotes, episode.VoteCount, v => UserVotes = v),
             UpdateProperty(AiredAt, episode.AirDate.HasValue ? DateOnly.FromDateTime(episode.AirDate.Value) : null, v => AiredAt = v),
