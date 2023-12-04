@@ -1,9 +1,15 @@
 
 #nullable enable
+using System.Collections.Generic;
+using Shoko.Server.Repositories;
+using Shoko.Server.Server;
+
 namespace Shoko.Server.Models.TMDB;
 
 public class TMDB_Network
 {
+    #region Properties
+
     /// <summary>
     /// Local ID.
     /// </summary>
@@ -23,4 +29,18 @@ public class TMDB_Network
     /// The country the network originates from.
     /// </summary>
     public string CountryOfOrigin { get; set; } = string.Empty;
+
+    #endregion
+
+    #region Constructors
+
+    #endregion
+
+    #region Methods
+
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbNetworkIDAndType(TmdbNetworkID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbNetworkID(TmdbNetworkID);
+
+    #endregion
 }

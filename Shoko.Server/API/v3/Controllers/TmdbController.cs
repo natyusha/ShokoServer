@@ -60,6 +60,7 @@ public class TmdbController : BaseController
     /// <param name="fuzzy"></param>
     /// <param name="includeTitles"></param>
     /// <param name="includeOverviews"></param>
+    /// <param name="includeImages"></param>
     /// <param name="isRestricted"></param>
     /// <param name="isVideo"></param>
     /// <param name="pageSize"></param>
@@ -71,6 +72,7 @@ public class TmdbController : BaseController
         [FromQuery] bool fuzzy = true,
         [FromQuery] bool includeTitles = false,
         [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false,
         [FromQuery] bool? isRestricted = null,
         [FromQuery] bool? isVideo = null,
         [FromQuery, Range(0, 1000)] int pageSize = 50,
@@ -107,13 +109,13 @@ public class TmdbController : BaseController
                         .ToList(),
                     fuzzy
                 )
-                .ToListResult(a => new TmdbMovie(a.Result, includeTitles, includeOverviews), page, pageSize);
+                .ToListResult(a => new TmdbMovie(a.Result, includeTitles, includeOverviews, includeImages), page, pageSize);
         }
 
         return movies
             .OrderBy(movie => movie.EnglishTitle)
             .ThenBy(movie => movie.TmdbMovieID)
-            .ToListResult(m => new TmdbMovie(m, includeTitles, includeOverviews), page, pageSize);
+            .ToListResult(m => new TmdbMovie(m, includeTitles, includeOverviews, includeImages), page, pageSize);
     }
 
     /// <summary>
@@ -122,19 +124,21 @@ public class TmdbController : BaseController
     /// <param name="movieID">TMDB Movie ID.</param>
     /// <param name="includeTitles"></param>
     /// <param name="includeOverviews"></param>
+    /// <param name="includeImages"></param>
     /// <returns></returns>
     [HttpGet("Movie/{movieID}")]
     public ActionResult<TmdbMovie> GetTmdbMovieByMovieID(
         [FromRoute] int movieID,
         [FromQuery] bool includeTitles = true,
-        [FromQuery] bool includeOverviews = true
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeImages = true
     )
     {
         var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
         if (movie == null)
             return NotFound(MovieNotFound);
 
-        return new TmdbMovie(movie, includeTitles, includeOverviews);
+        return new TmdbMovie(movie, includeTitles, includeOverviews, includeImages);
     }
 
     /// <summary>
@@ -406,7 +410,8 @@ public class TmdbController : BaseController
     public ActionResult<List<TmdbMovie>> GetMoviesForMovieCollectionByCollectionID(
         [FromRoute] int collectionID,
         [FromQuery] bool includeTitles = false,
-        [FromQuery] bool includeOverviews = false
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false
     )
     {
         var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionID);
@@ -414,7 +419,7 @@ public class TmdbController : BaseController
             return NotFound(MovieCollectionNotFound);
 
         return collection.GetTmdbMovies()
-            .Select(movie => new TmdbMovie(movie, includeTitles, includeOverviews))
+            .Select(movie => new TmdbMovie(movie, includeTitles, includeOverviews, includeImages))
             .ToList();
     }
 

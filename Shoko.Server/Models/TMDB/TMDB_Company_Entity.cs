@@ -1,6 +1,8 @@
 
 #nullable enable
 using System;
+using Shoko.Server.Models.Interfaces;
+using Shoko.Server.Repositories;
 using Shoko.Server.Server;
 
 #nullable enable
@@ -54,6 +56,29 @@ public class TMDB_Company_Entity
         Index = index;
         ReleasedAt = releasedAt;
     }
+
+    #endregion
+
+    #region Methods
+
+    public TMDB_Company? GetTmdbCompany() =>
+        RepoFactory.TMDB_Company.GetByTmdbCompanyID(TmdbCompanyID);
+
+    public IEntityMetadata? GetTmdbEntity() =>
+        TmdbEntityType switch
+        {
+            ForeignEntityType.Show => RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbEntityID),
+            ForeignEntityType.Movie => RepoFactory.TMDB_Movie.GetByTmdbMovieID(TmdbEntityID),
+            _ => null,
+        };
+
+    public TMDB_Show? GetTmdbShow() => TmdbEntityType == ForeignEntityType.Show
+        ? RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbEntityID)
+        : null;
+
+    public TMDB_Movie? GetTmdbMovie() => TmdbEntityType == ForeignEntityType.Movie
+        ? RepoFactory.TMDB_Movie.GetByTmdbMovieID(TmdbEntityID)
+        : null;
 
     #endregion
 }

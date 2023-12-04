@@ -106,6 +106,10 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
 
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbCollectionIDAndType(TmdbCollectionID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbCollectionID(TmdbCollectionID);
+
     public IReadOnlyList<TMDB_Movie> GetTmdbMovies() =>
         RepoFactory.TMDB_Movie.GetByTmdbCollectionID(TmdbCollectionID);
 

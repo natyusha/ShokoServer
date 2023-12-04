@@ -200,6 +200,19 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Movie, TmdbMovieID);
 
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbMovieIDAndType(TmdbMovieID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbMovieID(TmdbMovieID);
+
+    public IReadOnlyList<TMDB_Company_Entity> GetTmdbCompanyCrossReferences() =>
+        RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(ForeignEntityType.Movie, TmdbMovieID);
+
+    public IReadOnlyList<TMDB_Company> GetTmdbCompanies() =>
+        GetTmdbCompanyCrossReferences()
+            .Select(xref => xref.GetTmdbCompany())
+            .OfType<TMDB_Company>()
+            .ToList();
+
     public TMDB_Collection? GetTmdbCollection() => TmdbCollectionID.HasValue
         ? RepoFactory.TMDB_Collection.GetByTmdbCollectionID(TmdbCollectionID.Value)
         : null;

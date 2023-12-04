@@ -113,5 +113,9 @@ public class TMDB_Person
     public IReadOnlyList<TMDB_Overview> GetAllBiographies() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Person, TmdbPersonID);
 
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbPersonIDAndType(TmdbPersonID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbPersonID(TmdbPersonID);
+
     #endregion
 }

@@ -1003,12 +1003,14 @@ public class SeriesController : BaseController
     /// <param name="seriesID">Shoko Series ID.</param>
     /// <param name="includeTitles">Include all titles in the data</param>
     /// <param name="includeOverviews"></param>
+    /// <param name="includeImages"></param>
     /// <returns></returns>
     [HttpGet("{seriesID}/TMDB/Movie")]
     public ActionResult<List<TmdbMovie>> GetTMDBMoviesBySeriesID(
         [FromRoute] int seriesID,
-        [FromQuery] bool includeTitles = true,
-        [FromQuery] bool includeOverviews = true
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false
     )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
@@ -1021,7 +1023,7 @@ public class SeriesController : BaseController
         return series.GetTmdbMovieCrossReferences()
             .Select(o => o.GetTmdbMovie())
             .OfType<TMDB_Movie>()
-            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews))
+            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews, includeImages))
             .ToList();
     }
 

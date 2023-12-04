@@ -188,6 +188,19 @@ public class TMDB_Show : TMDB_Base<int>, IEntityMetadata
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Show, TmdbShowID);
 
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbShowIDAndType(TmdbShowID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbShowID(TmdbShowID);
+
+    public IReadOnlyList<TMDB_Company_Entity> GetTmdbCompanyCrossReferences() =>
+        RepoFactory.TMDB_Company_Entity.GetByTmdbEntityTypeAndID(ForeignEntityType.Show, TmdbShowID);
+
+    public IReadOnlyList<TMDB_Company> GetTmdbCompanies() =>
+        GetTmdbCompanyCrossReferences()
+            .Select(xref => xref.GetTmdbCompany())
+            .OfType<TMDB_Company>()
+            .ToList();
+
     public IReadOnlyList<TMDB_AlternateOrdering> GetTmdbAlternateOrdering() =>
         RepoFactory.TMDB_AlternateOrdering.GetByTmdbShowID(TmdbShowID);
 

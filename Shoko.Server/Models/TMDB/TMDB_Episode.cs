@@ -161,6 +161,10 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
     public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
         RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
 
+    public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
+        ? RepoFactory.TMDB_Image.GetByTmdbEpisodeIDAndType(TmdbEpisodeID, entityType.Value)
+        : RepoFactory.TMDB_Image.GetByTmdbEpisodeID(TmdbEpisodeID);
+
     public TMDB_Season? GetTmdbSeason() =>
         RepoFactory.TMDB_Season.GetByTmdbSeasonID(TmdbSeasonID);
 

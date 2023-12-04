@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Shoko.Models.Enums;
 using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.API.v3.Models.Common;
 using Shoko.Server.Models.TMDB;
@@ -75,6 +76,16 @@ public class Movie
     public bool IsVideo;
 
     /// <summary>
+    /// User rating of the episode from TMDB users.
+    /// </summary>
+    public Rating UserRating;
+
+    /// <summary>
+    /// The episode run-time, if it is known.
+    /// </summary>
+    public TimeSpan? Runtime;
+
+    /// <summary>
     /// Genres.
     /// </summary>
     public IReadOnlyList<string> Genres;
@@ -85,14 +96,14 @@ public class Movie
     public IReadOnlyList<ContentRating> ContentRatings;
 
     /// <summary>
-    /// User rating of the episode from TMDB users.
+    /// The production companies (studios) that produced the movie.
     /// </summary>
-    public Rating UserRating;
+    public IReadOnlyList<Studio> Studios;
 
     /// <summary>
-    /// The episode run-time, if it is known.
+    /// Images assosiated with the movie, if they should be included.
     /// </summary>
-    public TimeSpan? Runtime;
+    public Images? Images;
 
     /// <summary>
     /// The date the episode first released, if it is known.
@@ -110,14 +121,13 @@ public class Movie
     /// </summary>
     public DateTime LastUpdatedAt;
 
-    public Movie(TMDB_Movie movie, bool includeTitles = true, bool includeOverviews = true)
+    public Movie(TMDB_Movie movie, bool includeTitles = true, bool includeOverviews = true, bool includeImages = false)
     {
         var preferredTitle = movie.GetPreferredTitle(true);
         var preferredOverview = movie.GetPreferredOverview(true);
 
         ID = movie.TmdbMovieID;
         CollectionID = movie.TmdbCollectionID;
-
         Title = preferredTitle!.Value;
         if (includeTitles)
             Titles = movie.GetAllTitles()
@@ -126,7 +136,6 @@ public class Movie
                 .ThenBy(title => title.Default)
                 .ThenBy(title => title.Language)
                 .ToList();
-
         Overview = preferredOverview!.Value;
         if (includeOverviews)
             Overviews = movie.GetAllOverviews()
@@ -135,18 +144,9 @@ public class Movie
                 .ThenBy(title => title.Default)
                 .ThenBy(title => title.Language)
                 .ToList();
-
         OriginalLanguage = movie.OriginalLanguage;
-
         IsRestricted = movie.IsRestricted;
         IsVideo = movie.IsVideo;
-
-        Genres = movie.Genres;
-
-        ContentRatings = movie.ContentRatings
-            .Select(contentRating => new ContentRating(contentRating))
-            .ToList();
-
         UserRating = new()
         {
             Value = (decimal)movie.UserRating,
@@ -154,10 +154,45 @@ public class Movie
             Votes = movie.UserVotes,
             Source = "TMDB",
         };
-
         Runtime = movie.Runtime;
+        Genres = movie.Genres;
+        ContentRatings = movie.ContentRatings
+            .Select(contentRating => new ContentRating(contentRating))
+            .ToList();
+        Studios = movie.GetTmdbCompanies()
+            .Select(company => new Studio(company))
+            .ToList();
+        if (includeImages)
+            Images = GetImages(movie);
         ReleasedAt = movie.ReleasedAt;
         CreatedAt = movie.CreatedAt.ToUniversalTime();
         LastUpdatedAt = movie.LastUpdatedAt.ToUniversalTime();
+    }
+
+    private static Images GetImages(TMDB_Movie movie)
+    {
+        var images = new Images();
+        foreach (var image in movie.GetImages())
+        {
+            var dto = new Image(image.TMDB_ImageID, image.ImageType, DataSourceType.TMDB, false, !image.IsEnabled);
+            switch (image.ImageType)
+            {
+                case Server.ImageEntityType.Poster:
+                    images.Posters.Add(dto);
+                    break;
+                case Server.ImageEntityType.Banner:
+                    images.Banners.Add(dto);
+                    break;
+                case Server.ImageEntityType.Backdrop:
+                    images.Fanarts.Add(dto);
+                    break;
+                case Server.ImageEntityType.Logo:
+                    images.Logos.Add(dto);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return images;
     }
 }

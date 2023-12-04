@@ -416,8 +416,9 @@ public class EpisodeController : BaseController
     [HttpGet("{episodeID}/TMDB/Movie")]
     public ActionResult<List<TmdbMovie>> GetTmdbMoviesByEpisodeID(
         [FromRoute] int episodeID,
-        [FromQuery] bool includeTitles = true,
-        [FromQuery] bool includeOverviews = true
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false
     )
     {
         var episode = RepoFactory.AnimeEpisode.GetByID(episodeID);
@@ -427,7 +428,7 @@ public class EpisodeController : BaseController
         return episode.GetTmdbMovieCrossReferences()
             .Select(xref => xref.GetTmdbMovie())
             .OfType<TMDB_Movie>()
-            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews))
+            .Select(tmdbMovie => new TmdbMovie(tmdbMovie, includeTitles, includeOverviews, includeImages))
             .ToList();
     }
 

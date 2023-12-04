@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shoko.Server.Databases;
@@ -17,6 +18,7 @@ public class TMDB_Company_EntityRepository : BaseDirectRepository<TMDB_Company_E
             return session
                 .Query<TMDB_Company_Entity>()
                 .Where(a => a.TmdbCompanyID == companyId)
+                .OrderBy(xref => xref.ReleasedAt ?? DateOnly.MaxValue)
                 .ToList();
         });
     }
@@ -29,6 +31,7 @@ public class TMDB_Company_EntityRepository : BaseDirectRepository<TMDB_Company_E
             return session
                 .Query<TMDB_Company_Entity>()
                 .Where(a => a.TmdbEntityType == entityType && a.TmdbEntityID == entityId)
+                .OrderBy(xref => xref.Index)
                 .ToList();
         });
     }

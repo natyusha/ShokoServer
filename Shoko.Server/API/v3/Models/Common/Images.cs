@@ -7,4 +7,5 @@ public class Images
     public List<Image> Posters { get; set; } = new();
     public List<Image> Fanarts { get; set; } = new();
     public List<Image> Banners { get; set; } = new();
+    public List<Image> Logos { get; set; } = new();
 }

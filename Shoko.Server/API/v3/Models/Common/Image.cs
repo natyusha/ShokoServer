@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Drawing;
 using ImageMagick;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -20,10 +21,10 @@ namespace Shoko.Server.API.v3.Models.Common;
 public class Image
 {
     /// <summary>
-    /// AniDB, TvDB, TMDB, etc.
-    /// </summary>
+    /// The image's ID.
+    /// /// </summary>
     [Required]
-    public ImageSource Source { get; set; }
+    public int ID { get; set; }
 
     /// <summary>
     /// text representation of type of image. fanart, poster, etc. Mainly so clients know what they are getting
@@ -32,10 +33,10 @@ public class Image
     public ImageType Type { get; set; }
 
     /// <summary>
-    /// The image's ID.
+    /// AniDB, TvDB, TMDB, etc.
     /// </summary>
     [Required]
-    public int ID { get; set; }
+    public ImageSource Source { get; set; }
 
     /// <summary>
     /// The relative path from the base image directory. A client with access to the server's filesystem can map
@@ -44,9 +45,16 @@ public class Image
     public string? RelativeFilepath { get; set; }
 
     /// <summary>
-    /// Is it marked as default. Only one default is possible for a given <see cref="Image.Type"/>.
+    /// Indicates this is the preferred image for the <see cref="Type"/> for the
+    /// selected entity.
     /// </summary>
     public bool Preferred { get; set; }
+
+    /// <summary>
+    /// Indicates the images is disabled. You must explicitly ask for these, for
+    /// hopefully obvious reasons.
+    /// </summary>
+    public bool Disabled { get; set; }
 
     /// <summary>
     /// Width of the image.
@@ -57,11 +65,6 @@ public class Image
     /// Height of the image.
     /// </summary>
     public int? Height { get; set; }
-
-    /// <summary>
-    /// Is it marked as disabled. You must explicitly ask for these, for obvious reasons.
-    /// </summary>
-    public bool Disabled { get; set; }
 
     /// <summary>
     /// Series info for the image, currently only set when sending a random
@@ -133,7 +136,11 @@ public class Image
         }
     }
 
-    private static readonly List<DataSourceType> BannerImageSources = new() { DataSourceType.TvDB };
+    private static readonly List<DataSourceType> BannerImageSources = new()
+    {
+        DataSourceType.TMDB,
+        DataSourceType.TvDB,
+    };
 
     private static readonly List<DataSourceType> PosterImageSources = new()
     {
@@ -143,7 +150,11 @@ public class Image
     };
 
     // There is only one thumbnail provider atm.
-    private static readonly List<DataSourceType> ThumbImageSources = new() { DataSourceType.TvDB };
+    private static readonly List<DataSourceType> ThumbImageSources = new()
+    {
+        DataSourceType.TMDB,
+        DataSourceType.TvDB,
+    };
 
     // TMDB is too unreliable atm, so we will only use TvDB for now.
     private static readonly List<DataSourceType> FanartImageSources = new()
@@ -248,6 +259,11 @@ public class Image
         Staff = 6,
 
         /// <summary>
+        /// Clear-text logo.
+        /// </summary>
+        Logo = 7,
+
+        /// <summary>
         /// User avatar.
         /// </summary>
         Avatar = 99,
@@ -309,6 +325,7 @@ public static class ImageExtensions
             Image.ImageType.Poster => ImageEntityType.Poster,
             Image.ImageType.Staff => ImageEntityType.Person,
             Image.ImageType.Thumb => ImageEntityType.Thumbnail,
+            Image.ImageType.Logo => ImageEntityType.Logo,
             _ => ImageEntityType.None,
         };
 
@@ -322,6 +339,7 @@ public static class ImageExtensions
             ImageEntityType.Poster => Image.ImageType.Poster,
             ImageEntityType.Person => Image.ImageType.Staff,
             ImageEntityType.Thumbnail => Image.ImageType.Thumb,
+            ImageEntityType.Logo => Image.ImageType.Logo,
             _ => Image.ImageType.Staff,
         };
 
