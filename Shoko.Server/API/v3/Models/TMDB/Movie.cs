@@ -32,7 +32,7 @@ public class Movie
     public string Title;
 
     /// <summary>
-    /// All available titles, if they should be included.
+    /// All available titles for the movie, if they should be included.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public IReadOnlyList<Title>? Titles;
@@ -43,7 +43,7 @@ public class Movie
     public string Overview;
 
     /// <summary>
-    /// All available overviews for the episode, if they should be included.
+    /// All available overviews for the movie, if they should be included.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public IReadOnlyList<Overview>? Overviews;
@@ -103,6 +103,7 @@ public class Movie
     /// <summary>
     /// Images assosiated with the movie, if they should be included.
     /// </summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public Images? Images;
 
     /// <summary>

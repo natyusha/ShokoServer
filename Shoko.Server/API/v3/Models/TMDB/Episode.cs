@@ -23,7 +23,7 @@ public class Episode
     /// <summary>
     /// TMDB Season ID.
     /// </summary>
-    public int SeasonID;
+    public string SeasonID;
 
     /// <summary>
     /// TMDB Show ID.
@@ -36,7 +36,7 @@ public class Episode
     public string Title;
 
     /// <summary>
-    /// All available titles, if they should be included.
+    /// All available titles for the episode, if they should be included.
     /// </summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public IReadOnlyList<Title>? Titles;
@@ -104,7 +104,9 @@ public class Episode
         var preferredTitle = episode.GetPreferredTitle(true);
 
         ID = episode.TmdbEpisodeID;
-        SeasonID = episode.TmdbSeasonID;
+        SeasonID = alternateOrderingEpisode != null
+         ? alternateOrderingEpisode.TmdbEpisodeGroupID
+         : episode.TmdbSeasonID.ToString();
         ShowID = episode.TmdbShowID;
 
         Title = preferredTitle!.Value;

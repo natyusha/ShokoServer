@@ -32,6 +32,8 @@ using Shoko.Server.Utilities;
 
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
 using TmdbMovie = Shoko.Server.API.v3.Models.TMDB.Movie;
+using TmdbSeason = Shoko.Server.API.v3.Models.TMDB.Season;
+using TmdbShow = Shoko.Server.API.v3.Models.TMDB.Show;
 
 namespace Shoko.Server.API.v3.Controllers;
 
@@ -1126,7 +1128,13 @@ public class SeriesController : BaseController
     #region Show
 
     [HttpGet("{seriesID}/TMDB/Show")]
-    public ActionResult<List<object>> GetTMDBShowsBySeriesID([FromRoute] int seriesID)
+    public ActionResult<List<TmdbShow>> GetTMDBShowsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeOrdering = false,
+        [FromQuery] bool includeImages = false
+    )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1135,11 +1143,10 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        // TODO: Implement this once the v3 model is finalised.
         return series.GetTmdbShowCrossReferences()
             .Select(o => o.GetTmdbShow())
             .OfType<TMDB_Show>()
-            .Select(o => o as object)
+            .Select(o => new TmdbShow(o, includeTitles, includeOverviews, includeOrdering, includeImages))
             .ToList();
     }
 
@@ -1395,7 +1402,12 @@ public class SeriesController : BaseController
     #region Season
 
     [HttpGet("{seriesID}/TMDB/Season")]
-    public ActionResult<List<object>> GetTMDBSeasonsBySeriesID([FromRoute] int seriesID)
+    public ActionResult<List<TmdbSeason>> GetTMDBSeasonsBySeriesID(
+        [FromRoute] int seriesID,
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false
+    )
     {
         var series = RepoFactory.AnimeSeries.GetByID(seriesID);
         if (series == null)
@@ -1404,11 +1416,10 @@ public class SeriesController : BaseController
         if (!User.AllowedSeries(series))
             return Forbid(TvdbForbiddenForUser);
 
-        // TODO: Implement this once the v3 model is finalised.
         return series.GetTmdbShowCrossReferences(true)
             .Select(o => o.GetTmdbSeason())
             .OfType<TMDB_Season>()
-            .Select(o => o as object)
+            .Select(o => new TmdbSeason(o, includeTitles, includeOverviews, includeImages))
             .ToList();
     }
 
