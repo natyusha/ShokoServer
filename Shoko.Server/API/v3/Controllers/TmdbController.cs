@@ -866,7 +866,6 @@ public class TmdbController : BaseController
         if (season == null)
             return NotFound(SeasonNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
         return season.GetTmdbEpisodes()
             .ToListResult(e => new TmdbEpisode(e, includeTitles, includeOverviews, includeOrdering), page, pageSize);
     }
