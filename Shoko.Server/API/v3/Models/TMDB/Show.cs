@@ -34,7 +34,7 @@ public class Show
     public IReadOnlyList<Title>? Titles;
 
     /// <summary>
-    /// Preferred overview based upon series title preference.
+    /// Preferred overview based upon episode title preference.
     /// </summary>
     public string Overview;
 
@@ -179,7 +179,8 @@ public class Show
         AlternateOrderingCount = show.AlternateOrderingCount;
         if (includeOrdering)
         {
-            var ordering = new List<OrderingInformation> {
+            var ordering = new List<OrderingInformation>
+            {
                 new(show, alternateOrdering),
             };
             foreach (var altOrder in show.GetTmdbAlternateOrdering())

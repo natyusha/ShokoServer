@@ -43,7 +43,7 @@ public class Season
     public IReadOnlyList<Title>? Titles;
 
     /// <summary>
-    /// Preferred overview based upon series title preference.
+    /// Preferred overview based upon episode title preference.
     /// </summary>
     public string Overview;
 

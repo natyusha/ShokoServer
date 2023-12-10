@@ -27,7 +27,7 @@ public class Movie
     public int? CollectionID;
 
     /// <summary>
-    /// Preferred title based upon episode title preference.
+    /// Preferred title based upon series title preference.
     /// </summary>
     public string Title;
 
@@ -170,10 +170,118 @@ public class Movie
         LastUpdatedAt = movie.LastUpdatedAt.ToUniversalTime();
     }
 
+    /// <summary>
+    /// APIv3 The Movie DataBase (TMDB) Movie Collection Data Transfer Object (DTO).
+    /// </summary>
+    public class Collection
+    {
+        /// <summary>
+        /// TMDB Movie Collection ID.
+        /// </summary>
+        public int ID;
+
+        /// <summary>
+        /// Preferred title based upon series title preference.
+        /// </summary>
+        public string Title;
+
+        /// <summary>
+        /// All available titles for the movie collection, if they should be included.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyList<Title>? Titles;
+
+        /// <summary>
+        /// Preferred overview based upon episode title preference.
+        /// </summary>
+        public string Overview;
+
+        /// <summary>
+        /// All available overviews for the movie collection, if they should be included.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyList<Overview>? Overviews;
+
+        public int MovieCount;
+
+        /// <summary>
+        /// Images assosiated with the movie collection, if they should be included.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public Images? Images;
+
+        /// <summary>
+        /// When the local metadata was first created.
+        /// </summary>
+        public DateTime CreatedAt;
+
+        /// <summary>
+        /// When the local metadata was last updated with new changes from the
+        /// remote.
+        /// </summary>
+        public DateTime LastUpdatedAt;
+
+        public Collection(TMDB_Collection collection, bool includeTitles = false, bool includeOverviews = false, bool includeImages = false)
+        {
+            var preferredTitle = collection.GetPreferredTitle(true);
+            var preferredOverview = collection.GetPreferredOverview(true);
+
+            ID = collection.TmdbCollectionID;
+            Title = preferredTitle!.Value;
+            if (includeTitles)
+                Titles = collection.GetAllTitles()
+                    .Select(title => new Title(title, collection.EnglishTitle, preferredTitle))
+                    .OrderByDescending(title => title.Preferred)
+                    .ThenBy(title => title.Default)
+                    .ThenBy(title => title.Language)
+                    .ToList();
+            Overview = preferredOverview!.Value;
+            if (includeOverviews)
+                Overviews = collection.GetAllOverviews()
+                    .Select(title => new Overview(title, collection.EnglishOverview, preferredOverview))
+                    .OrderByDescending(title => title.Preferred)
+                    .ThenBy(title => title.Default)
+                    .ThenBy(title => title.Language)
+                    .ToList();
+            MovieCount = collection.MovieCount;
+            if (includeImages)
+                Images = GetImages(collection);
+            CreatedAt = collection.CreatedAt.ToUniversalTime();
+            LastUpdatedAt = collection.LastUpdatedAt.ToUniversalTime();
+        }
+    }
+
     private static Images GetImages(TMDB_Movie movie)
     {
         var images = new Images();
         foreach (var image in movie.GetImages())
+        {
+            var dto = new Image(image.TMDB_ImageID, image.ImageType, DataSourceType.TMDB, false, !image.IsEnabled);
+            switch (image.ImageType)
+            {
+                case Server.ImageEntityType.Poster:
+                    images.Posters.Add(dto);
+                    break;
+                case Server.ImageEntityType.Banner:
+                    images.Banners.Add(dto);
+                    break;
+                case Server.ImageEntityType.Backdrop:
+                    images.Fanarts.Add(dto);
+                    break;
+                case Server.ImageEntityType.Logo:
+                    images.Logos.Add(dto);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return images;
+    }
+
+    private static Images GetImages(TMDB_Collection collection)
+    {
+        var images = new Images();
+        foreach (var image in collection.GetImages())
         {
             var dto = new Image(image.TMDB_ImageID, image.ImageType, DataSourceType.TMDB, false, !image.IsEnabled);
             switch (image.ImageType)

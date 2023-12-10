@@ -139,7 +139,8 @@ public class Episode
         }
         if (includeOrdering)
         {
-            var ordering = new List<OrderingInformation> {
+            var ordering = new List<OrderingInformation>
+            {
                 new(episode, alternateOrderingEpisode),
             };
             foreach (var altOrderEp in episode.GetTmdbAlternateOrderingEpisodes())

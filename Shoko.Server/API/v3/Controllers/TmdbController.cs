@@ -168,8 +168,11 @@ public class TmdbController : BaseController
     #region Same-Source Linked Entries
 
     [HttpGet("Movie/{movieID}/Collection")]
-    public ActionResult<object> GetTmdbMovieCollectionByMovieID(
-        [FromRoute] int movieID
+    public ActionResult<TmdbMovie.Collection> GetTmdbMovieCollectionByMovieID(
+        [FromRoute] int movieID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeImages = false
     )
     {
         var movie = RepoFactory.TMDB_Movie.GetByTmdbMovieID(movieID);
@@ -180,8 +183,7 @@ public class TmdbController : BaseController
         if (movieCollection == null)
             return NotFound(MovieCollectionByMovieIDNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
-        return movieCollection;
+        return new TmdbMovie.Collection(movieCollection, includeTitles, includeOverviews, includeImages);
     }
 
     #endregion
@@ -366,42 +368,54 @@ public class TmdbController : BaseController
     #region Basics
 
     [HttpGet("Movie/Collection")]
-    public ActionResult<ListResult<object>> GetMovieCollections(
-        [FromRoute] string query,
+    public ActionResult<ListResult<TmdbMovie.Collection>> GetMovieCollections(
+        [FromRoute] string search,
         [FromQuery] bool fuzzy = true,
-        [FromQuery] bool includeTitles = true,
-        [FromQuery] bool? isRestricted = null,
+        [FromQuery] bool includeTitles = false,
+        [FromQuery] bool includeOverviews = false,
+        [FromQuery] bool includeImages = false,
         [FromQuery, Range(0, 1000)] int pageSize = 50,
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
     {
-        var enumable = RepoFactory.TMDB_Collection.GetAll()
-            .Where(collection =>
-            {
-                // TODO: Implement filtering.
-                return true;
-            });
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var languages = SettingsProvider.GetSettings()
+                .LanguagePreference
+                .Select(lang => lang.GetTitleLanguage())
+                .Concat(new TitleLanguage[] { TitleLanguage.English })
+                .ToHashSet();
+            return RepoFactory.TMDB_Collection.GetAll()
+                .Search(
+                    search,
+                    collection => collection.GetAllTitles()
+                        .Where(title => languages.Contains(title.Language))
+                        .Select(title => title.Value)
+                        .Append(collection.EnglishTitle)
+                        .Distinct()
+                        .ToList(),
+                    fuzzy
+                )
+                .ToListResult(a => new TmdbMovie.Collection(a.Result, includeTitles, includeOverviews, includeImages), page, pageSize);
+        }
 
-        if (!string.IsNullOrWhiteSpace(query))
-            enumable = enumable
-                .Search(query, t => t.GetAllTitles().Select(u => u.Value), fuzzy)
-                .Select(e => e.Result);
-
-        return enumable
-            .ToListResult(a => a as object, page, pageSize);
+        return RepoFactory.TMDB_Collection.GetAll()
+            .ToListResult(a => new TmdbMovie.Collection(a, includeTitles, includeOverviews, includeImages), page, pageSize);
     }
 
     [HttpGet("Movie/Collection/{collectionID}")]
-    public ActionResult<object> GetMovieCollectionByCollectionID(
-        [FromRoute] int collectionID
+    public ActionResult<TmdbMovie.Collection> GetMovieCollectionByCollectionID(
+        [FromRoute] int collectionID,
+        [FromQuery] bool includeTitles = true,
+        [FromQuery] bool includeOverviews = true,
+        [FromQuery] bool includeImages = false
     )
     {
         var collection = RepoFactory.TMDB_Collection.GetByTmdbCollectionID(collectionID);
         if (collection == null)
             return NotFound(MovieCollectionNotFound);
 
-        // TODO: convert this to the v3 model once finalised.
-        return collection;
+        return new TmdbMovie.Collection(collection, includeTitles, includeOverviews, includeImages);
     }
 
     #endregion
