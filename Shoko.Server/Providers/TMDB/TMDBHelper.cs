@@ -435,10 +435,15 @@ public class TMDBHelper
 
     #region Search
 
-    public List<TvShow> SearchShows(string query)
+    public List<SearchTv> SearchShows(string query)
     {
-        // TODO: Implement search after finalising the search model.
-        return new();
+        var results = _client.SearchTvShowAsync(query)
+            .ConfigureAwait(false)
+            .GetAwaiter()
+            .GetResult();
+
+        _logger.LogInformation("Got {Count} of {Results} results", results?.Results.Count ?? 0, results?.TotalResults ?? 0);
+        return results?.Results ?? new();
     }
 
     #endregion
