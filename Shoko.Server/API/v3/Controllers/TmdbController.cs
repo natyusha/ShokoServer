@@ -81,7 +81,7 @@ public class TmdbController : BaseController
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
     {
-        var hasSearch = string.IsNullOrWhiteSpace(search);
+        var hasSearch = !string.IsNullOrWhiteSpace(search);
         var movies = RepoFactory.TMDB_Movie.GetAll()
             .AsParallel()
             .Where(movie =>
@@ -107,6 +107,8 @@ public class TmdbController : BaseController
                     movie => movie.GetAllTitles()
                         .Where(title => languages.Contains(title.Language))
                         .Select(title => title.Value)
+                        .Append(movie.EnglishTitle)
+                        .Append(movie.OriginalTitle)
                         .Distinct()
                         .ToList(),
                     fuzzy
@@ -487,7 +489,7 @@ public class TmdbController : BaseController
         [FromQuery, Range(1, int.MaxValue)] int page = 1
     )
     {
-        var hasSearch = string.IsNullOrWhiteSpace(search);
+        var hasSearch = !string.IsNullOrWhiteSpace(search);
         var shows = RepoFactory.TMDB_Show.GetAll()
             .AsParallel()
             .Where(show =>
@@ -510,6 +512,8 @@ public class TmdbController : BaseController
                     show => show.GetAllTitles()
                         .Where(title => languages.Contains(title.Language))
                         .Select(title => title.Value)
+                        .Append(show.EnglishTitle)
+                        .Append(show.OriginalTitle)
                         .Distinct()
                         .ToList(),
                     fuzzy
