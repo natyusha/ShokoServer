@@ -1258,12 +1258,10 @@ public class SeriesController : BaseController
                 tmdbSeasonID = xref.TmdbSeasonID.Value;
         }
 
-        // TODO: Implement this once the v3 model is finalised.
         if (showExisting || showAllExisting)
             return series.GetTmdbEpisodeCrossReferences(showAllExisting ? null : tmdbShowID)
                 .ToListResult(x => new TmdbEpisode.CrossReference(x), page, pageSize);
 
-        // TODO: Implement this once the v3 model is finalised.
         return _tmdbHelper.MatchAnidbToTmdbEpisodes(series.AniDB_ID, tmdbShowID.Value, tmdbSeasonID, keepExisting, saveToDatabase: false)
             .ToListResult(x => new TmdbEpisode.CrossReference(x), page, pageSize);
     }
