@@ -4,8 +4,11 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Shoko.Server.API.v3.Models.Common;
+using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.TMDB;
 using Shoko.Server.Providers.TMDB;
+
+using MatchRatingEnum = Shoko.Models.Enums.MatchRating;
 
 #nullable enable
 namespace Shoko.Server.API.v3.Models.TMDB;
@@ -238,6 +241,55 @@ public class Episode
             EpisodeNumber = episode.EpisodeNumber;
             InUse = alternateOrderingEpisodeInUse != null &&
                 episode.TMDB_AlternateOrdering_EpisodeID == alternateOrderingEpisodeInUse.TMDB_AlternateOrdering_EpisodeID;
+        }
+    }
+
+    /// <summary>
+    /// APIv3 The Movie DataBase (TMDB) Episode Cross-Reference Data Transfer Object (DTO).
+    /// </summary>
+    public class CrossReference
+    {
+        /// <summary>
+        /// AniDB Anime ID.
+        /// </summary>
+        public int AnidbAnimeID;
+
+        /// <summary>
+        /// AniDB Episode ID.
+        /// </summary>
+        public int AnidbEpisodeID;
+
+        /// <summary>
+        /// TMDB Show ID.
+        /// </summary>
+        public int TmdbShowID;
+
+        /// <summary>
+        /// TMDB Episode ID. May be null if the <see cref="AnidbEpisodeID"/> is
+        /// not mapped to a TMDB Episode yet.
+        /// </summary>
+        public int? TmdbEpisodeID;
+
+        /// <summary>
+        /// The index to order the cross-references if multiple refererences
+        /// exists for the same anidb or tmdb episode.
+        /// </summary>
+        public int Index;
+
+        /// <summary>
+        /// The match rating.
+        /// </summary>
+        public string MatchRating;
+
+        public CrossReference(CrossRef_AniDB_TMDB_Episode xref)
+        {
+            AnidbAnimeID = xref.AnidbAnimeID;
+            AnidbEpisodeID = xref.AnidbEpisodeID;
+            TmdbShowID = xref.TmdbShowID;
+            TmdbEpisodeID = xref.TmdbEpisodeID == 0 ? null : xref.TmdbEpisodeID;
+            MatchRating = "None";
+            if (xref.MatchRating != MatchRatingEnum.SarahJessicaParker)
+                MatchRating = xref.MatchRating.ToString();
         }
     }
 }

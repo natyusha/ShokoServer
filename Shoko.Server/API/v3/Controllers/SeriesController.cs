@@ -31,6 +31,7 @@ using Shoko.Server.Settings;
 using Shoko.Server.Utilities;
 
 using DataSource = Shoko.Server.API.v3.Models.Common.DataSource;
+using TmdbEpisode = Shoko.Server.API.v3.Models.TMDB.Episode;
 using TmdbMovie = Shoko.Server.API.v3.Models.TMDB.Movie;
 using TmdbSeason = Shoko.Server.API.v3.Models.TMDB.Season;
 using TmdbShow = Shoko.Server.API.v3.Models.TMDB.Show;
@@ -1227,7 +1228,7 @@ public class SeriesController : BaseController
     #region Episode Mapping
 
     [HttpGet("{seriesID}/TMDB/Show/EpisodeMapping")]
-    public ActionResult<ListResult<object>> PreviewTMDBEpisodeMappingsBySeriesID(
+    public ActionResult<ListResult<TmdbEpisode.CrossReference>> PreviewTMDBEpisodeMappingsBySeriesID(
         [FromRoute] int seriesID,
         [FromQuery] int? tmdbShowID,
         [FromQuery] int? tmdbSeasonID,
@@ -1260,11 +1261,11 @@ public class SeriesController : BaseController
         // TODO: Implement this once the v3 model is finalised.
         if (showExisting || showAllExisting)
             return series.GetTmdbEpisodeCrossReferences(showAllExisting ? null : tmdbShowID)
-                .ToListResult(x => x as object, page, pageSize);
+                .ToListResult(x => new TmdbEpisode.CrossReference(x), page, pageSize);
 
         // TODO: Implement this once the v3 model is finalised.
         return _tmdbHelper.MatchAnidbToTmdbEpisodes(series.AniDB_ID, tmdbShowID.Value, tmdbSeasonID, keepExisting, saveToDatabase: false)
-            .ToListResult(x => x as object, page, pageSize);
+            .ToListResult(x => new TmdbEpisode.CrossReference(x), page, pageSize);
     }
 
     [Authorize("admin")]
