@@ -688,8 +688,8 @@ public class TMDBHelper
                 tmdbSeason = new(reducedSeason.Id);
             }
 
-            var seasonUpdated = tmdbSeason.Populate(show, season, season.Translations!);
-            seasonUpdated |= UpdateTitlesAndOverviews(tmdbSeason, season.Translations!);
+            var seasonUpdated = tmdbSeason.Populate(show, season);
+            seasonUpdated |= UpdateTitlesAndOverviews(tmdbSeason, season.Translations);
             if (seasonUpdated)
             {
                 tmdbSeason.LastUpdatedAt = DateTime.Now;
