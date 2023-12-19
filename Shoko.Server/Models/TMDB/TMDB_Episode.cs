@@ -122,7 +122,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
     /// <summary>
     /// Constructor to create a new episode in the provider.
     /// </summary>
-    /// <param name="episodeId">The TMDB Episode id.</param>
+    /// <param name="episodeId">The TMDB episode id.</param>
     public TMDB_Episode(int episodeId)
     {
         TmdbEpisodeID = episodeId;
@@ -260,18 +260,18 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
         : RepoFactory.TMDB_Image.GetByTmdbEpisodeID(TmdbEpisodeID);
 
     /// <summary>
-    /// Get the TMDB Season assosiated with the episode, or null if the season
+    /// Get the TMDB season assosiated with the episode, or null if the season
     /// have been purged from the local database for whatever reason.
     /// </summary>
-    /// <returns>The TMDB Season, or null.</returns>
+    /// <returns>The TMDB season, or null.</returns>
     public TMDB_Season? GetTmdbSeason() =>
         RepoFactory.TMDB_Season.GetByTmdbSeasonID(TmdbSeasonID);
 
     /// <summary>
-    /// Get the TMDB Show assosiated with the episode, or null if the show have
+    /// Get the TMDB show assosiated with the episode, or null if the show have
     /// been purged from the local database for whatever reason.
     /// </summary>
-    /// <returns>The TMDB Show, or null.</returns>
+    /// <returns>The TMDB show, or null.</returns>
     public TMDB_Show? GetTmdbShow() =>
         RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
