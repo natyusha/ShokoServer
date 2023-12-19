@@ -7,6 +7,7 @@ using Shoko.Server.Models.CrossReference;
 using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
+using Shoko.Server.Utilities;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
@@ -14,10 +15,16 @@ using TMDbLib.Objects.TvShows;
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
+/// <summary>
+/// The Movie DataBase (TMDB) Episode Database Model.
+/// </summary>
 public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
 {
     #region Properties
 
+    /// <summary>
+    /// IEntityMetadata.Id.
+    /// </summary>
     public override int Id => TmdbEpisodeID;
 
     /// <summary>
@@ -106,8 +113,16 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
 
     #region Constructors
 
+    /// <summary>
+    /// Constructor for NHibernate to work correctly while hydrating the rows
+    /// from the database.
+    /// </summary>
     public TMDB_Episode() { }
 
+    /// <summary>
+    /// Constructor to create a new episode in the provider.
+    /// </summary>
+    /// <param name="episodeId">The TMDB Episode id.</param>
     public TMDB_Episode(int episodeId)
     {
         TmdbEpisodeID = episodeId;
@@ -119,6 +134,14 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
 
     #region Methods
 
+    /// <summary>
+    /// Populate the fields from the raw data.
+    /// </summary>
+    /// <param name="show">The raw TMDB Tv Show object.</param>
+    /// <param name="season">The raw TMDB Tv Season object.</param>
+    /// <param name="episode">The raw TMDB Tv Episode object.</param>
+    /// <param name="translations">The translation container for the Tv Episode object (fetched seperately).</param>
+    /// <returns>True if any of the fields have been updated.</returns>
     public bool Populate(TvShow show, TvSeason season, TvSeasonEpisode episode, TranslationsContainer translations)
     {
         var translation = translations.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
@@ -140,40 +163,133 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
         return updates.Any(updated => updated);
     }
 
-    public TMDB_Title? GetPreferredTitle(bool useFallback = false)
+    /// <summary>
+    /// Get the preferred title using the preferred episode title preferrence
+    /// from the application settings.
+    /// </summary>
+    /// <param name="useFallback">Use a fallback title if no title was found in
+    /// any of the preferred languages.</param>
+    /// <param name="force">Forcefully re-fetch all episode titles if they're
+    /// already cached from a previous call to <seealso cref="GetAllTitles"/>.
+    /// </param>
+    /// <returns>The preferred episode title, or null if no preferred title was
+    /// found.</returns>
+    public TMDB_Title? GetPreferredTitle(bool useFallback = false, bool force = false)
     {
-        // TODO: Implement this logic once the repositories are added.
+        var titles = GetAllTitles(force);
 
-        // Fallback.
+        foreach (var preferredLanguage in Languages.PreferredEpisodeNamingLanguages)
+        {
+            var title = titles.FirstOrDefault(title => title.Language == preferredLanguage.Language);
+            if (title != null)
+                return title;
+        }
+
         return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
-        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
 
-    public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
+    /// <summary>
+    /// Cached reference to all titles for the episode, so we won't have to
+    /// hit the database twice to get all titles _and_ the preferred
+    /// title.
+    /// </summary>
+    private IReadOnlyList<TMDB_Title>? _allTitles = null;
+
+    /// <summary>
+    /// Get all titles for the episode.
+    /// </summary>
+    /// <param name="force">Forcefully re-fetch all episode titles if they're
+    /// already cached from a previous call. </param>
+    /// <returns>All titles for the episode.</returns>
+    public IReadOnlyList<TMDB_Title> GetAllTitles(bool force = false) => force
+        ? _allTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID)
+        : _allTitles ??= RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
+
+    /// <summary>
+    /// Get the preferred overview using the preferred episode title preferrence
+    /// from the application settings.
+    /// </summary>
+    /// <param name="useFallback">Use a fallback overview if no overview was
+    /// found in any of the preferred languages.</param>
+    /// <param name="force">Forcefully re-fetch all episode overviews if they're
+    /// already cached from a previous call to
+    /// <seealso cref="GetAllOverviews"/>.
+    /// </param>
+    /// <returns>The preferred episode overview, or null if no preferred
+    /// overview was found.</returns>
+    public TMDB_Overview? GetPreferredOverview(bool useFallback = false, bool force = false)
     {
-        // TODO: Implement this logic once the repositories are added.
+        var overviews = GetAllOverviews(force);
+
+        foreach (var preferredLanguage in Languages.PreferredEpisodeNamingLanguages)
+        {
+            var overview = overviews.FirstOrDefault(overview => overview.Language == preferredLanguage.Language);
+            if (overview != null)
+                return overview;
+        }
 
         return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
-        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
+    /// <summary>
+    /// Cached reference to all overviews for the episode, so we won't have to
+    /// hit the database twice to get all overviews _and_ the preferred
+    /// overview.
+    /// </summary>
+    private IReadOnlyList<TMDB_Overview>? _allOverviews = null;
 
+    /// <summary>
+    /// Get all overviews for the episode.
+    /// </summary>
+    /// <param name="force">Forcefully re-fetch all episode overviews if they're
+    /// already cached from a previous call. </param>
+    /// <returns>All overviews for the episode.</returns>
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews(bool force = false) => force
+        ? _allOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID)
+        : _allOverviews ??= RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID);
+
+    /// <summary>
+    /// Get all images for the episode, or all images for the given
+    /// <paramref name="entityType"/> provided.
+    /// </summary>
+    /// <param name="entityType">If set, will restrict the returned list to only
+    /// containing the images of the given entity type.</param>
+    /// <returns>A read-only list of images that are linked to the epiosde.
+    /// </returns>
     public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
         ? RepoFactory.TMDB_Image.GetByTmdbEpisodeIDAndType(TmdbEpisodeID, entityType.Value)
         : RepoFactory.TMDB_Image.GetByTmdbEpisodeID(TmdbEpisodeID);
 
+    /// <summary>
+    /// Get the TMDB Season assosiated with the episode, or null if the season
+    /// have been purged from the local database for whatever reason.
+    /// </summary>
+    /// <returns>The TMDB Season, or null.</returns>
     public TMDB_Season? GetTmdbSeason() =>
         RepoFactory.TMDB_Season.GetByTmdbSeasonID(TmdbSeasonID);
 
+    /// <summary>
+    /// Get the TMDB Show assosiated with the episode, or null if the show have
+    /// been purged from the local database for whatever reason.
+    /// </summary>
+    /// <returns>The TMDB Show, or null.</returns>
     public TMDB_Show? GetTmdbShow() =>
         RepoFactory.TMDB_Show.GetByTmdbShowID(TmdbShowID);
 
+    /// <summary>
+    /// Get all alternate ordering entries for the episode available from the
+    /// local database. You need to have alternate orderinge enabled in the
+    /// settings file for these to be populated.
+    /// </summary>
+    /// <returns>All alternate ordering entries for the episode.</returns>
     public IReadOnlyList<TMDB_AlternateOrdering_Episode> GetTmdbAlternateOrderingEpisodes() =>
         RepoFactory.TMDB_AlternateOrdering_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
 
+    /// <summary>
+    /// Get all AniDB/TMDB cross-references for the episode.
+    /// </summary>
+    /// <returns></returns>
     public IReadOnlyList<CrossRef_AniDB_TMDB_Episode> GetCrossReferences() =>
         RepoFactory.CrossRef_AniDB_TMDB_Episode.GetByTmdbEpisodeID(TmdbEpisodeID);
 
