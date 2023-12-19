@@ -188,11 +188,9 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
         return useFallback ? new(ForeignEntityType.Episode, TmdbEpisodeID, EnglishTitle, "en", "US") : null;
     }
 
-
     /// <summary>
-    /// Cached reference to all titles for the episode, so we won't have to
-    /// hit the database twice to get all titles _and_ the preferred
-    /// title.
+    /// Cached reference to all titles for the episode, so we won't have to hit
+    /// the database twice to get all titles _and_ the preferred title.
     /// </summary>
     private IReadOnlyList<TMDB_Title>? _allTitles = null;
 
@@ -251,7 +249,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
 
     /// <summary>
     /// Get all images for the episode, or all images for the given
-    /// <paramref name="entityType"/> provided.
+    /// <paramref name="entityType"/> provided for the episode.
     /// </summary>
     /// <param name="entityType">If set, will restrict the returned list to only
     /// containing the images of the given entity type.</param>
@@ -279,7 +277,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
 
     /// <summary>
     /// Get all alternate ordering entries for the episode available from the
-    /// local database. You need to have alternate orderinge enabled in the
+    /// local database. You need to have alternate orderings enabled in the
     /// settings file for these to be populated.
     /// </summary>
     /// <returns>All alternate ordering entries for the episode.</returns>
