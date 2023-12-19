@@ -83,6 +83,8 @@ public class Episode : BaseModel
         var episodeUserRecord = episode.GetUserRecord(userID);
         var anidbEpisode = episode.AniDB_Episode;
         var tvdbEpisodes = episode.TvDBEpisodes;
+        var tmdbMovieXRefs = episode.GetTmdbMovieCrossReferences();
+        var tmdbEpisodeXRefs = episode.GetTmdbEpisodeCrossReferences();
         var files = episode.GetVideoLocals();
         var (file, fileUserRecord) = files
             .Select(file => (file, userRecord: file.GetUserRecord(userID)))
@@ -93,7 +95,30 @@ public class Episode : BaseModel
             ID = episode.AnimeEpisodeID,
             ParentSeries = episode.AnimeSeriesID,
             AniDB = episode.AniDB_EpisodeID,
-            TvDB = tvdbEpisodes.Select(a => a.Id).ToList()
+            TvDB = tvdbEpisodes.Select(a => a.Id).ToList(),
+            TMDB = new()
+            {
+                {
+                    "Episode",
+                    tmdbEpisodeXRefs
+                        .Where(xref => xref.TmdbEpisodeID != 0)
+                        .Select(xref => xref.TmdbEpisodeID)
+                        .ToList()
+                },
+                {
+                    "Movie",
+                    tmdbMovieXRefs
+                        .Select(xref => xref.TmdbMovieID)
+                        .ToList()
+                },
+                {
+                    "Show",
+                    tmdbEpisodeXRefs
+                        .Select(xref => xref.TmdbShowID)
+                        .Distinct()
+                        .ToList()
+                },
+            },
         };
         Duration = file?.DurationTimeSpan ?? new TimeSpan(0, 0, anidbEpisode.LengthSeconds);
         ResumePosition = fileUserRecord?.ResumePositionTimeSpan;
@@ -367,9 +392,14 @@ public class Episode : BaseModel
         public int AniDB { get; set; }
 
         /// <summary>
-        /// The TvDB IDs
+        /// The TvDB Episode IDs
         /// </summary>
         public List<int> TvDB { get; set; } = new();
+
+        /// <summary>
+        /// The Movie DataBase (TMDB) Cross-Reference IDs.
+        /// </summary>
+        public Dictionary<string, List<int>> TMDB { get; set; } = new();
 
         // TODO Support for TvDB string IDs (like in the new URLs) one day maybe
 
