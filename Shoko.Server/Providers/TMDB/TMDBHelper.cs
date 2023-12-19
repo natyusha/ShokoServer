@@ -698,15 +698,17 @@ public class TMDBHelper
 
             foreach (var episode in season.Episodes)
             {
-                if (!existingEpisodes.TryGetValue(reducedSeason.Id, out var tmdbEpisode))
+                if (!existingEpisodes.TryGetValue(episode.Id, out var tmdbEpisode))
                 {
                     episodesToAdd++;
-                    tmdbEpisode = new(reducedSeason.Id);
+                    tmdbEpisode = new(episode.Id);
                 }
 
+                var credits = await _client.GetTvEpisodeCreditsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber);
                 var episodeTranslations = await _client.GetTvEpisodeTranslationsAsync(show.Id, season.SeasonNumber, episode.EpisodeNumber);
                 var episodeUpdated = tmdbEpisode.Populate(show, season, episode, episodeTranslations!);
                 episodeUpdated |= UpdateTitlesAndOverviews(tmdbEpisode, episodeTranslations!);
+                episodeUpdated |= UpdateEpisodeCastAndCrew(tmdbEpisode, credits);
                 if (episodeUpdated)
                 {
                     tmdbEpisode.LastUpdatedAt = DateTime.Now;
@@ -901,6 +903,13 @@ public class TMDBHelper
             seasonsToRemove.Count > 0 ||
             episodesToSave.Count > 0 ||
             episodesToRemove.Count > 0;
+    }
+
+    private bool UpdateEpisodeCastAndCrew(TMDB_Episode episode, CreditsWithGuestStars credits)
+    {
+        // TODO: Add episode cast / crew
+
+        return false;
     }
 
     public async Task DownloadShowImages(int showId, bool forceDownload = false)
