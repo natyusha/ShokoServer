@@ -6,16 +6,22 @@ using Shoko.Plugin.Abstractions.DataModels;
 using Shoko.Server.Models.Interfaces;
 using Shoko.Server.Repositories;
 using Shoko.Server.Server;
+using Shoko.Server.Utilities;
 using TMDbLib.Objects.Collections;
-using TMDbLib.Objects.General;
 
 #nullable enable
 namespace Shoko.Server.Models.TMDB;
 
+/// <summary>
+/// The Movie DataBase (TMDB) Movie Collection Database Model.
+/// </summary>
 public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
 {
     #region Properties
 
+    /// <summary>
+    /// IEntityMetadata.Id
+    /// </summary>
     public override int Id => TmdbCollectionID;
 
     /// <summary>
@@ -59,8 +65,16 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
 
     #region Constructors
 
+    /// <summary>
+    /// Constructor for NHibernate to work correctly while hydrating the rows
+    /// from the database.
+    /// </summary>
     public TMDB_Collection() { }
 
+    /// <summary>
+    /// Constructor to create a new movie collection in the provider.
+    /// </summary>
+    /// <param name="collectionId">The TMDB movie collection id.</param>
     public TMDB_Collection(int collectionId)
     {
         TmdbCollectionID = collectionId;
@@ -72,6 +86,11 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
 
     #region Methods
 
+    /// <summary>
+    /// Populate the fields from the raw data.
+    /// </summary>
+    /// <param name="collection">The raw TMDB Movie Collection object.</param>
+    /// <returns>True if any of the fields have been updated.</returns>
     public bool Populate(Collection collection)
     {
         var translation = collection.Translations?.Translations.FirstOrDefault(translation => translation.Iso_639_1 == "en");
@@ -85,31 +104,107 @@ public class TMDB_Collection : TMDB_Base<int>, IEntityMetadata
         return updates.Any(updated => updated);
     }
 
-    public TMDB_Title? GetPreferredTitle(bool useFallback = false)
+    /// <summary>
+    /// Get the preferred title using the preferred episode title preferrence
+    /// from the application settings.
+    /// </summary>
+    /// <param name="useFallback">Use a fallback title if no title was found in
+    /// any of the preferred languages.</param>
+    /// <param name="force">Forcefully re-fetch all movie collection titles if
+    /// they're already cached from a previous call to
+    /// <seealso cref="GetAllTitles"/>.
+    /// </param>
+    /// <returns>The preferred movie collection title, or null if no preferred
+    /// title was found.</returns>
+    public TMDB_Title? GetPreferredTitle(bool useFallback = false, bool force = false)
     {
-        // TODO: Implement this logic once the repositories are added.
+        var titles = GetAllTitles(force);
 
-        // Fallback.
+        foreach (var preferredLanguage in Languages.PreferredEpisodeNamingLanguages)
+        {
+            var title = titles.FirstOrDefault(title => title.Language == preferredLanguage.Language);
+            if (title != null)
+                return title;
+        }
+
         return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishTitle, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Title> GetAllTitles() =>
-        RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
+    /// <summary>
+    /// Cached reference to all titles for the movie collection, so we won't
+    /// have to hit the database twice to get all titles _and_ the preferred
+    /// title.
+    /// </summary>
+    private IReadOnlyList<TMDB_Title>? _allTitles = null;
 
-    public TMDB_Overview? GetPreferredOverview(bool useFallback = false)
+    /// <summary>
+    /// Get all titles for the movie collection.
+    /// </summary>
+    /// <param name="force">Forcefully re-fetch all movie collection titles if
+    /// they're already cached from a previous call.</param>
+    /// <returns>All titles for the movie collection.</returns>
+    public IReadOnlyList<TMDB_Title> GetAllTitles(bool force = false) => force
+        ? _allTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID)
+        : _allTitles ??= RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
+
+    /// <summary>
+    /// Get the preferred overview using the preferred episode title preferrence
+    /// from the application settings.
+    /// </summary>
+    /// <param name="useFallback">Use a fallback overview if no overview was
+    /// found in any of the preferred languages.</param>
+    /// <param name="force">Forcefully re-fetch all movie collection overviews if they're
+    /// already cached from a previous call to
+    /// <seealso cref="GetAllOverviews"/>.
+    /// </param>
+    /// <returns>The preferred movie collection overview, or null if no preferred overview
+    /// was found.</returns>
+    public TMDB_Overview? GetPreferredOverview(bool useFallback = false, bool force = false)
     {
-        // TODO: Implement this logic once the repositories are added.
+        var overviews = GetAllOverviews(force);
+
+        foreach (var preferredLanguage in Languages.PreferredEpisodeNamingLanguages)
+        {
+            var overview = overviews.FirstOrDefault(overview => overview.Language == preferredLanguage.Language);
+            if (overview != null)
+                return overview;
+        }
 
         return useFallback ? new(ForeignEntityType.Collection, TmdbCollectionID, EnglishOverview, "en", "US") : null;
     }
 
-    public IReadOnlyList<TMDB_Overview> GetAllOverviews() =>
-        RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
+    /// <summary>
+    /// Cached reference to all overviews for the movie collection, so we won't have to hit
+    /// the database twice to get all overviews _and_ the preferred overview.
+    /// </summary>
+    private IReadOnlyList<TMDB_Overview>? _allOverviews = null;
 
+    /// <summary>
+    /// Get all overviews for the movie collection.
+    /// </summary>
+    /// <param name="force">Forcefully re-fetch all movie collection overviews
+    /// if they're already cached from a previous call.</param>
+    /// <returns>All overviews for the movie collection.</returns>
+    public IReadOnlyList<TMDB_Overview> GetAllOverviews(bool force = false) => force
+        ? _allOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID)
+        : _allOverviews ??= RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Collection, TmdbCollectionID);
+
+    /// <summary>
+    /// Get all images for the movie collection, or all images for the given
+    /// <paramref name="entityType"/> provided for the movie collection.
+    /// </summary>
+    /// <param name="entityType">If set, will restrict the returned list to only
+    /// containing the images of the given entity type.</param>
+    /// <returns>A read-only list of images that are linked to the epiosde.
+    /// </returns>
     public IReadOnlyList<TMDB_Image> GetImages(ImageEntityType? entityType = null) => entityType.HasValue
         ? RepoFactory.TMDB_Image.GetByTmdbCollectionIDAndType(TmdbCollectionID, entityType.Value)
         : RepoFactory.TMDB_Image.GetByTmdbCollectionID(TmdbCollectionID);
 
+    /// <summary>
+    /// Get all local TMDB movies assosiated with the movie collection.
+    /// </summary>
+    /// <returns>The TMDB movies.</returns>
     public IReadOnlyList<TMDB_Movie> GetTmdbMovies() =>
         RepoFactory.TMDB_Movie.GetByTmdbCollectionID(TmdbCollectionID);
 

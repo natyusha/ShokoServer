@@ -181,7 +181,7 @@ public class Movie
         public int ID;
 
         /// <summary>
-        /// Preferred title based upon series title preference.
+        /// Preferred title based upon episode title preference.
         /// </summary>
         public string Title;
 
