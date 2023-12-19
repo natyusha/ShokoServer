@@ -222,7 +222,7 @@ public class TMDB_Show : TMDB_Base<int>, IEntityMetadata
     /// Get all titles for the show.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all show titles if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All titles for the show.</returns>
     public IReadOnlyList<TMDB_Title> GetAllTitles(bool force = false) => force
         ? _allTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Show, TmdbShowID)

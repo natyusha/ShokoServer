@@ -276,7 +276,7 @@ public class TMDB_Movie : TMDB_Base<int>, IEntityMetadata
     /// Get all overviews for the movie.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all movie overviews if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All overviews for the movie.</returns>
     public IReadOnlyList<TMDB_Overview> GetAllOverviews(bool force = false) => force
         ? _allOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Movie, TmdbMovieID)

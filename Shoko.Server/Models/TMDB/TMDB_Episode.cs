@@ -198,7 +198,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
     /// Get all titles for the episode.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all episode titles if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All titles for the episode.</returns>
     public IReadOnlyList<TMDB_Title> GetAllTitles(bool force = false) => force
         ? _allTitles = RepoFactory.TMDB_Title.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID)
@@ -241,7 +241,7 @@ public class TMDB_Episode : TMDB_Base<int>, IEntityMetadata
     /// Get all overviews for the episode.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all episode overviews if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All overviews for the episode.</returns>
     public IReadOnlyList<TMDB_Overview> GetAllOverviews(bool force = false) => force
         ? _allOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Episode, TmdbEpisodeID)

@@ -187,7 +187,7 @@ public class TMDB_Season : TMDB_Base<int>, IEntityMetadata
     /// Get all overviews for the season.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all season overviews if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All overviews for the season.</returns>
     public IReadOnlyList<TMDB_Overview> GetAllOverviews(bool force = false) => force
         ? _allOverviews = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Season, TmdbSeasonID)

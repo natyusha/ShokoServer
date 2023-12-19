@@ -156,7 +156,7 @@ public class TMDB_Person
     /// Get all biographies for the person.
     /// </summary>
     /// <param name="force">Forcefully re-fetch all person biographies if they're
-    /// already cached from a previous call. </param>
+    /// already cached from a previous call.</param>
     /// <returns>All biographies for the person.</returns>
     public IReadOnlyList<TMDB_Overview> GetAllBiographies(bool force = false) => force
         ? _allBiographies = RepoFactory.TMDB_Overview.GetByParentTypeAndID(ForeignEntityType.Person, TmdbPersonID)
