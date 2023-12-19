@@ -288,6 +288,7 @@ public class Episode
             TmdbShowID = xref.TmdbShowID;
             TmdbEpisodeID = xref.TmdbEpisodeID == 0 ? null : xref.TmdbEpisodeID;
             MatchRating = "None";
+            // NOTE: Internal easter-eggs stays internally.
             if (xref.MatchRating != MatchRatingEnum.SarahJessicaParker)
                 MatchRating = xref.MatchRating.ToString();
         }
